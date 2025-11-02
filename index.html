@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>贪吃蛇小游戏</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page-wrapper">
+      <header class="scoreboard">
+        <div class="score-item">当前分数：<span id="score">0</span></div>
+        <div class="score-item">最高分：<span id="highScore">0</span></div>
+        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
+      </header>
+
+      <main class="game-wrapper">
+        <canvas id="gameCanvas" width="400" height="400" aria-label="贪吃蛇游戏画布"></canvas>
+        <div id="gameOverlay" class="overlay hidden" role="alert">
+          <p id="overlayMessage"></p>
+          <button id="restartBtn" class="control-btn" type="button">重新开始</button>
+        </div>
+      </main>
+
+      <section class="mobile-controls" aria-label="触屏方向控制">
+        <div class="mobile-row">
+          <button class="direction-btn" data-direction="up" aria-label="向上">▲</button>
+        </div>
+        <div class="mobile-row">
+          <button class="direction-btn" data-direction="left" aria-label="向左">◀</button>
+          <button class="direction-btn" data-direction="down" aria-label="向下">▼</button>
+          <button class="direction-btn" data-direction="right" aria-label="向右">▶</button>
+        </div>
+      </section>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
