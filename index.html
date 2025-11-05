@@ -1256,520 +1256,539 @@
       const STYLE_OPTIONS = Object.keys(STYLE_TAGS);
       const PAGE_SIZE = 20;
 
-      const state = {
-        results: [],
-        filtered: [],
-        selected: new Set(),
-        page: 1
-      };
+const state = {
+  results: [],
+  filtered: [],
+  selected: new Set(),
+  page: 1
+};
 
-      const form = document.getElementById('configForm');
-      const styleChips = document.getElementById('styleChips');
-      const wuxingChips = document.getElementById('wuxingChips');
-      const searchInput = document.getElementById('resultSearch');
-      const resultContainer = document.getElementById('resultContainer');
-      const pagination = document.getElementById('pagination');
-      const prevPageBtn = document.getElementById('prevPage');
-      const nextPageBtn = document.getElementById('nextPage');
-      const pageInfo = document.getElementById('pageInfo');
-      const emptyState = document.getElementById('emptyState');
-      const loosenBtn = document.getElementById('loosenBtn');
-      const toastEl = document.getElementById('toast');
-      const copySelectedBtn = document.getElementById('copySelected');
-      const exportBtn = document.getElementById('exportCsv');
-      const clearBtn = document.getElementById('clearBtn');
-      const selectedStyles = new Set();
-      const selectedWuxing = new Set();
+let form;
+let styleChips;
+let wuxingChips;
+let searchInput;
+let resultContainer;
+let pagination;
+let prevPageBtn;
+let nextPageBtn;
+let pageInfo;
+let emptyState;
+let loosenBtn;
+let toastEl;
+let copySelectedBtn;
+let exportBtn;
+let clearBtn;
+let generateBtn;
+const selectedStyles = new Set();
+const selectedWuxing = new Set();
 
-      function createChip(container, label, set) {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'chip';
-        btn.textContent = label;
-        btn.addEventListener('click', () => {
-          if (set.has(label)) {
-            set.delete(label);
-            btn.classList.remove('selected');
-          } else {
-            set.add(label);
-            btn.classList.add('selected');
-          }
-        });
-        container.appendChild(btn);
+function createChip(container, label, set) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chip';
+  btn.textContent = label;
+  btn.addEventListener('click', event => {
+    event.preventDefault();
+    if (set.has(label)) {
+      set.delete(label);
+      btn.classList.remove('selected');
+    } else {
+      set.add(label);
+      btn.classList.add('selected');
+    }
+  });
+  container.appendChild(btn);
+}
+
+function populatePreferenceChips() {
+  STYLE_OPTIONS.forEach(style => createChip(styleChips, style, selectedStyles));
+  WUXING_OPTIONS.forEach(w => createChip(wuxingChips, w, selectedWuxing));
+}
+
+function bindRadioGroup(groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
+  group.querySelectorAll('.radio-chip').forEach(label => {
+    label.addEventListener('click', () => {
+      group.querySelectorAll('.radio-chip').forEach(node => node.classList.remove('active'));
+      label.classList.add('active');
+      const input = label.querySelector('input');
+      if (input) {
+        input.checked = true;
       }
+    });
+  });
+}
 
-      STYLE_OPTIONS.forEach(style => createChip(styleChips, style, selectedStyles));
-      WUXING_OPTIONS.forEach(w => createChip(wuxingChips, w, selectedWuxing));
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 
-      function bindRadioGroup(groupId) {
-        const group = document.getElementById(groupId);
-        group.querySelectorAll('.radio-chip').forEach(label => {
-          label.addEventListener('click', () => {
-            group.querySelectorAll('.radio-chip').forEach(node => node.classList.remove('active'));
-            label.classList.add('active');
-            const input = label.querySelector('input');
-            if (input) {
-              input.checked = true;
-            }
-          });
-        });
+function getToneType(pinyin) {
+  if (!pinyin) return '平';
+  const last = pinyin[pinyin.length - 1];
+  return 'aeiouv'.includes(last) ? '平' : '仄';
+}
+
+function lookupCharInfo(char) {
+  return NAME_CHARACTERS.find(item => item.char === char);
+}
+
+function showToast(message) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2000);
+}
+
+function copyText(text) {
+  if (!text) {
+    showToast('没有可复制的内容');
+    return;
+  }
+  const writeClipboard = navigator.clipboard?.writeText
+    ? navigator.clipboard.writeText(text)
+    : Promise.reject();
+
+  writeClipboard
+    .then(() => {
+      showToast('已复制到剪贴板');
+    })
+    .catch(() => {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('已复制到剪贴板');
+    });
+}
+
+function gatherConfig() {
+  const formData = new FormData(form);
+  let surname = (formData.get('surname') || '').trim();
+  if (surname.length > 2) surname = surname.slice(0, 2);
+  const gender = formData.get('gender') || '中性';
+  const pattern = formData.get('pattern') || 'double';
+  const tonePreference = formData.get('tonePreference') || '不限';
+  const strokeFlex = formData.get('strokeFlex') || 'balanced';
+  const strokeMinRaw = formData.get('strokeMin');
+  const strokeMaxRaw = formData.get('strokeMax');
+  const strokeMin = strokeMinRaw ? Number(strokeMinRaw) : null;
+  const strokeMax = strokeMaxRaw ? Number(strokeMaxRaw) : null;
+  const count = clamp(Number(formData.get('generateCount')) || 50, 10, 200);
+  let avoidChars = (formData.get('avoidChars') || '')
+    .split(/[,，\s]+/)
+    .map(ch => ch.trim())
+    .filter(Boolean);
+  avoidChars = Array.from(new Set(avoidChars));
+  if (strokeMin && strokeMax && strokeMin > strokeMax) {
+    return { error: '笔画最小值不能大于最大值' };
+  }
+  return {
+    surname,
+    gender,
+    pattern,
+    tonePreference,
+    strokeFlex,
+    strokeMin,
+    strokeMax,
+    count,
+    avoidSet: new Set(avoidChars),
+    styles: Array.from(selectedStyles),
+    wuxing: Array.from(selectedWuxing)
+  };
+}
+
+function filterCharacters(config) {
+  return NAME_CHARACTERS.filter(item => {
+    if (config.avoidSet.has(item.char)) return false;
+    if (config.strokeMin && item.strokes < config.strokeMin) return false;
+    if (config.strokeMax && item.strokes > config.strokeMax) return false;
+    return true;
+  });
+}
+
+function computeScore(chars, config) {
+  const nameLength = chars.length;
+  const genderScores = chars.map(c => {
+    if (c.genders.includes(config.gender)) return 1;
+    if (c.genders.includes('中性')) return 0.8;
+    return 0.5;
+  });
+  const genderScore = genderScores.reduce((sum, v) => sum + v, 0) / nameLength;
+
+  let wuxingPrefScore = 0.75;
+  if (config.wuxing.length) {
+    const matches = chars.filter(c => config.wuxing.includes(c.wuxing)).length;
+    wuxingPrefScore = matches / nameLength;
+  }
+
+  let strokePrefScore = 0.7;
+  if (config.strokeMin !== null || config.strokeMax !== null) {
+    const min = config.strokeMin ?? Math.min(...chars.map(c => c.strokes));
+    const max = config.strokeMax ?? Math.max(...chars.map(c => c.strokes));
+    const mid = (min + max) / 2;
+    const diffAvg = chars.reduce((sum, c) => sum + Math.abs(c.strokes - mid), 0) / nameLength;
+    const span = Math.max(1, (max - min) || 6);
+    strokePrefScore = clamp(1 - diffAvg / (span * 1.2), 0.4, 1);
+  }
+
+  const preferenceScore = clamp((genderScore + wuxingPrefScore + strokePrefScore) / 3, 0, 1);
+
+  let styleScore = 0.6;
+  if (config.styles.length) {
+    const ratios = config.styles.map(style => {
+      const list = STYLE_TAGS[style] || [];
+      const matches = chars.filter(c => list.includes(c.char)).length;
+      return matches / nameLength;
+    });
+    styleScore = Math.max(...ratios);
+  }
+
+  const distinctWuxing = new Set(chars.map(c => c.wuxing)).size;
+  const diversity = nameLength === 1 ? 0.7 : distinctWuxing === nameLength ? 1 : 0.75;
+
+  const tonePattern = chars.map(c => getToneType(c.pinyin)).join('');
+  let toneScore = 0.7;
+  if (config.tonePreference === '平仄' && tonePattern === '平仄') toneScore = 1;
+  else if (config.tonePreference === '仄平' && tonePattern === '仄平') toneScore = 1;
+  else if (config.tonePreference === '平' && tonePattern.split('').every(t => t === '平')) toneScore = 0.95;
+  else if (config.tonePreference === '仄' && tonePattern.split('').every(t => t === '仄')) toneScore = 0.95;
+
+  let smoothScore = 0.8;
+  const pinyinStr = chars.map(c => c.pinyin).join('');
+  if (/([aeiou]{2,})/.test(pinyinStr)) {
+    smoothScore -= 0.1;
+  }
+  if (/([a-z]{2})\1/.test(pinyinStr)) {
+    smoothScore -= 0.15;
+  }
+  smoothScore = clamp(smoothScore, 0.5, 1);
+
+  const strokeFlexScore = (() => {
+    const avg = chars.reduce((sum, c) => sum + c.strokes, 0) / nameLength;
+    if (config.strokeFlex === 'slim') {
+      return clamp(1 - avg / 20, 0.4, 1);
+    }
+    if (config.strokeFlex === 'complex') {
+      return clamp(avg / 20, 0.4, 1);
+    }
+    return clamp(0.85 - Math.abs(avg - 10) / 30, 0.5, 1);
+  })();
+
+  const score = clamp(
+    preferenceScore * 0.4 +
+      styleScore * 0.2 +
+      diversity * 0.1 +
+      toneScore * 0.15 +
+      smoothScore * 0.05 +
+      strokeFlexScore * 0.1,
+    0,
+    1
+  );
+
+  return {
+    score: Number((score * 100).toFixed(1)),
+    breakdown: {
+      preference: { label: '偏好匹配', value: preferenceScore * 10, comment: preferenceScore >= 0.8 ? '高度匹配偏好' : '匹配度一般' },
+      style: { label: '风格倾向', value: styleScore * 10, comment: styleScore >= 0.7 ? '风格契合明显' : '风格影响较弱' },
+      wuxing: { label: '五行均衡', value: diversity * 10, comment: diversity >= 0.9 ? '五行较为均衡' : '建议关注五行' },
+      tone: { label: '声调顺口', value: toneScore * 10, comment: toneScore >= 0.9 ? '声调贴合偏好' : '声调需要权衡' },
+      strokes: { label: '笔画观感', value: strokeFlexScore * 10, comment: strokeFlexScore >= 0.8 ? '笔画符合偏好' : '笔画有差异' }
+    },
+    tonePattern
+  };
+}
+
+function buildCandidateEntries(pool, config) {
+  const surnameChars = config.surname.split('');
+  const surnamePinyin = surnameChars.map(ch => SURNAME_PINYIN_MAP[ch] || lookupCharInfo(ch)?.pinyin || '?');
+  const combinations = [];
+  const givenNames = new Set();
+
+  function pushCandidate(chars) {
+    const given = chars.map(c => c.char).join('');
+    if (givenNames.has(given)) return;
+    givenNames.add(given);
+    const meanings = chars.map(c => `${c.char}：${c.meaning}`).join('；');
+    const strokes = chars.map(c => c.strokes);
+    const totalStrokes = strokes.reduce((sum, n) => sum + n, 0);
+    const strokesDetail = strokes.length > 1 ? `${strokes.join(' + ')} = ${totalStrokes}` : `${totalStrokes}`;
+    const wuxingDetail = chars.map(c => c.wuxing).join('/');
+    const { score, breakdown, tonePattern } = computeScore(chars, config);
+    const fullPinyin = [...surnamePinyin, ...chars.map(c => c.pinyin)].join(' ');
+    combinations.push({
+      id: `name-${combinations.length + 1}`,
+      surname: config.surname,
+      given,
+      name: `${config.surname}${given}`,
+      chars,
+      meanings,
+      strokesDetail,
+      totalStrokes,
+      wuxingDetail,
+      fullPinyin,
+      tonePattern,
+      score,
+      breakdown
+    });
+  }
+
+  if (config.pattern === 'single') {
+    pool.forEach(char => {
+      pushCandidate([char]);
+    });
+  } else {
+    for (let i = 0; i < pool.length; i += 1) {
+      for (let j = i + 1; j < pool.length; j += 1) {
+        pushCandidate([pool[i], pool[j]]);
+        pushCandidate([pool[j], pool[i]]);
       }
+    }
+  }
 
-      bindRadioGroup('genderGroup');
-      bindRadioGroup('namePattern');
+  combinations.sort((a, b) => b.score - a.score);
+  return combinations;
+}
 
-      function clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
+function renderResults() {
+  const list = state.filtered;
+  if (!list.length) {
+    resultContainer.innerHTML = '';
+    pagination.hidden = true;
+    emptyState.hidden = false;
+    return;
+  }
+  emptyState.hidden = true;
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  state.page = clamp(state.page, 1, totalPages);
+  const start = (state.page - 1) * PAGE_SIZE;
+  const pageItems = list.slice(start, start + PAGE_SIZE);
+  const table = document.createElement('table');
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>选择</th>
+        <th>姓名</th>
+        <th>拼音</th>
+        <th>释义</th>
+        <th>笔画组合</th>
+        <th>五行组合</th>
+        <th>评分</th>
+        <th>复制</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  pageItems.forEach(item => {
+    const tr = document.createElement('tr');
+    const checked = state.selected.has(item.id) ? 'checked' : '';
+    tr.innerHTML = `
+      <td><input type="checkbox" data-id="${item.id}" ${checked} /></td>
+      <td><button class="name-button" data-copy="${item.name}">${item.name}</button></td>
+      <td>${item.fullPinyin}</td>
+      <td>${item.meanings}</td>
+      <td>${item.strokesDetail}</td>
+      <td>${item.wuxingDetail}</td>
+      <td>
+        <span class="score-tag">${item.score}</span>
+        <details class="score-details">
+          <summary>评分详情</summary>
+          <ul>
+            ${Object.values(item.breakdown).map(d => `<li>${d.label}：${d.value.toFixed(1)}分 - ${d.comment}</li>`).join('')}
+          </ul>
+        </details>
+      </td>
+      <td><button class="btn btn-outline" data-copy="${item.name}" data-full="${item.name} ${item.fullPinyin}">复制</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  resultContainer.innerHTML = '';
+  resultContainer.appendChild(table);
+  pagination.hidden = totalPages <= 1;
+  prevPageBtn.disabled = state.page === 1;
+  nextPageBtn.disabled = state.page === totalPages;
+  pageInfo.textContent = `第 ${state.page}/${totalPages} 页 · 共 ${list.length} 条`;
+}
+
+function applySearch(term) {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) {
+    state.filtered = [...state.results];
+  } else {
+    state.filtered = state.results.filter(item =>
+      item.name.includes(normalized) ||
+      item.fullPinyin.replace(/\s+/g, '').includes(normalized)
+    );
+  }
+  state.page = 1;
+  renderResults();
+}
+
+function handleGenerate(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const config = gatherConfig();
+  if (config.error) {
+    showToast(config.error);
+    return;
+  }
+  if (!config.surname) {
+    showToast('请先填写姓氏');
+    return;
+  }
+  const available = filterCharacters(config);
+  const candidates = buildCandidateEntries(available, config);
+  state.results = candidates.slice(0, config.count);
+  state.filtered = [...state.results];
+  state.page = 1;
+  state.selected.clear();
+  renderResults();
+}
+
+function bindEventListeners() {
+  form.addEventListener('submit', handleGenerate);
+  if (generateBtn) {
+    generateBtn.addEventListener('click', handleGenerate);
+  }
+
+  let searchTimer = null;
+  searchInput.addEventListener('input', event => {
+    clearTimeout(searchTimer);
+    const value = event.target.value;
+    searchTimer = setTimeout(() => applySearch(value), 200);
+  });
+
+  prevPageBtn.addEventListener('click', () => {
+    state.page -= 1;
+    renderResults();
+  });
+  nextPageBtn.addEventListener('click', () => {
+    state.page += 1;
+    renderResults();
+  });
+
+  loosenBtn.addEventListener('click', () => {
+    selectedStyles.clear();
+    selectedWuxing.clear();
+    styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    form.strokeMin.value = '';
+    form.strokeMax.value = '';
+    form.tonePreference.value = '不限';
+    form.strokeFlex.value = 'balanced';
+    handleGenerate();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    form.reset();
+    selectedStyles.clear();
+    selectedWuxing.clear();
+    styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    state.results = [];
+    state.filtered = [];
+    state.selected.clear();
+    resultContainer.innerHTML = '';
+    pagination.hidden = true;
+    emptyState.hidden = true;
+  });
+
+  resultContainer.addEventListener('click', event => {
+    const target = event.target;
+    if (target.matches('input[type="checkbox"][data-id]')) {
+      const id = target.getAttribute('data-id');
+      if (target.checked) {
+        state.selected.add(id);
+      } else {
+        state.selected.delete(id);
       }
+      return;
+    }
+    if (target.dataset.copy) {
+      const full = target.dataset.full || target.dataset.copy;
+      copyText(full);
+    }
+  });
 
-      function getToneType(pinyin) {
-        if (!pinyin) return '平';
-        const last = pinyin[pinyin.length - 1];
-        return 'aeiouv'.includes(last) ? '平' : '仄';
-      }
+  copySelectedBtn.addEventListener('click', () => {
+    if (!state.selected.size) {
+      showToast('请先勾选要复制的姓名');
+      return;
+    }
+    const lines = state.results
+      .filter(item => state.selected.has(item.id))
+      .map(item => `${item.name}    ${item.fullPinyin}`);
+    copyText(lines.join('\n'));
+  });
 
-      function lookupCharInfo(char) {
-        return NAME_CHARACTERS.find(item => item.char === char);
-      }
+  exportBtn.addEventListener('click', () => {
+    if (!state.results.length) {
+      showToast('暂无可导出的内容');
+      return;
+    }
+    const header = 'name,pinyin,meaning,strokes_total,strokes_detail,wuxing_detail,score';
+    const rows = state.results.map(item => {
+      const columns = [
+        item.name,
+        item.fullPinyin,
+        item.meanings,
+        item.totalStrokes,
+        item.strokesDetail,
+        item.wuxingDetail,
+        item.score
+      ].map(value => `"${String(value).replace(/"/g, '""')}"`);
+      return columns.join(',');
+    });
+    const csvContent = [header, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'name_suggestions.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV 导出完成');
+  });
+}
 
-      function showToast(message) {
-        toastEl.textContent = message;
-        toastEl.classList.add('show');
-        setTimeout(() => toastEl.classList.remove('show'), 2000);
-      }
+function initDomReferences() {
+  form = document.getElementById('configForm');
+  styleChips = document.getElementById('styleChips');
+  wuxingChips = document.getElementById('wuxingChips');
+  searchInput = document.getElementById('resultSearch');
+  resultContainer = document.getElementById('resultContainer');
+  pagination = document.getElementById('pagination');
+  prevPageBtn = document.getElementById('prevPage');
+  nextPageBtn = document.getElementById('nextPage');
+  pageInfo = document.getElementById('pageInfo');
+  emptyState = document.getElementById('emptyState');
+  loosenBtn = document.getElementById('loosenBtn');
+  toastEl = document.getElementById('toast');
+  copySelectedBtn = document.getElementById('copySelected');
+  exportBtn = document.getElementById('exportCsv');
+  clearBtn = document.getElementById('clearBtn');
+  generateBtn = document.getElementById('generateBtn');
+}
 
-      function copyText(text) {
-        if (!text) {
-          showToast('没有可复制的内容');
-          return;
-        }
-        navigator.clipboard?.writeText(text).then(() => {
-          showToast('已复制到剪贴板');
-        }).catch(() => {
-          const temp = document.createElement('textarea');
-          temp.value = text;
-          document.body.appendChild(temp);
-          temp.select();
-          document.execCommand('copy');
-          document.body.removeChild(temp);
-          showToast('已复制到剪贴板');
-        });
-      }
+function init() {
+  initDomReferences();
+  populatePreferenceChips();
+  bindRadioGroup('genderGroup');
+  bindRadioGroup('namePattern');
+  bindEventListeners();
+  const surnameInput = document.getElementById('surname');
+  if (surnameInput) {
+    surnameInput.focus();
+  }
+}
 
-      function gatherConfig() {
-        const formData = new FormData(form);
-        let surname = (formData.get('surname') || '').trim();
-        if (surname.length > 2) surname = surname.slice(0, 2);
-        const gender = formData.get('gender') || '中性';
-        const pattern = formData.get('pattern') || 'double';
-        const tonePreference = formData.get('tonePreference') || '不限';
-        const strokeFlex = formData.get('strokeFlex') || 'balanced';
-        const strokeMinRaw = formData.get('strokeMin');
-        const strokeMaxRaw = formData.get('strokeMax');
-        const strokeMin = strokeMinRaw ? Number(strokeMinRaw) : null;
-        const strokeMax = strokeMaxRaw ? Number(strokeMaxRaw) : null;
-        const count = clamp(Number(formData.get('generateCount')) || 50, 10, 200);
-        let avoidChars = (formData.get('avoidChars') || '')
-          .split(/[,，\s]+/)
-          .map(ch => ch.trim())
-          .filter(Boolean);
-        avoidChars = Array.from(new Set(avoidChars));
-        if (strokeMin && strokeMax && strokeMin > strokeMax) {
-          return { error: '笔画最小值不能大于最大值' };
-        }
-        return {
-          surname,
-          gender,
-          pattern,
-          tonePreference,
-          strokeFlex,
-          strokeMin,
-          strokeMax,
-          count,
-          avoidSet: new Set(avoidChars),
-          styles: Array.from(selectedStyles),
-          wuxing: Array.from(selectedWuxing)
-        };
-      }
-
-      function filterCharacters(config) {
-        return NAME_CHARACTERS.filter(item => {
-          if (config.avoidSet.has(item.char)) return false;
-          if (config.strokeMin && item.strokes < config.strokeMin) return false;
-          if (config.strokeMax && item.strokes > config.strokeMax) return false;
-          return true;
-        });
-      }
-
-      function computeScore(chars, config) {
-        const nameLength = chars.length;
-        const genderScores = chars.map(c => {
-          if (c.genders.includes(config.gender)) return 1;
-          if (c.genders.includes('中性')) return 0.8;
-          return 0.5;
-        });
-        const genderScore = genderScores.reduce((sum, v) => sum + v, 0) / nameLength;
-
-        let wuxingPrefScore = 0.75;
-        if (config.wuxing.length) {
-          const matches = chars.filter(c => config.wuxing.includes(c.wuxing)).length;
-          wuxingPrefScore = matches / nameLength;
-        }
-
-        let strokePrefScore = 0.7;
-        if (config.strokeMin !== null || config.strokeMax !== null) {
-          const min = config.strokeMin ?? Math.min(...chars.map(c => c.strokes));
-          const max = config.strokeMax ?? Math.max(...chars.map(c => c.strokes));
-          const mid = (min + max) / 2;
-          const diffAvg = chars.reduce((sum, c) => sum + Math.abs(c.strokes - mid), 0) / nameLength;
-          const span = Math.max(1, (max - min) || 6);
-          strokePrefScore = clamp(1 - diffAvg / (span * 1.2), 0.4, 1);
-        }
-
-        const preferenceScore = clamp((genderScore + wuxingPrefScore + strokePrefScore) / 3, 0, 1);
-
-        let styleScore = 0.6;
-        if (config.styles.length) {
-          const ratios = config.styles.map(style => {
-            const list = STYLE_TAGS[style] || [];
-            const matches = chars.filter(c => list.includes(c.char)).length;
-            return matches / nameLength;
-          });
-          styleScore = Math.max(...ratios);
-        }
-
-        const distinctWuxing = new Set(chars.map(c => c.wuxing)).size;
-        const diversity = nameLength === 1 ? 0.7 : distinctWuxing === nameLength ? 1 : 0.75;
-        const preferenceCoverage = config.wuxing.length
-          ? chars.filter(c => config.wuxing.includes(c.wuxing)).length / nameLength
-          : 0.7;
-        const wuxingBalance = clamp(0.6 * diversity + 0.4 * preferenceCoverage, 0, 1);
-
-        const tones = chars.map(c => getToneType(c.pinyin));
-        const initials = chars.map(c => c.pinyin[0]);
-        let toneScore = 0.75;
-        if (config.tonePreference === '平' || config.tonePreference === '仄') {
-          const desired = config.tonePreference;
-          toneScore = tones.filter(t => t === desired).length / nameLength;
-        } else if (config.tonePreference === '平仄' && nameLength >= 2) {
-          toneScore = tones[0] === '平' && tones[1] === '仄' ? 1 : 0.5;
-        } else if (config.tonePreference === '仄平' && nameLength >= 2) {
-          toneScore = tones[0] === '仄' && tones[1] === '平' ? 1 : 0.5;
-        }
-        if (new Set(initials).size < initials.length) toneScore -= 0.1;
-        const identicalPinyin = nameLength > 1 && chars.every(c => c.pinyin === chars[0].pinyin);
-        if (identicalPinyin) toneScore -= 0.15;
-        toneScore = clamp(toneScore, 0.2, 1);
-
-        const strokes = chars.map(c => c.strokes);
-        const maxStroke = Math.max(...strokes);
-        const minStroke = Math.min(...strokes);
-        const avgStroke = strokes.reduce((sum, n) => sum + n, 0) / strokes.length;
-        let strokeAesthetics = 0.7;
-        if (config.strokeFlex === 'balanced') {
-          const diff = maxStroke - minStroke;
-          strokeAesthetics = diff <= 3 ? 1 : diff <= 6 ? 0.8 : 0.5;
-        } else if (config.strokeFlex === 'slim') {
-          strokeAesthetics = avgStroke <= 9 ? 1 : avgStroke <= 12 ? 0.7 : 0.45;
-        } else {
-          strokeAesthetics = avgStroke >= 11 ? 1 : avgStroke >= 9 ? 0.75 : 0.5;
-        }
-
-        const totalScore = preferenceScore * 40 + styleScore * 20 + wuxingBalance * 20 + toneScore * 10 + strokeAesthetics * 10;
-        const breakdown = {
-          preference: {
-            label: '偏好匹配',
-            value: preferenceScore * 40,
-            comment: `性别与笔画偏好${preferenceScore >= 0.8 ? '高度契合' : preferenceScore >= 0.6 ? '较为贴合' : '有待加强'}`
-          },
-          style: {
-            label: '风格意向',
-            value: styleScore * 20,
-            comment: config.styles.length
-              ? `与所选风格匹配度${styleScore >= 0.8 ? '极高' : styleScore >= 0.5 ? '良好' : '一般'}`
-              : '未指定风格，采用通用搭配'
-          },
-          wuxing: {
-            label: '五行均衡',
-            value: wuxingBalance * 20,
-            comment: `五行组合${distinctWuxing > 1 ? '更均衡' : '相对集中'}`
-          },
-          phonetic: {
-            label: '声调顺口',
-            value: toneScore * 10,
-            comment: `声调组合${toneScore >= 0.8 ? '流畅悦耳' : toneScore >= 0.6 ? '自然顺口' : '略显生硬'}`
-          },
-          strokes: {
-            label: '笔画观感',
-            value: strokeAesthetics * 10,
-            comment: config.strokeFlex === 'slim'
-              ? `整体笔画${avgStroke <= 9 ? '轻盈爽朗' : '较为厚重'}`
-              : config.strokeFlex === 'complex'
-              ? `整体笔画${avgStroke >= 11 ? '沉稳大气' : '略显简约'}`
-              : `笔画差异${maxStroke - minStroke <= 3 ? '协调自然' : '层次分明'}`
-          }
-        };
-
-        return {
-          score: Number(totalScore.toFixed(1)),
-          breakdown
-        };
-      }
-
-      function buildCandidateEntries(charList, config) {
-        if (!charList.length) return [];
-        const combinations = [];
-        const pool = [...charList].sort(() => Math.random() - 0.5);
-        if (config.pattern === 'single') {
-          pool.forEach(char => combinations.push([char]));
-        } else {
-          for (let i = 0; i < pool.length; i++) {
-            for (let j = 0; j < pool.length; j++) {
-              combinations.push([pool[i], pool[j]]);
-            }
-          }
-        }
-        const seen = new Set();
-        const candidates = [];
-        let idCounter = 1;
-        for (const chars of combinations) {
-          const given = chars.map(c => c.char).join('');
-          if (seen.has(given)) continue;
-          seen.add(given);
-          const { score, breakdown } = computeScore(chars, config);
-          const meanings = chars.map(c => `${c.char}：${c.meaning}`).join('；');
-          const strokes = chars.map(c => c.strokes);
-          const totalStrokes = strokes.reduce((sum, n) => sum + n, 0);
-          const strokesDetail = strokes.length > 1 ? `${strokes.join(' + ')} = ${totalStrokes}` : `${totalStrokes}`;
-          const wuxingDetail = chars.map(c => c.wuxing).join('/');
-          const surnameChars = config.surname.split('');
-          const surnamePinyin = surnameChars.map(ch => SURNAME_PINYIN_MAP[ch] || lookupCharInfo(ch)?.pinyin || '?');
-          const fullPinyin = [...surnamePinyin, ...chars.map(c => c.pinyin)].join(' ');
-          const tones = chars.map(c => getToneType(c.pinyin)).join('');
-          candidates.push({
-            id: `name-${idCounter++}`,
-            surname: config.surname,
-            given,
-            name: `${config.surname}${given}`,
-            chars,
-            meanings,
-            strokesDetail,
-            totalStrokes,
-            wuxingDetail,
-            fullPinyin,
-            tonePattern: tones,
-            score,
-            breakdown
-          });
-        }
-        candidates.sort((a, b) => b.score - a.score);
-        return candidates;
-      }
-
-      function renderResults() {
-        const list = state.filtered;
-        if (!list.length) {
-          resultContainer.innerHTML = '';
-          pagination.hidden = true;
-          emptyState.hidden = false;
-          return;
-        }
-        emptyState.hidden = true;
-        const totalPages = Math.ceil(list.length / PAGE_SIZE);
-        state.page = clamp(state.page, 1, totalPages);
-        const start = (state.page - 1) * PAGE_SIZE;
-        const pageItems = list.slice(start, start + PAGE_SIZE);
-        const table = document.createElement('table');
-        table.innerHTML = `
-          <thead>
-            <tr>
-              <th>选择</th>
-              <th>姓名</th>
-              <th>拼音</th>
-              <th>释义</th>
-              <th>笔画组合</th>
-              <th>五行组合</th>
-              <th>评分</th>
-              <th>复制</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        `;
-        const tbody = table.querySelector('tbody');
-        pageItems.forEach(item => {
-          const tr = document.createElement('tr');
-          const checked = state.selected.has(item.id) ? 'checked' : '';
-          tr.innerHTML = `
-            <td><input type="checkbox" data-id="${item.id}" ${checked} /></td>
-            <td><button class="name-button" data-copy="${item.name}">${item.name}</button></td>
-            <td>${item.fullPinyin}</td>
-            <td>${item.meanings}</td>
-            <td>${item.strokesDetail}</td>
-            <td>${item.wuxingDetail}</td>
-            <td>
-              <span class="score-tag">${item.score}</span>
-              <details class="score-details">
-                <summary>评分详情</summary>
-                <ul>
-                  ${Object.values(item.breakdown).map(d => `<li>${d.label}：${d.value.toFixed(1)}分 - ${d.comment}</li>`).join('')}
-                </ul>
-              </details>
-            </td>
-            <td><button class="btn btn-outline" data-copy="${item.name}" data-full="${item.name} ${item.fullPinyin}">复制</button></td>
-          `;
-          tbody.appendChild(tr);
-        });
-        resultContainer.innerHTML = '';
-        resultContainer.appendChild(table);
-        pagination.hidden = totalPages <= 1;
-        prevPageBtn.disabled = state.page === 1;
-        nextPageBtn.disabled = state.page === totalPages;
-        pageInfo.textContent = `第 ${state.page}/${totalPages} 页 · 共 ${list.length} 条`;
-      }
-
-      function applySearch(term) {
-        const normalized = term.trim().toLowerCase();
-        if (!normalized) {
-          state.filtered = [...state.results];
-        } else {
-          state.filtered = state.results.filter(item =>
-            item.name.includes(normalized) ||
-            item.fullPinyin.replace(/\s+/g, '').includes(normalized)
-          );
-        }
-        state.page = 1;
-        renderResults();
-      }
-
-      function handleGenerate(event) {
-        event.preventDefault();
-        const config = gatherConfig();
-        if (config.error) {
-          showToast(config.error);
-          return;
-        }
-        if (!config.surname) {
-          showToast('请先填写姓氏');
-          return;
-        }
-        const available = filterCharacters(config);
-        const candidates = buildCandidateEntries(available, config);
-        state.results = candidates.slice(0, config.count);
-        state.filtered = [...state.results];
-        state.page = 1;
-        state.selected.clear();
-        if (!state.results.length) {
-          renderResults();
-          return;
-        }
-        renderResults();
-      }
-
-      form.addEventListener('submit', handleGenerate);
-
-      let searchTimer = null;
-      searchInput.addEventListener('input', event => {
-        clearTimeout(searchTimer);
-        const value = event.target.value;
-        searchTimer = setTimeout(() => applySearch(value), 200);
-      });
-
-      prevPageBtn.addEventListener('click', () => {
-        state.page -= 1;
-        renderResults();
-      });
-      nextPageBtn.addEventListener('click', () => {
-        state.page += 1;
-        renderResults();
-      });
-
-      loosenBtn.addEventListener('click', () => {
-        selectedStyles.clear();
-        selectedWuxing.clear();
-        styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
-        wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
-        form.strokeMin.value = '';
-        form.strokeMax.value = '';
-        form.tonePreference.value = '不限';
-        form.strokeFlex.value = 'balanced';
-        form.dispatchEvent(new Event('submit'));
-      });
-
-      clearBtn.addEventListener('click', () => {
-        form.reset();
-        selectedStyles.clear();
-        selectedWuxing.clear();
-        styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
-        wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
-        state.results = [];
-        state.filtered = [];
-        state.selected.clear();
-        resultContainer.innerHTML = '';
-        pagination.hidden = true;
-        emptyState.hidden = true;
-      });
-
-      resultContainer.addEventListener('click', event => {
-        const target = event.target;
-        if (target.matches('input[type="checkbox"][data-id]')) {
-          const id = target.getAttribute('data-id');
-          if (target.checked) {
-            state.selected.add(id);
-          } else {
-            state.selected.delete(id);
-          }
-          return;
-        }
-        if (target.dataset.copy) {
-          const full = target.dataset.full || target.dataset.copy;
-          copyText(full);
-        }
-      });
-
-      copySelectedBtn.addEventListener('click', () => {
-        if (!state.selected.size) {
-          showToast('请先勾选要复制的姓名');
-          return;
-        }
-        const lines = state.results
-          .filter(item => state.selected.has(item.id))
-          .map(item => `${item.name}	${item.fullPinyin}`);
-        copyText(lines.join('\n'));
-      });
-
-      exportBtn.addEventListener('click', () => {
-        if (!state.results.length) {
-          showToast('暂无可导出的内容');
-          return;
-        }
-        const header = 'name,pinyin,meaning,strokes_total,strokes_detail,wuxing_detail,score';
-        const rows = state.results.map(item => {
-          const columns = [
-            item.name,
-            item.fullPinyin,
-            item.meanings,
-            item.totalStrokes,
-            item.strokesDetail,
-            item.wuxingDetail,
-            item.score
-          ].map(value => `"${String(value).replace(/"/g, '""')}"`);
-          return columns.join(',');
-        });
-        const csvContent = [header, ...rows].join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'name_suggestions.csv';
-        link.click();
-        URL.revokeObjectURL(url);
-        showToast('CSV 导出完成');
-      });
-
-      document.addEventListener('DOMContentLoaded', () => {
-        const surnameInput = document.getElementById('surname');
-        surnameInput.focus();
-      });
-    </script>
+window.addEventListener('DOMContentLoaded', init);
+</script>
   </body>
 </html>
