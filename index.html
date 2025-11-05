@@ -4,528 +4,1842 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
+    <title>中文取名神器</title>
     <style>
       :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
+        --bg: #f4f6fb;
+        --primary: #3460ff;
+        --primary-dark: #2543b9;
+        --accent: #2dd4bf;
+        --text-main: #1f2937;
+        --text-light: #6b7280;
+        --panel: #ffffff;
+        --border: #e5e7eb;
+        --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        --radius-lg: 20px;
+        --radius-md: 12px;
+        --radius-sm: 8px;
+        --font: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
       body {
         margin: 0;
+        padding: 0;
+        font-family: var(--font);
+        color: var(--text-main);
+        background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 35%, #f4f6fb 100%);
+        min-height: 100%;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
         min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
       }
 
-      .page-wrapper {
-        width: min(100%, 480px);
+      header {
+        width: 100%;
+        padding: 32px 16px 0;
+      }
+
+      .hero {
+        max-width: 1080px;
+        margin: 0 auto;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        align-items: center;
+      }
+
+      .hero-content h1 {
+        font-size: clamp(2rem, 4vw, 2.6rem);
+        margin: 0 0 12px;
+        letter-spacing: 0.03em;
+      }
+
+      .hero-content p {
+        margin: 0;
+        color: var(--text-light);
+        line-height: 1.6;
+      }
+
+      main {
+        flex: 1;
+        width: 100%;
+        padding: 24px 16px 48px;
+      }
+
+      .app-shell {
+        max-width: 1120px;
+        margin: 0 auto;
         display: flex;
         flex-direction: column;
+        gap: 24px;
+      }
+
+      .card {
+        background: var(--panel);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        padding: clamp(16px, 2vw, 24px);
+      }
+
+      .config-form {
+        display: grid;
         gap: 16px;
-        align-items: center;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       }
 
-      .scoreboard {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
-      }
-
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
-
-      .game-wrapper {
-        position: relative;
-        width: 400px;
-        max-width: 100%;
-      }
-
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
-        position: absolute;
-        inset: 0;
+      .field {
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
-        text-align: center;
+        gap: 8px;
       }
 
-      .hidden {
+      .field label {
+        font-weight: 600;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .field small {
+        color: var(--text-light);
+        font-weight: 400;
+      }
+
+      input[type='text'],
+      input[type='number'],
+      select {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 10px 12px;
+        font-size: 14px;
+        transition: border 0.2s ease, box-shadow 0.2s ease;
+        background-color: #fff;
+      }
+
+      input[type='text']:focus,
+      input[type='number']:focus,
+      select:focus {
+        outline: none;
+        border-color: rgba(52, 96, 255, 0.65);
+        box-shadow: 0 0 0 3px rgba(52, 96, 255, 0.15);
+      }
+
+      .chip-group,
+      .radio-group,
+      .checkbox-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        border: 1px solid var(--border);
+        background: #fff;
+        color: var(--text-main);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .chip.selected {
+        background: rgba(52, 96, 255, 0.08);
+        color: var(--primary-dark);
+        border-color: rgba(52, 96, 255, 0.4);
+        box-shadow: inset 0 0 0 1px rgba(52, 96, 255, 0.25);
+      }
+
+      .radio-chip {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 13px;
+        background: #fff;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .radio-chip input {
         display: none;
       }
 
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
+      .radio-chip.active {
+        background: rgba(45, 212, 191, 0.16);
+        border-color: rgba(45, 212, 191, 0.4);
+        color: #0f766e;
+      }
+
+      .action-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: flex-end;
+        border-top: 1px solid var(--border);
+        padding-top: 16px;
+        margin-top: 8px;
+      }
+
+      .btn {
         border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
+        border-radius: var(--radius-sm);
+        padding: 10px 18px;
+        font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
       }
 
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: #fff;
+        box-shadow: 0 12px 24px rgba(52, 96, 255, 0.25);
       }
 
-      .control-btn:active {
+      .btn-primary:active {
         transform: translateY(1px);
       }
 
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
+      .btn-secondary {
+        background: rgba(52, 96, 255, 0.08);
+        color: var(--primary-dark);
       }
 
-      .mobile-row {
+      .btn-outline {
+        border: 1px solid rgba(52, 96, 255, 0.3);
+        background: transparent;
+        color: var(--primary-dark);
+      }
+
+      .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .results-section {
         display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .results-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
         gap: 12px;
       }
 
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
+      .results-header .search-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 8px 12px;
+        background: #f9fafb;
+      }
+
+      .results-header input[type='search'] {
+        border: none;
+        background: transparent;
+        flex: 1;
+        font-size: 14px;
+      }
+
+      .results-header input[type='search']:focus {
+        outline: none;
+      }
+
+      .table-wrapper {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 760px;
+      }
+
+      thead {
+        background: #f3f4f6;
+      }
+
+      th,
+      td {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        font-size: 13px;
+        letter-spacing: 0.02em;
+        color: var(--text-light);
+        text-transform: uppercase;
+      }
+
+      tbody tr:hover {
+        background: rgba(52, 96, 255, 0.05);
+      }
+
+      .name-button {
+        background: none;
+        border: none;
+        color: var(--primary-dark);
+        font-size: 15px;
+        font-weight: 600;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
+        padding: 0;
       }
 
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
+      .score-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(45, 212, 191, 0.18);
+        color: #0f766e;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-weight: 600;
+        font-size: 13px;
       }
 
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
+      details.score-details {
+        margin-top: 6px;
+      }
+
+      details.score-details summary {
+        cursor: pointer;
+        color: var(--primary-dark);
+        font-size: 13px;
+      }
+
+      details.score-details ul {
+        margin: 6px 0 0;
+        padding-left: 16px;
+        color: var(--text-light);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .pagination button {
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        background: #fff;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .pagination button:disabled {
+        background: #f3f4f6;
+        cursor: not-allowed;
+      }
+
+      .empty-state {
+        padding: 32px;
+        text-align: center;
+        border: 2px dashed rgba(52, 96, 255, 0.15);
+        border-radius: var(--radius-lg);
+        background: rgba(248, 250, 252, 0.65);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .empty-state p {
+        margin: 0;
+        color: var(--text-light);
+      }
+
+      .toast {
+        position: fixed;
+        inset-inline-end: 24px;
+        inset-block-end: 24px;
+        background: rgba(31, 41, 55, 0.92);
+        color: #fff;
+        padding: 12px 18px;
+        border-radius: 10px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(12px);
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        font-size: 14px;
+        z-index: 1000;
+      }
+
+      .toast.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      @media (max-width: 900px) {
+        .config-form {
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+        table {
+          min-width: 680px;
         }
       }
 
-      @media (max-width: 480px) {
-        .scoreboard {
+      @media (max-width: 600px) {
+        header {
+          padding-top: 24px;
+        }
+
+        .hero {
+          gap: 16px;
+        }
+
+        .config-form {
+          grid-template-columns: 1fr;
+        }
+
+        .action-bar {
+          justify-content: flex-start;
+        }
+
+        .results-header {
           flex-direction: column;
-          gap: 8px;
+          align-items: stretch;
         }
 
-        .direction-btn {
-          width: 56px;
-          height: 56px;
+        .results-header .search-box {
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 375px) {
+        main {
+          padding: 16px 12px 32px;
+        }
+        .card {
+          padding: 16px;
+        }
+        table {
+          min-width: 600px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
-      </header>
-
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
+    <header>
+      <div class="hero">
+        <div class="hero-content">
+          <h1>中文取名神器</h1>
+          <p>
+            根据姓名学要素与个人偏好，快速生成带拼音、释义、笔画、五行与综合评分的候选姓名。
+            支持离线使用、一键复制与导出 CSV。
+          </p>
         </div>
-      </main>
+      </div>
+    </header>
+    <main>
+      <div class="app-shell">
+        <section class="card">
+          <form id="configForm" class="config-form">
+            <div class="field">
+              <label for="surname">姓氏 <small>必填</small></label>
+              <input
+                id="surname"
+                name="surname"
+                type="text"
+                placeholder="请输入姓氏，例如：李"
+                required
+                minlength="1"
+                maxlength="2"
+              />
+            </div>
+            <div class="field">
+              <label>性别倾向</label>
+              <div class="radio-group" id="genderGroup">
+                <label class="radio-chip active">
+                  <input type="radio" name="gender" value="中性" checked />
+                  中性
+                </label>
+                <label class="radio-chip">
+                  <input type="radio" name="gender" value="男" />
+                  男孩
+                </label>
+                <label class="radio-chip">
+                  <input type="radio" name="gender" value="女" />
+                  女孩
+                </label>
+              </div>
+            </div>
+            <div class="field">
+              <label>风格偏好</label>
+              <div class="chip-group" id="styleChips"></div>
+            </div>
+            <div class="field">
+              <label>名字符号</label>
+              <div class="radio-group" id="namePattern">
+                <label class="radio-chip active">
+                  <input type="radio" name="pattern" value="double" checked />
+                  双名
+                </label>
+                <label class="radio-chip">
+                  <input type="radio" name="pattern" value="single" />
+                  单名
+                </label>
+              </div>
+            </div>
+            <div class="field">
+              <label>五行偏好</label>
+              <div class="chip-group" id="wuxingChips"></div>
+            </div>
+            <div class="field">
+              <label>笔画范围</label>
+              <div class="checkbox-row">
+                <input
+                  type="number"
+                  id="strokeMin"
+                  name="strokeMin"
+                  min="1"
+                  max="100"
+                  placeholder="最少"
+                />
+                <input
+                  type="number"
+                  id="strokeMax"
+                  name="strokeMax"
+                  min="1"
+                  max="100"
+                  placeholder="最多"
+                />
+              </div>
+            </div>
+            <div class="field">
+              <label for="tonePreference">声调偏好</label>
+              <select id="tonePreference" name="tonePreference">
+                <option value="不限">不限</option>
+                <option value="平">全平</option>
+                <option value="仄">全仄</option>
+                <option value="平仄">平仄</option>
+                <option value="仄平">仄平</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="avoidChars">避讳字 <small>多个以逗号分隔</small></label>
+              <input
+                id="avoidChars"
+                name="avoidChars"
+                type="text"
+                placeholder="如：强,刚"
+                maxlength="20"
+              />
+            </div>
+            <div class="field">
+              <label for="generateCount">生成数量</label>
+              <input
+                id="generateCount"
+                name="generateCount"
+                type="number"
+                min="10"
+                max="200"
+                value="50"
+              />
+            </div>
+            <div class="field">
+              <label for="strokeFlex">字形偏好</label>
+              <select id="strokeFlex" name="strokeFlex">
+                <option value="balanced" selected>均衡</option>
+                <option value="slim">简洁</option>
+                <option value="complex">厚重</option>
+              </select>
+            </div>
+            <div class="field full-width" style="grid-column: 1 / -1">
+              <div class="action-bar">
+                <button type="button" class="btn btn-secondary" id="clearBtn">清空条件</button>
+                <button type="submit" class="btn btn-primary" id="generateBtn">一键生成</button>
+                <button type="button" class="btn btn-outline" id="copySelected">复制所选</button>
+                <button type="button" class="btn btn-outline" id="exportCsv">导出 CSV</button>
+              </div>
+            </div>
+          </form>
+        </section>
 
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
-          </button>
-        </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
-          </button>
-        </div>
-      </section>
-    </div>
-
+        <section class="card results-section">
+          <div class="results-header">
+            <div>
+              <h2 style="margin: 0 0 4px; font-size: 20px">候选名单</h2>
+              <p style="margin: 0; color: var(--text-light); font-size: 13px">
+                支持分页、模糊搜索、单条复制与多选批量复制。
+              </p>
+            </div>
+            <div class="search-box">
+              <span style="color: var(--text-light); font-size: 14px">🔍</span>
+              <input id="resultSearch" type="search" placeholder="按姓名或拼音搜索" />
+            </div>
+          </div>
+          <div id="resultContainer" class="table-wrapper"></div>
+          <div id="pagination" class="pagination" hidden>
+            <button type="button" id="prevPage">上一页</button>
+            <div id="pageInfo" style="font-size: 13px; color: var(--text-light)"></div>
+            <button type="button" id="nextPage">下一页</button>
+          </div>
+          <div id="emptyState" class="empty-state" hidden>
+            <h3 style="margin: 0">条件过严，没有找到候选</h3>
+            <p>建议放宽笔画、风格或五行偏好后再试一次。</p>
+            <button type="button" class="btn btn-secondary" id="loosenBtn">一键放宽条件</button>
+          </div>
+        </section>
+      </div>
+    </main>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
     <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
-      };
+      // 示例测试用例：
+      // 1. 姓氏“李”，性别“中性”，风格“古风+现代”，双名，避讳“强,刚”，偏好“五行：水木”，笔画 5~16，声调“平仄”，数量 50。
+      // 2. 姓氏“王”，单名，现代风，偏好“金”，避讳为空。
+      const RAW_CHARACTER_DATA = [
+        ['安', 'an', 6, '土', '安宁、平安', '女|中性'],
+      ['晨', 'chen', 11, '金', '清晨、希望', '男|中性'],
+      ['浩', 'hao', 10, '水', '浩大、广阔', '男'],
+      ['宁', 'ning', 5, '火', '安定、宁静', '女|中性'],
+      ['宇', 'yu', 6, '土', '广阔、屋宇', '男|中性'],
+      ['轩', 'xuan', 10, '木', '轩昂、气度', '男|中性'],
+      ['瑶', 'yao', 14, '火', '美玉、珍贵', '女'],
+      ['悦', 'yue', 10, '金', '喜悦、愉快', '女|中性'],
+      ['泽', 'ze', 8, '水', '滋润、恩惠', '男|中性'],
+      ['霖', 'lin', 16, '水', '久下不停的雨', '男|中性'],
+      ['若', 'ruo', 8, '木', '如愿、若水', '女|中性'],
+      ['清', 'qing', 11, '水', '清澈、纯净', '女|中性'],
+      ['然', 'ran', 12, '火', '自然、安然', '女|中性'],
+      ['初', 'chu', 7, '金', '初始、纯粹', '女|中性'],
+      ['言', 'yan', 7, '火', '言语、表达', '男|中性'],
+      ['岚', 'lan', 12, '土', '山间雾气', '女'],
+      ['亭', 'ting', 9, '火', '亭台、优雅', '女|中性'],
+      ['霁', 'ji', 16, '水', '雨后初晴', '女|中性'],
+      ['笙', 'sheng', 11, '木', '笙箫、和鸣', '男|中性'],
+      ['澜', 'lan', 15, '水', '波澜壮阔', '女'],
+      ['诗', 'shi', 8, '金', '诗意、文雅', '女|中性'],
+      ['沐', 'mu', 8, '水', '沐浴、润泽', '女|中性'],
+      ['诺', 'nuo', 10, '火', '允诺、守信', '女|中性'],
+      ['奕', 'yi', 9, '木', '光明盛大', '男|中性'],
+      ['宸', 'chen', 10, '金', '帝王居所、尊贵', '男'],
+      ['希', 'xi', 7, '水', '希望、希冀', '女|中性'],
+      ['岑', 'cen', 7, '土', '高峻之山', '男|中性'],
+      ['一', 'yi', 1, '水', '统一、专注', '男|女|中性'],
+      ['竹', 'zhu', 6, '木', '高节、坚韧', '女|中性'],
+      ['林', 'lin', 8, '木', '树林、繁盛', '男|中性'],
+      ['芸', 'yun', 10, '木', '芸香、众多', '女'],
+      ['芷', 'zhi', 7, '木', '白芷、幽香', '女'],
+      ['慕', 'mu', 14, '水', '仰慕、追求', '女|中性'],
+      ['南', 'nan', 9, '火', '南方、温暖', '男|中性'],
+      ['桐', 'tong', 10, '木', '梧桐、吉祥', '女|中性'],
+      ['梓', 'zi', 11, '木', '梓木、家乡', '女|中性'],
+      ['楚', 'chu', 13, '木', '清楚、秀丽', '男|中性'],
+      ['梧', 'wu', 11, '木', '梧桐树', '男|中性'],
+      ['棠', 'tang', 12, '木', '海棠、雅致', '女'],
+      ['榆', 'yu', 13, '木', '榆树、坚实', '男|中性'],
+      ['柯', 'ke', 9, '木', '树干枝柯', '男|中性'],
+      ['栩', 'xu', 10, '木', '栩栩如生', '男|中性'],
+      ['柠', 'ning', 9, '木', '柠檬、清新', '女'],
+      ['柳', 'liu', 9, '木', '柔韧如柳', '女|中性'],
+      ['苏', 'su', 7, '木', '苏醒、生机', '男|女|中性'],
+      ['蓝', 'lan', 13, '木', '蔚蓝、宁静', '女|中性'],
+      ['荷', 'he', 10, '木', '荷花、纯洁', '女'],
+      ['芮', 'rui', 7, '木', '柔和、小巧', '女'],
+      ['菁', 'jing', 14, '木', '菁华、精华', '女'],
+      ['茜', 'qian', 9, '木', '茜草、鲜艳', '女'],
+      ['蕴', 'yun', 15, '木', '蕴藏、积蓄', '女|中性'],
+      ['芳', 'fang', 7, '木', '芬芳、香气', '女'],
+      ['茹', 'ru', 9, '木', '柔软、包容', '女'],
+      ['蓉', 'rong', 13, '木', '芙蓉、柔美', '女'],
+      ['萱', 'xuan', 15, '木', '萱草、忘忧', '女'],
+      ['槿', 'jin', 14, '木', '木槿、坚韧', '女'],
+      ['楠', 'nan', 13, '木', '楠木、稳重', '男|中性'],
+      ['榕', 'rong', 14, '木', '榕树、繁盛', '男|中性'],
+      ['桃', 'tao', 10, '木', '桃花、春意', '女'],
+      ['梅', 'mei', 11, '木', '梅花、坚贞', '女'],
+      ['柏', 'bai', 9, '木', '柏树、长青', '男|中性'],
+      ['桓', 'huan', 10, '木', '桓木、坚强', '男'],
+      ['森', 'sen', 12, '木', '森林、旺盛', '男|中性'],
+      ['桢', 'zhen', 11, '木', '栋梁、正直', '男|中性'],
+      ['槐', 'huai', 14, '木', '槐树、典雅', '男|中性'],
+      ['栎', 'li', 9, '木', '栎树、坚实', '男|中性'],
+      ['泓', 'hong', 9, '水', '深广的水', '男|中性'],
+      ['洁', 'jie', 9, '水', '洁净、纯洁', '女'],
+      ['澄', 'cheng', 15, '水', '澄澈明净', '男|中性'],
+      ['渊', 'yuan', 12, '水', '深远、渊博', '男'],
+      ['潇', 'xiao', 15, '水', '潇洒飘逸', '男|中性'],
+      ['涵', 'han', 11, '水', '包容、涵养', '女|中性'],
+      ['洵', 'xun', 9, '水', '诚恳、信实', '男|中性'],
+      ['淇', 'qi', 11, '水', '淇水、灵动', '女|中性'],
+      ['漾', 'yang', 14, '水', '荡漾、活力', '女|中性'],
+      ['潍', 'wei', 14, '水', '潍水、包容', '男|中性'],
+      ['漫', 'man', 14, '水', '漫溢、浪漫', '女'],
+      ['湘', 'xiang', 12, '水', '湘水、灵秀', '女|中性'],
+      ['洛', 'luo', 9, '水', '洛水、古都', '男|中性'],
+      ['渝', 'yu', 12, '水', '水名、坚定', '男|中性'],
+      ['洋', 'yang', 10, '水', '海洋、广阔', '男|中性'],
+      ['源', 'yuan', 14, '水', '泉源、根源', '男|中性'],
+      ['灏', 'hao', 21, '水', '浩渺广大', '男'],
+      ['瀚', 'han', 20, '水', '浩瀚如海', '男'],
+      ['凌', 'ling', 10, '水', '凌厉、高远', '男|中性'],
+      ['冰', 'bing', 6, '水', '冰洁、纯净', '女|中性'],
+      ['雪', 'xue', 11, '水', '雪花、纯白', '女'],
+      ['霏', 'fei', 16, '水', '雨雪纷飞', '女'],
+      ['霄', 'xiao', 17, '水', '九霄、天空', '男'],
+      ['云', 'yun', 4, '水', '白云、自在', '女|中性'],
+      ['雯', 'wen', 12, '水', '云纹、柔美', '女'],
+      ['澈', 'che', 15, '水', '清澈透明', '男|中性'],
+      ['浚', 'jun', 10, '水', '疏浚、深挖', '男'],
+      ['鸿', 'hong', 11, '水', '鸿雁、远志', '男'],
+      ['泠', 'ling', 8, '水', '清凉、雅致', '女|中性'],
+      ['涛', 'tao', 10, '水', '波涛汹涌', '男'],
+      ['淞', 'song', 11, '水', '淞江、霜雪', '男|中性'],
+      ['溢', 'yi', 13, '水', '盈满溢出', '男|女'],
+      ['涓', 'juan', 10, '水', '涓涓细流', '女'],
+      ['汐', 'xi', 6, '水', '晨汐、潮汐', '女'],
+      ['沛', 'pei', 8, '水', '充沛、盛大', '男|中性'],
+      ['洄', 'hui', 9, '水', '回旋的水', '男|中性'],
+      ['澧', 'li', 15, '水', '澧水、丰盈', '男|中性'],
+      ['潋', 'lian', 15, '水', '潋滟波光', '女|中性'],
+      ['潼', 'tong', 15, '水', '潼水、灵动', '男|中性'],
+      ['漓', 'li', 14, '水', '漓水、清澈', '女|中性'],
+      ['澹', 'dan', 16, '水', '澹泊宁静', '男|中性'],
+      ['涣', 'huan', 10, '水', '涣散光明', '男|中性'],
+      ['泗', 'si', 8, '水', '泗水、灵泽', '男|中性'],
+      ['浦', 'pu', 10, '水', '江浦、港湾', '男|中性'],
+      ['炎', 'yan', 8, '火', '火焰、热情', '男|中性'],
+      ['煜', 'yu', 13, '火', '照耀、明亮', '男'],
+      ['煦', 'xu', 13, '火', '温暖和煦', '男|中性'],
+      ['烁', 'shuo', 10, '火', '闪烁、光亮', '男|女'],
+      ['熠', 'yi', 15, '火', '熠熠生辉', '男|中性'],
+      ['朗', 'lang', 10, '火', '明朗、豁达', '男'],
+      ['晗', 'han', 11, '火', '天色微明', '女|中性'],
+      ['晔', 'ye', 10, '火', '光辉耀目', '女'],
+      ['昕', 'xin', 8, '火', '太阳初升', '女|中性'],
+      ['晟', 'sheng', 11, '火', '光盛、昌盛', '男'],
+      ['昱', 'yu', 9, '火', '日光照耀', '男|中性'],
+      ['晴', 'qing', 12, '火', '晴朗明媚', '女'],
+      ['曦', 'xi', 20, '火', '晨曦阳光', '女'],
+      ['景', 'jing', 12, '火', '景象、光景', '男|中性'],
+      ['旭', 'xu', 6, '火', '旭日、朝阳', '男'],
+      ['曜', 'yao', 18, '火', '星曜闪耀', '男|中性'],
+      ['焕', 'huan', 12, '火', '焕然一新', '男|中性'],
+      ['炫', 'xuan', 9, '火', '炫目、耀眼', '男|中性'],
+      ['瑜', 'yu', 13, '火', '美玉之光', '女|中性'],
+      ['焱', 'yan', 12, '火', '火焰上腾', '男'],
+      ['熙', 'xi', 14, '火', '光明、和乐', '男|女|中性'],
+      ['煊', 'xuan', 13, '火', '煊赫、光盛', '男|中性'],
+      ['炜', 'wei', 9, '火', '光辉灿烂', '男|中性'],
+      ['烨', 'ye', 10, '火', '火光、光耀', '男|中性'],
+      ['炯', 'jiong', 9, '火', '炯炯有神', '男'],
+      ['焜', 'kun', 11, '火', '光亮温暖', '男|中性'],
+      ['焰', 'yan', 11, '火', '火焰、热烈', '男|中性'],
+      ['煇', 'hui', 13, '火', '光辉闪耀', '男|中性'],
+      ['煌', 'huang', 13, '火', '辉煌灿烂', '男'],
+      ['熔', 'rong', 14, '火', '熔化融合', '男|中性'],
+      ['炽', 'chi', 9, '火', '火势炽盛', '男|中性'],
+      ['燚', 'yi', 16, '火', '火焰旺盛', '男|中性'],
+      ['燊', 'shen', 16, '火', '火盛旺、繁茂', '男|中性'],
+      ['燎', 'liao', 16, '火', '火光照耀', '男|中性'],
+      ['城', 'cheng', 9, '土', '城池、稳固', '男'],
+      ['坤', 'kun', 8, '土', '大地、包容', '女|中性'],
+      ['垚', 'yao', 9, '土', '高亢土盛', '男'],
+      ['岳', 'yue', 8, '土', '高山巍峨', '男'],
+      ['岩', 'yan', 8, '土', '岩石坚固', '男'],
+      ['峻', 'jun', 10, '土', '高峻挺拔', '男'],
+      ['岱', 'dai', 8, '土', '泰山之尊', '男|中性'],
+      ['辰', 'chen', 7, '土', '辰星、时序', '男|中性'],
+      ['均', 'jun', 7, '土', '均衡、平和', '男|中性'],
+      ['厚', 'hou', 9, '土', '厚德、朴实', '男'],
+      ['垣', 'yuan', 9, '土', '城垣、守护', '男|中性'],
+      ['培', 'pei', 11, '土', '栽培、培育', '男|女'],
+      ['境', 'jing', 14, '土', '境界、格局', '男|中性'],
+      ['墨', 'mo', 15, '土', '墨色、文雅', '男|中性'],
+      ['坦', 'tan', 8, '土', '坦荡、宽广', '男|中性'],
+      ['堇', 'jin', 12, '土', '堇色、坚韧', '男|中性'],
+      ['琪', 'qi', 12, '木', '美玉、祥瑞', '女'],
+      ['琦', 'qi', 12, '木', '美石、奇特', '女'],
+      ['瑾', 'jin', 16, '火', '美玉光洁', '女'],
+      ['珂', 'ke', 9, '金', '玉石清响', '女'],
+      ['珞', 'luo', 10, '火', '玉饰晶莹', '女'],
+      ['珺', 'jun', 11, '金', '美玉、温润', '女'],
+      ['璟', 'jing', 17, '火', '玉光耀目', '女'],
+      ['璨', 'can', 18, '火', '璀璨夺目', '女'],
+      ['琬', 'wan', 13, '土', '温婉如玉', '女'],
+      ['琳', 'lin', 13, '木', '琳琅、华美', '女'],
+      ['琰', 'yan', 12, '火', '玉光灿烂', '女|中性'],
+      ['琮', 'cong', 12, '金', '玉器通达', '男|中性'],
+      ['璇', 'xuan', 15, '火', '璇玑星辰', '女'],
+      ['璐', 'lu', 16, '火', '玉石光泽', '女'],
+      ['瑗', 'yuan', 13, '火', '环玉端庄', '女'],
+      ['瑛', 'ying', 14, '火', '晶莹剔透', '女'],
+      ['璞', 'pu', 16, '木', '璞玉浑朴', '男|女'],
+      ['玥', 'yue', 9, '金', '神珠瑞气', '女'],
+      ['玮', 'wei', 9, '土', '珍奇、美好', '男|女'],
+      ['玟', 'min', 9, '金', '美玉花纹', '女'],
+      ['珉', 'min', 10, '水', '似玉的石头', '男|中性'],
+      ['钧', 'jun', 9, '金', '钧衡、沉稳', '男'],
+      ['铭', 'ming', 11, '金', '铭记、刻铭', '男|中性'],
+      ['锦', 'jin', 13, '金', '锦绣、华美', '女|中性'],
+      ['钰', 'yu', 13, '金', '宝玉、珍贵', '女'],
+      ['锴', 'kai', 13, '金', '坚硬锋利', '男'],
+      ['锋', 'feng', 12, '金', '锋芒、锐利', '男'],
+      ['铠', 'kai', 12, '金', '铠甲、防护', '男'],
+      ['锐', 'rui', 12, '金', '敏锐、锋利', '男|中性'],
+      ['鑫', 'xin', 24, '金', '金多兴盛', '男|中性'],
+      ['钛', 'tai', 12, '金', '金属坚韧', '男|中性'],
+      ['鎏', 'liu', 18, '金', '鎏金、华贵', '男|中性'],
+      ['铄', 'shuo', 11, '金', '金光闪耀', '男|中性'],
+      ['钥', 'yao', 9, '金', '钥匙、开启', '男|女|中性'],
+      ['铜', 'tong', 11, '金', '铜色、坚实', '男|中性'],
+      ['睿', 'rui', 14, '金', '聪慧、通达', '男|中性'],
+      ['哲', 'zhe', 10, '火', '哲理、睿智', '男|中性'],
+      ['谦', 'qian', 12, '木', '谦逊、礼让', '男|中性'],
+      ['逸', 'yi', 11, '土', '安逸、超脱', '男|中性'],
+      ['修', 'xiu', 10, '金', '修养、修饰', '男|中性'],
+      ['俊', 'jun', 9, '火', '俊秀、英俊', '男'],
+      ['佳', 'jia', 8, '木', '美好、佳人', '女'],
+      ['宜', 'yi', 8, '木', '适宜、安适', '女|中性'],
+      ['仁', 'ren', 4, '金', '仁爱、仁德', '男|中性'],
+      ['弘', 'hong', 5, '水', '宏大、弘扬', '男|中性'],
+      ['博', 'bo', 12, '水', '广博、博学', '男'],
+      ['智', 'zhi', 12, '火', '智慧、聪颖', '男|中性'],
+      ['翊', 'yi', 12, '木', '辅佐、翊戴', '男|中性'],
+      ['羽', 'yu', 6, '木', '羽翼、轻盈', '女|中性'],
+      ['禹', 'yu', 9, '土', '大禹、治理', '男'],
+      ['舟', 'zhou', 6, '木', '舟船、远行', '男|中性'],
+      ['帆', 'fan', 6, '水', '风帆、远航', '男|中性'],
+      ['远', 'yuan', 7, '土', '远大、远行', '男|中性'],
+      ['恒', 'heng', 9, '水', '恒久、恒心', '男|中性'],
+      ['卓', 'zhuo', 8, '火', '卓越、杰出', '男|中性']
+      ];
+      const NAME_CHARACTERS = RAW_CHARACTER_DATA.map(([char, pinyin, strokes, wuxing, meaning, genderStr]) => ({
+        char,
+        pinyin,
+        strokes,
+        wuxing,
+        meaning,
+        genders: genderStr.split('|')
+      }));
+      const STYLE_TAGS = {
+  "古风": [
+    "安",
+    "宁",
+    "清",
+    "初",
+    "言",
+    "轩",
+    "瑶",
+    "若",
+    "然",
+    "霁",
+    "笙",
+    "岚",
+    "亭",
+    "竹",
+    "云",
+    "澜",
+    "月",
+    "墨",
+    "玄",
+    "卿",
+    "尘",
+    "苏",
+    "风",
+    "洛",
+    "澈",
+    "岑",
+    "辞",
+    "歌",
+    "绮",
+    "霜",
+    "雪",
+    "霄",
+    "琴",
+    "璃",
+    "辰",
+    "景",
+    "楚"
+  ],
+  "现代": [
+    "诺",
+    "奕",
+    "晨",
+    "然",
+    "悦",
+    "宁",
+    "轩",
+    "宸",
+    "希",
+    "岑",
+    "沐",
+    "一",
+    "扬",
+    "睿",
+    "尹",
+    "墨",
+    "栩",
+    "栎",
+    "淇",
+    "漾",
+    "烁",
+    "瑜",
+    "锐",
+    "钰",
+    "锦",
+    "宥",
+    "澈",
+    "彦",
+    "哲",
+    "逸",
+    "杭",
+    "泽",
+    "洲",
+    "尧",
+    "航"
+  ],
+  "简约": [
+    "一",
+    "安",
+    "初",
+    "宁",
+    "朴",
+    "白",
+    "舟",
+    "羽",
+    "禾",
+    "石",
+    "行",
+    "至",
+    "弘",
+    "卓",
+    "若",
+    "简",
+    "言",
+    "苏",
+    "竹",
+    "亦",
+    "之",
+    "以",
+    "云",
+    "尹",
+    "启",
+    "羽",
+    "宥",
+    "悠",
+    "衡",
+    "然",
+    "沁",
+    "尘"
+  ],
+  "诗经楚辞": [
+    "风",
+    "月",
+    "沐",
+    "泽",
+    "林",
+    "竹",
+    "云",
+    "岚",
+    "澜",
+    "安",
+    "清",
+    "望",
+    "川",
+    "若",
+    "潇",
+    "泠",
+    "渺",
+    "涣",
+    "言",
+    "嘉",
+    "音",
+    "雅",
+    "瑶",
+    "羽",
+    "霏",
+    "霄",
+    "楚",
+    "辰",
+    "牧",
+    "遥",
+    "霞",
+    "岑",
+    "渊"
+  ],
+  "唐宋": [
+    "霜",
+    "月",
+    "松",
+    "竹",
+    "泉",
+    "衡",
+    "知",
+    "远",
+    "白",
+    "鸿",
+    "羽",
+    "轩",
+    "庭",
+    "墨",
+    "涵",
+    "秋",
+    "柳",
+    "逸",
+    "韶",
+    "吟",
+    "歌",
+    "岑",
+    "章",
+    "颂",
+    "宁",
+    "致",
+    "澈",
+    "渊",
+    "希",
+    "弘",
+    "柏",
+    "尧"
+  ],
+  "科技感": [
+    "钧",
+    "瀚",
+    "宙",
+    "远",
+    "辰",
+    "寰",
+    "格",
+    "元",
+    "宇",
+    "川",
+    "航",
+    "擎",
+    "曜",
+    "晟",
+    "昶",
+    "景",
+    "锋",
+    "锐",
+    "钛",
+    "铠",
+    "铭",
+    "芯",
+    "量",
+    "序",
+    "柏",
+    "启",
+    "衡",
+    "星",
+    "尧",
+    "澎",
+    "澈",
+    "辰"
+  ]
+};
+      const SURNAME_PINYIN_MAP = {
+  "赵": "zhao",
+  "钱": "qian",
+  "孙": "sun",
+  "李": "li",
+  "周": "zhou",
+  "吴": "wu",
+  "郑": "zheng",
+  "王": "wang",
+  "冯": "feng",
+  "陈": "chen",
+  "褚": "chu",
+  "卫": "wei",
+  "蒋": "jiang",
+  "沈": "shen",
+  "韩": "han",
+  "杨": "yang",
+  "朱": "zhu",
+  "秦": "qin",
+  "尤": "you",
+  "许": "xu",
+  "何": "he",
+  "吕": "lv",
+  "施": "shi",
+  "张": "zhang",
+  "孔": "kong",
+  "曹": "cao",
+  "严": "yan",
+  "华": "hua",
+  "金": "jin",
+  "魏": "wei",
+  "陶": "tao",
+  "姜": "jiang",
+  "戚": "qi",
+  "谢": "xie",
+  "邹": "zou",
+  "喻": "yu",
+  "柏": "bai",
+  "水": "shui",
+  "窦": "dou",
+  "章": "zhang",
+  "云": "yun",
+  "苏": "su",
+  "潘": "pan",
+  "葛": "ge",
+  "奚": "xi",
+  "范": "fan",
+  "彭": "peng",
+  "鲁": "lu",
+  "韦": "wei",
+  "昌": "chang",
+  "马": "ma",
+  "苗": "miao",
+  "凤": "feng",
+  "花": "hua",
+  "方": "fang",
+  "俞": "yu",
+  "任": "ren",
+  "袁": "yuan",
+  "柳": "liu",
+  "酆": "feng",
+  "鲍": "bao",
+  "史": "shi",
+  "唐": "tang",
+  "费": "fei",
+  "廉": "lian",
+  "岑": "cen",
+  "薛": "xue",
+  "雷": "lei",
+  "贺": "he",
+  "倪": "ni",
+  "汤": "tang",
+  "滕": "teng",
+  "殷": "yin",
+  "罗": "luo",
+  "毕": "bi",
+  "郝": "hao",
+  "邬": "wu",
+  "安": "an",
+  "常": "chang",
+  "乐": "yue",
+  "于": "yu",
+  "时": "shi",
+  "傅": "fu",
+  "皮": "pi",
+  "卞": "bian",
+  "齐": "qi",
+  "康": "kang",
+  "伍": "wu",
+  "余": "yu",
+  "元": "yuan",
+  "卜": "bu",
+  "顾": "gu",
+  "孟": "meng",
+  "平": "ping",
+  "黄": "huang",
+  "和": "he",
+  "穆": "mu",
+  "萧": "xiao",
+  "尹": "yin",
+  "姚": "yao",
+  "邵": "shao",
+  "湛": "zhan",
+  "汪": "wang",
+  "祁": "qi",
+  "毛": "mao",
+  "禹": "yu",
+  "狄": "di",
+  "米": "mi",
+  "贝": "bei",
+  "明": "ming",
+  "臧": "zang",
+  "计": "ji",
+  "伏": "fu",
+  "成": "cheng",
+  "戴": "dai",
+  "谈": "tan",
+  "宋": "song",
+  "茅": "mao",
+  "庞": "pang",
+  "熊": "xiong",
+  "纪": "ji",
+  "舒": "shu",
+  "屈": "qu",
+  "项": "xiang",
+  "祝": "zhu",
+  "董": "dong",
+  "梁": "liang",
+  "杜": "du",
+  "阮": "ruan",
+  "蓝": "lan",
+  "闵": "min",
+  "席": "xi",
+  "季": "ji",
+  "麻": "ma",
+  "强": "qiang",
+  "贾": "jia",
+  "路": "lu",
+  "娄": "lou",
+  "危": "wei",
+  "江": "jiang",
+  "童": "tong",
+  "颜": "yan",
+  "郭": "guo",
+  "梅": "mei",
+  "盛": "sheng",
+  "林": "lin",
+  "刁": "diao",
+  "钟": "zhong",
+  "徐": "xu",
+  "邱": "qiu",
+  "骆": "luo",
+  "高": "gao",
+  "夏": "xia",
+  "蔡": "cai",
+  "田": "tian",
+  "樊": "fan",
+  "胡": "hu",
+  "凌": "ling",
+  "霍": "huo",
+  "虞": "yu",
+  "万": "wan",
+  "支": "zhi",
+  "柯": "ke",
+  "昝": "zan",
+  "管": "guan",
+  "卢": "lu",
+  "莫": "mo",
+  "经": "jing",
+  "房": "fang",
+  "裘": "qiu",
+  "缪": "miao",
+  "干": "gan",
+  "解": "xie",
+  "应": "ying",
+  "宗": "zong",
+  "丁": "ding",
+  "宣": "xuan",
+  "贲": "ben",
+  "邓": "deng",
+  "郁": "yu",
+  "单": "shan",
+  "杭": "hang",
+  "洪": "hong",
+  "包": "bao",
+  "诸": "zhu",
+  "左": "zuo",
+  "石": "shi",
+  "崔": "cui",
+  "吉": "ji",
+  "钮": "niu",
+  "龚": "gong"
+};
+      const WUXING_OPTIONS = ['木', '火', '土', '金', '水'];
+      const STYLE_OPTIONS = ['古风', '现代', '诗经楚辞', '唐宋', '科技感'];
+      const PAGE_SIZE = 20;
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+const state = {
+  results: [],
+  filtered: [],
+  selected: new Set(),
+  page: 1
+};
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+let form;
+let styleChips;
+let wuxingChips;
+let searchInput;
+let resultContainer;
+let pagination;
+let prevPageBtn;
+let nextPageBtn;
+let pageInfo;
+let emptyState;
+let loosenBtn;
+let toastEl;
+let copySelectedBtn;
+let exportBtn;
+let clearBtn;
+let generateBtn;
+const selectedStyles = new Set();
+const selectedWuxing = new Set();
 
-      highScoreEl.textContent = highScore.toString();
+function createChip(container, label, set) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'chip';
+  btn.textContent = label;
+  if (set.has(label)) {
+    btn.classList.add('selected');
+  }
+  btn.addEventListener('click', event => {
+    event.preventDefault();
+    if (set.has(label)) {
+      set.delete(label);
+      btn.classList.remove('selected');
+    } else {
+      set.add(label);
+      btn.classList.add('selected');
+    }
+  });
+  container.appendChild(btn);
+}
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
+function populatePreferenceChips() {
+  STYLE_OPTIONS.forEach(style => createChip(styleChips, style, selectedStyles));
+  WUXING_OPTIONS.forEach(w => createChip(wuxingChips, w, selectedWuxing));
+}
 
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
+function syncRadioGroupState(group) {
+  if (!group) return;
+  group.querySelectorAll('.radio-chip').forEach(label => {
+    const input = label.querySelector('input');
+    const shouldActive = input ? input.checked : false;
+    label.classList.toggle('active', shouldActive);
+  });
+}
 
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
+function bindRadioGroup(groupId) {
+  const group = document.getElementById(groupId);
+  if (!group) return;
 
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
+  group.addEventListener('click', event => {
+    const label = event.target.closest('.radio-chip');
+    if (!label || !group.contains(label)) return;
+    const input = label.querySelector('input');
+    if (input) {
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
 
-        draw();
-        requestAnimationFrame(gameLoop);
+  group.addEventListener('change', event => {
+    const target = event.target;
+    if (target && target.matches('input[type="radio"]')) {
+      syncRadioGroupState(group);
+    }
+  });
+
+  syncRadioGroupState(group);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function getToneType(pinyin) {
+  if (!pinyin) return '平';
+  const last = pinyin[pinyin.length - 1];
+  return 'aeiouv'.includes(last) ? '平' : '仄';
+}
+
+function lookupCharInfo(char) {
+  return NAME_CHARACTERS.find(item => item.char === char);
+}
+
+function showToast(message) {
+  if (!toastEl) return;
+  toastEl.textContent = message;
+  toastEl.classList.add('show');
+  setTimeout(() => toastEl.classList.remove('show'), 2000);
+}
+
+function copyText(text) {
+  if (!text) {
+    showToast('没有可复制的内容');
+    return;
+  }
+  const writeClipboard = navigator.clipboard?.writeText
+    ? navigator.clipboard.writeText(text)
+    : Promise.reject();
+
+  writeClipboard
+    .then(() => {
+      showToast('已复制到剪贴板');
+    })
+    .catch(() => {
+      const temp = document.createElement('textarea');
+      temp.value = text;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      showToast('已复制到剪贴板');
+    });
+}
+
+function gatherConfig() {
+  const formData = new FormData(form);
+  let surname = (formData.get('surname') || '').trim();
+  if (surname.length > 2) surname = surname.slice(0, 2);
+  const gender = formData.get('gender') || '中性';
+  const pattern = formData.get('pattern') || 'double';
+  const tonePreference = formData.get('tonePreference') || '不限';
+  const strokeFlex = formData.get('strokeFlex') || 'balanced';
+  const strokeMinRaw = formData.get('strokeMin');
+  const strokeMaxRaw = formData.get('strokeMax');
+  const strokeMin = strokeMinRaw ? Number(strokeMinRaw) : null;
+  const strokeMax = strokeMaxRaw ? Number(strokeMaxRaw) : null;
+  const count = clamp(Number(formData.get('generateCount')) || 50, 10, 200);
+  let avoidChars = (formData.get('avoidChars') || '')
+    .split(/[,，\s]+/)
+    .map(ch => ch.trim())
+    .filter(Boolean);
+  avoidChars = Array.from(new Set(avoidChars));
+  if (strokeMin !== null && (Number.isNaN(strokeMin) || strokeMin < 1 || strokeMin > 100)) {
+    return { error: '笔画范围需在 1-100 之间' };
+  }
+  if (strokeMax !== null && (Number.isNaN(strokeMax) || strokeMax < 1 || strokeMax > 100)) {
+    return { error: '笔画范围需在 1-100 之间' };
+  }
+  if (strokeMin && strokeMax && strokeMin > strokeMax) {
+    return { error: '笔画最小值不能大于最大值' };
+  }
+  return {
+    surname,
+    gender,
+    pattern,
+    tonePreference,
+    strokeFlex,
+    strokeMin,
+    strokeMax,
+    count,
+    avoidSet: new Set(avoidChars),
+    styles: Array.from(selectedStyles),
+    wuxing: Array.from(selectedWuxing)
+  };
+}
+
+function filterCharacters(config) {
+  return NAME_CHARACTERS.filter(item => {
+    if (config.avoidSet.has(item.char)) return false;
+    if (config.strokeMin && item.strokes < config.strokeMin) return false;
+    if (config.strokeMax && item.strokes > config.strokeMax) return false;
+    return true;
+  });
+}
+
+function computeScore(chars, config) {
+  const nameLength = chars.length;
+  const genderScores = chars.map(c => {
+    if (c.genders.includes(config.gender)) return 1;
+    if (c.genders.includes('中性')) return 0.8;
+    return 0.5;
+  });
+  const genderScore = genderScores.reduce((sum, v) => sum + v, 0) / nameLength;
+
+  let wuxingPrefScore = 0.75;
+  if (config.wuxing.length) {
+    const matches = chars.filter(c => config.wuxing.includes(c.wuxing)).length;
+    wuxingPrefScore = matches / nameLength;
+  }
+
+  let strokePrefScore = 0.7;
+  if (config.strokeMin !== null || config.strokeMax !== null) {
+    const min = config.strokeMin ?? Math.min(...chars.map(c => c.strokes));
+    const max = config.strokeMax ?? Math.max(...chars.map(c => c.strokes));
+    const mid = (min + max) / 2;
+    const diffAvg = chars.reduce((sum, c) => sum + Math.abs(c.strokes - mid), 0) / nameLength;
+    const span = Math.max(1, (max - min) || 6);
+    strokePrefScore = clamp(1 - diffAvg / (span * 1.2), 0.4, 1);
+  }
+
+  const preferenceScore = clamp((genderScore + wuxingPrefScore + strokePrefScore) / 3, 0, 1);
+
+  let styleScore = 0.6;
+  if (config.styles.length) {
+    const ratios = config.styles.map(style => {
+      const list = STYLE_TAGS[style] || [];
+      const matches = chars.filter(c => list.includes(c.char)).length;
+      return matches / nameLength;
+    });
+    styleScore = Math.max(...ratios);
+  }
+
+  const distinctWuxing = new Set(chars.map(c => c.wuxing)).size;
+  const diversity = nameLength === 1 ? 0.7 : distinctWuxing === nameLength ? 1 : 0.75;
+
+  const tonePattern = chars.map(c => getToneType(c.pinyin)).join('');
+  let toneScore = 0.7;
+  if (config.tonePreference === '平仄' && tonePattern === '平仄') toneScore = 1;
+  else if (config.tonePreference === '仄平' && tonePattern === '仄平') toneScore = 1;
+  else if (config.tonePreference === '平' && tonePattern.split('').every(t => t === '平')) toneScore = 0.95;
+  else if (config.tonePreference === '仄' && tonePattern.split('').every(t => t === '仄')) toneScore = 0.95;
+
+  let smoothScore = 0.8;
+  const pinyinStr = chars.map(c => c.pinyin).join('');
+  if (/([aeiou]{2,})/.test(pinyinStr)) {
+    smoothScore -= 0.1;
+  }
+  if (/([a-z]{2})\1/.test(pinyinStr)) {
+    smoothScore -= 0.15;
+  }
+  smoothScore = clamp(smoothScore, 0.5, 1);
+
+  const strokeFlexScore = (() => {
+    const avg = chars.reduce((sum, c) => sum + c.strokes, 0) / nameLength;
+    if (config.strokeFlex === 'slim') {
+      return clamp(1 - avg / 20, 0.4, 1);
+    }
+    if (config.strokeFlex === 'complex') {
+      return clamp(avg / 20, 0.4, 1);
+    }
+    return clamp(0.85 - Math.abs(avg - 10) / 30, 0.5, 1);
+  })();
+
+  const score = clamp(
+    preferenceScore * 0.4 +
+      styleScore * 0.2 +
+      diversity * 0.1 +
+      toneScore * 0.15 +
+      smoothScore * 0.05 +
+      strokeFlexScore * 0.1,
+    0,
+    1
+  );
+
+  return {
+    score: Number((score * 100).toFixed(1)),
+    breakdown: {
+      preference: { label: '偏好匹配', value: preferenceScore * 10, comment: preferenceScore >= 0.8 ? '高度匹配偏好' : '匹配度一般' },
+      style: { label: '风格倾向', value: styleScore * 10, comment: styleScore >= 0.7 ? '风格契合明显' : '风格影响较弱' },
+      wuxing: { label: '五行均衡', value: diversity * 10, comment: diversity >= 0.9 ? '五行较为均衡' : '建议关注五行' },
+      tone: { label: '声调顺口', value: toneScore * 10, comment: toneScore >= 0.9 ? '声调贴合偏好' : '声调需要权衡' },
+      strokes: { label: '笔画观感', value: strokeFlexScore * 10, comment: strokeFlexScore >= 0.8 ? '笔画符合偏好' : '笔画有差异' }
+    },
+    tonePattern
+  };
+}
+
+function buildCandidateEntries(pool, config) {
+  const surnameChars = config.surname.split('');
+  const surnamePinyin = surnameChars.map(ch => SURNAME_PINYIN_MAP[ch] || lookupCharInfo(ch)?.pinyin || '?');
+  const combinations = [];
+  const givenNames = new Set();
+
+  function pushCandidate(chars) {
+    const given = chars.map(c => c.char).join('');
+    if (givenNames.has(given)) return;
+    givenNames.add(given);
+    const meanings = chars.map(c => `${c.char}：${c.meaning}`).join('；');
+    const strokes = chars.map(c => c.strokes);
+    const totalStrokes = strokes.reduce((sum, n) => sum + n, 0);
+    const strokesDetail = strokes.length > 1 ? `${strokes.join(' + ')} = ${totalStrokes}` : `${totalStrokes}`;
+    const wuxingDetail = chars.map(c => c.wuxing).join('/');
+    const { score, breakdown, tonePattern } = computeScore(chars, config);
+    const fullPinyin = [...surnamePinyin, ...chars.map(c => c.pinyin)].join(' ');
+    combinations.push({
+      id: `name-${combinations.length + 1}`,
+      surname: config.surname,
+      given,
+      name: `${config.surname}${given}`,
+      chars,
+      meanings,
+      strokesDetail,
+      totalStrokes,
+      wuxingDetail,
+      fullPinyin,
+      tonePattern,
+      score,
+      breakdown
+    });
+  }
+
+  if (config.pattern === 'single') {
+    pool.forEach(char => {
+      pushCandidate([char]);
+    });
+  } else {
+    for (let i = 0; i < pool.length; i += 1) {
+      for (let j = i + 1; j < pool.length; j += 1) {
+        pushCandidate([pool[i], pool[j]]);
+        pushCandidate([pool[j], pool[i]]);
       }
+    }
+  }
 
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
+  combinations.sort((a, b) => b.score - a.score);
+  return combinations;
+}
 
-        requestAnimationFrame(gameLoop);
+function renderResults() {
+  const list = state.filtered;
+  if (!list.length) {
+    resultContainer.innerHTML = '';
+    pagination.hidden = true;
+    emptyState.hidden = false;
+    return;
+  }
+  emptyState.hidden = true;
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  state.page = clamp(state.page, 1, totalPages);
+  const start = (state.page - 1) * PAGE_SIZE;
+  const pageItems = list.slice(start, start + PAGE_SIZE);
+  const table = document.createElement('table');
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>选择</th>
+        <th>姓名</th>
+        <th>拼音</th>
+        <th>释义</th>
+        <th>笔画组合</th>
+        <th>五行组合</th>
+        <th>评分</th>
+        <th>复制</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector('tbody');
+  pageItems.forEach(item => {
+    const tr = document.createElement('tr');
+    const checked = state.selected.has(item.id) ? 'checked' : '';
+    tr.innerHTML = `
+      <td><input type="checkbox" data-id="${item.id}" ${checked} /></td>
+      <td><button class="name-button" data-copy="${item.name}">${item.name}</button></td>
+      <td>${item.fullPinyin}</td>
+      <td>${item.meanings}</td>
+      <td>${item.strokesDetail}</td>
+      <td>${item.wuxingDetail}</td>
+      <td>
+        <span class="score-tag">${item.score}</span>
+        <details class="score-details">
+          <summary>评分详情</summary>
+          <ul>
+            ${Object.values(item.breakdown).map(d => `<li>${d.label}：${d.value.toFixed(1)}分 - ${d.comment}</li>`).join('')}
+          </ul>
+        </details>
+      </td>
+      <td><button class="btn btn-outline" data-copy="${item.name}" data-full="${item.name} ${item.fullPinyin}">复制</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  resultContainer.innerHTML = '';
+  resultContainer.appendChild(table);
+  pagination.hidden = totalPages <= 1;
+  prevPageBtn.disabled = state.page === 1;
+  nextPageBtn.disabled = state.page === totalPages;
+  pageInfo.textContent = `第 ${state.page}/${totalPages} 页 · 共 ${list.length} 条`;
+}
 
-        if (paused) {
-          return;
-        }
+function applySearch(term) {
+  const normalized = term.trim().toLowerCase();
+  if (!normalized) {
+    state.filtered = [...state.results];
+  } else {
+    state.filtered = state.results.filter(item =>
+      item.name.includes(normalized) ||
+      item.fullPinyin.replace(/\s+/g, '').includes(normalized)
+    );
+  }
+  state.page = 1;
+  renderResults();
+}
 
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
+function handleGenerate(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const config = gatherConfig();
+  if (config.error) {
+    showToast(config.error);
+    return;
+  }
+  if (!config.surname) {
+    showToast('请输入姓氏');
+    const surnameField = form.querySelector('#surname');
+    if (surnameField) {
+      surnameField.focus();
+    }
+    return;
+  }
+  const available = filterCharacters(config);
+  const candidates = buildCandidateEntries(available, config);
+  state.results = candidates.slice(0, config.count);
+  state.filtered = [...state.results];
+  state.page = 1;
+  state.selected.clear();
+  renderResults();
+}
 
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
+function bindEventListeners() {
+  form.addEventListener('submit', handleGenerate);
+  if (generateBtn) {
+    generateBtn.addEventListener('click', handleGenerate);
+  }
+
+  let searchTimer = null;
+  searchInput.addEventListener('input', event => {
+    clearTimeout(searchTimer);
+    const value = event.target.value;
+    searchTimer = setTimeout(() => applySearch(value), 200);
+  });
+
+  prevPageBtn.addEventListener('click', () => {
+    state.page -= 1;
+    renderResults();
+  });
+  nextPageBtn.addEventListener('click', () => {
+    state.page += 1;
+    renderResults();
+  });
+
+  loosenBtn.addEventListener('click', () => {
+    selectedStyles.clear();
+    selectedWuxing.clear();
+    styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+
+    const minField = form.strokeMin;
+    const maxField = form.strokeMax;
+    const minNumeric = minField.value ? Number(minField.value) : null;
+    const maxNumeric = maxField.value ? Number(maxField.value) : null;
+
+    if (minNumeric !== null && !Number.isNaN(minNumeric)) {
+      minField.value = Math.max(1, minNumeric - 2);
+    } else {
+      minField.value = '';
+    }
+
+    if (maxNumeric !== null && !Number.isNaN(maxNumeric)) {
+      maxField.value = Math.min(100, maxNumeric + 4);
+    } else {
+      maxField.value = '';
+    }
+
+    form.avoidChars.value = '';
+    form.tonePreference.value = '不限';
+    form.strokeFlex.value = 'balanced';
+    showToast('已自动放宽筛选条件');
+    handleGenerate();
+  });
+
+  clearBtn.addEventListener('click', () => {
+    form.reset();
+    selectedStyles.clear();
+    selectedWuxing.clear();
+    styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
+    state.results = [];
+    state.filtered = [];
+    state.selected.clear();
+    resultContainer.innerHTML = '';
+    pagination.hidden = true;
+    emptyState.hidden = true;
+    syncRadioGroupState(document.getElementById('genderGroup'));
+    syncRadioGroupState(document.getElementById('namePattern'));
+  });
+
+  resultContainer.addEventListener('click', event => {
+    const target = event.target;
+    if (target.matches('input[type="checkbox"][data-id]')) {
+      const id = target.getAttribute('data-id');
+      if (target.checked) {
+        state.selected.add(id);
+      } else {
+        state.selected.delete(id);
       }
+      return;
+    }
+    if (target.dataset.copy) {
+      const full = target.dataset.full || target.dataset.copy;
+      copyText(full);
+    }
+  });
 
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
+  copySelectedBtn.addEventListener('click', () => {
+    if (!state.selected.size) {
+      showToast('请先勾选要复制的姓名');
+      return;
+    }
+    const lines = state.results
+      .filter(item => state.selected.has(item.id))
+      .map(item => `${item.name}    ${item.fullPinyin}`);
+    copyText(lines.join('\n'));
+  });
 
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
-        };
+  exportBtn.addEventListener('click', () => {
+    if (!state.results.length) {
+      showToast('暂无可导出的内容');
+      return;
+    }
+    const header = 'name,pinyin,meaning,strokes_total,strokes_detail,wuxing_detail,score';
+    const rows = state.results.map(item => {
+      const columns = [
+        item.name,
+        item.fullPinyin,
+        item.meanings,
+        item.totalStrokes,
+        item.strokesDetail,
+        item.wuxingDetail,
+        item.score
+      ].map(value => `"${String(value).replace(/"/g, '""')}"`);
+      return columns.join(',');
+    });
+    const csvContent = [header, ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'name_suggestions.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('CSV 导出完成');
+  });
+}
 
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
+function initDomReferences() {
+  form = document.getElementById('configForm');
+  styleChips = document.getElementById('styleChips');
+  wuxingChips = document.getElementById('wuxingChips');
+  searchInput = document.getElementById('resultSearch');
+  resultContainer = document.getElementById('resultContainer');
+  pagination = document.getElementById('pagination');
+  prevPageBtn = document.getElementById('prevPage');
+  nextPageBtn = document.getElementById('nextPage');
+  pageInfo = document.getElementById('pageInfo');
+  emptyState = document.getElementById('emptyState');
+  loosenBtn = document.getElementById('loosenBtn');
+  toastEl = document.getElementById('toast');
+  copySelectedBtn = document.getElementById('copySelected');
+  exportBtn = document.getElementById('exportCsv');
+  clearBtn = document.getElementById('clearBtn');
+  generateBtn = document.getElementById('generateBtn');
+}
 
-        snake.unshift(newHead);
+function init() {
+  initDomReferences();
+  populatePreferenceChips();
+  bindRadioGroup('genderGroup');
+  bindRadioGroup('namePattern');
+  bindEventListeners();
+  const surnameInput = document.getElementById('surname');
+  if (surnameInput) {
+    surnameInput.focus();
+  }
+}
 
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
-      }
-
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
-          }
-          ctx.fill();
-          ctx.stroke();
-        });
-      }
-
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
-
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
-        );
-
-        food = newFood;
-      }
-
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
-            }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
-        });
-      });
-
-      initGame();
-    </script>
+window.addEventListener('DOMContentLoaded', init);
+</script>
   </body>
 </html>
