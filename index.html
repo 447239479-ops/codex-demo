@@ -1024,7 +1024,7 @@
     "柏",
     "尧"
   ],
-  "国风科技感": [
+  "科技感": [
     "钧",
     "瀚",
     "宙",
@@ -1253,7 +1253,7 @@
   "龚": "gong"
 };
       const WUXING_OPTIONS = ['木', '火', '土', '金', '水'];
-      const STYLE_OPTIONS = Object.keys(STYLE_TAGS);
+      const STYLE_OPTIONS = ['古风', '现代', '诗经楚辞', '唐宋', '科技感'];
       const PAGE_SIZE = 20;
 
 const state = {
@@ -1287,6 +1287,9 @@ function createChip(container, label, set) {
   btn.type = 'button';
   btn.className = 'chip';
   btn.textContent = label;
+  if (set.has(label)) {
+    btn.classList.add('selected');
+  }
   btn.addEventListener('click', event => {
     event.preventDefault();
     if (set.has(label)) {
@@ -1305,19 +1308,37 @@ function populatePreferenceChips() {
   WUXING_OPTIONS.forEach(w => createChip(wuxingChips, w, selectedWuxing));
 }
 
+function syncRadioGroupState(group) {
+  if (!group) return;
+  group.querySelectorAll('.radio-chip').forEach(label => {
+    const input = label.querySelector('input');
+    const shouldActive = input ? input.checked : false;
+    label.classList.toggle('active', shouldActive);
+  });
+}
+
 function bindRadioGroup(groupId) {
   const group = document.getElementById(groupId);
   if (!group) return;
-  group.querySelectorAll('.radio-chip').forEach(label => {
-    label.addEventListener('click', () => {
-      group.querySelectorAll('.radio-chip').forEach(node => node.classList.remove('active'));
-      label.classList.add('active');
-      const input = label.querySelector('input');
-      if (input) {
-        input.checked = true;
-      }
-    });
+
+  group.addEventListener('click', event => {
+    const label = event.target.closest('.radio-chip');
+    if (!label || !group.contains(label)) return;
+    const input = label.querySelector('input');
+    if (input) {
+      input.checked = true;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
   });
+
+  group.addEventListener('change', event => {
+    const target = event.target;
+    if (target && target.matches('input[type="radio"]')) {
+      syncRadioGroupState(group);
+    }
+  });
+
+  syncRadioGroupState(group);
 }
 
 function clamp(value, min, max) {
@@ -1383,6 +1404,12 @@ function gatherConfig() {
     .map(ch => ch.trim())
     .filter(Boolean);
   avoidChars = Array.from(new Set(avoidChars));
+  if (strokeMin !== null && (Number.isNaN(strokeMin) || strokeMin < 1 || strokeMin > 100)) {
+    return { error: '笔画范围需在 1-100 之间' };
+  }
+  if (strokeMax !== null && (Number.isNaN(strokeMax) || strokeMax < 1 || strokeMax > 100)) {
+    return { error: '笔画范围需在 1-100 之间' };
+  }
   if (strokeMin && strokeMax && strokeMin > strokeMax) {
     return { error: '笔画最小值不能大于最大值' };
   }
@@ -1639,7 +1666,11 @@ function handleGenerate(event) {
     return;
   }
   if (!config.surname) {
-    showToast('请先填写姓氏');
+    showToast('请输入姓氏');
+    const surnameField = form.querySelector('#surname');
+    if (surnameField) {
+      surnameField.focus();
+    }
     return;
   }
   const available = filterCharacters(config);
@@ -1678,10 +1709,28 @@ function bindEventListeners() {
     selectedWuxing.clear();
     styleChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
     wuxingChips.querySelectorAll('.chip').forEach(chip => chip.classList.remove('selected'));
-    form.strokeMin.value = '';
-    form.strokeMax.value = '';
+
+    const minField = form.strokeMin;
+    const maxField = form.strokeMax;
+    const minNumeric = minField.value ? Number(minField.value) : null;
+    const maxNumeric = maxField.value ? Number(maxField.value) : null;
+
+    if (minNumeric !== null && !Number.isNaN(minNumeric)) {
+      minField.value = Math.max(1, minNumeric - 2);
+    } else {
+      minField.value = '';
+    }
+
+    if (maxNumeric !== null && !Number.isNaN(maxNumeric)) {
+      maxField.value = Math.min(100, maxNumeric + 4);
+    } else {
+      maxField.value = '';
+    }
+
+    form.avoidChars.value = '';
     form.tonePreference.value = '不限';
     form.strokeFlex.value = 'balanced';
+    showToast('已自动放宽筛选条件');
     handleGenerate();
   });
 
@@ -1697,6 +1746,8 @@ function bindEventListeners() {
     resultContainer.innerHTML = '';
     pagination.hidden = true;
     emptyState.hidden = true;
+    syncRadioGroupState(document.getElementById('genderGroup'));
+    syncRadioGroupState(document.getElementById('namePattern'));
   });
 
   resultContainer.addEventListener('click', event => {
