@@ -4,21 +4,18 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
+    <title>文本排版导出工具</title>
     <style>
       :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
+        color-scheme: light;
+        --accent: #6366f1;
+        --accent-strong: #7c3aed;
+        --accent-soft: rgba(99, 102, 241, 0.18);
       }
 
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
 
@@ -28,504 +25,3171 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
+        padding: 32px 16px;
+        background: radial-gradient(circle at top, #f7f4ef, #ebe6df);
+        font-family: 'Inter', 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei',
+          system-ui, sans-serif;
+        color: #1f2937;
       }
 
-      .page-wrapper {
-        width: min(100%, 480px);
+      main {
+        width: min(1140px, 100%);
+        display: grid;
+        gap: 32px;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        align-items: start;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.94);
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 24px 48px rgba(31, 41, 55, 0.12);
+        backdrop-filter: blur(6px);
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-size: 1.6rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 320px;
+        resize: vertical;
+        border-radius: 18px;
+        border: 1px solid #d1d5db;
+        padding: 16px 20px;
+        font-size: 1rem;
+        line-height: 1.6;
+        font-family: 'LXGW WenKai Screen', 'Noto Serif SC', 'Source Han Serif SC',
+          'Songti SC', 'PingFang SC', 'Microsoft YaHei', serif;
+        color: #1f2937;
+        background: rgba(248, 250, 252, 0.9);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .settings-grid {
+        margin-top: 20px;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.95rem;
+        color: #4b5563;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      .color-input-group {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .color-input-group input[type='color'] {
+        flex: 0 0 48px;
+        height: 44px;
+        padding: 0;
+      }
+
+      .color-input-group input[type='text'] {
+        flex: 1 1 auto;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .field-label {
+        font-weight: 600;
+        color: #374151;
+      }
+
+      .palette-field {
+        gap: 12px;
+      }
+
+      .palette-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+      }
+
+      .palette-swatch {
+        border-radius: 16px;
+        padding: 18px 16px;
+        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
+        display: grid;
+        gap: 6px;
+        background: var(--swatch-color, #fff);
+        transition: transform 0.2s ease;
+      }
+
+      .palette-swatch strong {
+        font-size: 1.05rem;
+        letter-spacing: 0.08em;
+      }
+
+      .palette-swatch span {
+        font-size: 0.85rem;
+      }
+
+      .palette-swatch:hover {
+        transform: translateY(-2px);
+      }
+
+      .palette-contrast {
+        font-weight: 600;
+      }
+
+      .contrast-status {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #047857;
+      }
+
+      .contrast-status.fail {
+        color: #b91c1c;
+        font-weight: 600;
+      }
+
+      .input-invalid {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+      }
+
+      select,
+      input[type='color'],
+      input[type='text'],
+      input[type='range'] {
+        border-radius: 14px;
+        border: 1px solid #d1d5db;
+        padding: 10px 14px;
+        font-size: 0.95rem;
+        font-family: inherit;
+        color: #1f2937;
+        background: rgba(255, 255, 255, 0.92);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      input[type='color'] {
+        height: 44px;
+        padding: 4px;
+      }
+
+      input[type='range'] {
+        padding: 0;
+        height: 36px;
+      }
+
+      select:focus,
+      input:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .range-value {
+        font-size: 0.85rem;
+        color: #6b7280;
+      }
+
+      .cover-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #d1d5db;
+        background: rgba(248, 250, 252, 0.8);
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .cover-toggle input {
+        width: 18px;
+        height: 18px;
+      }
+
+      .cover-toggle:hover,
+      .cover-toggle:focus-within {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+
+      .logo-controls {
+        display: grid;
+        gap: 10px;
+      }
+
+      .logo-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .logo-preview {
+        width: 100%;
+        height: 120px;
+        border: 1px dashed #d1d5db;
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        color: #9ca3af;
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+        transition: border-color 0.2s ease, color 0.2s ease;
+      }
+
+      .logo-preview.has-logo {
+        border-style: solid;
+        border-color: var(--accent);
+        color: transparent;
+      }
+
+      .button-compact {
+        padding: 8px 18px;
+        font-size: 0.9rem;
+      }
+
+      .controls {
+        display: flex;
+        flex-direction: column;
+        margin-top: 20px;
+        gap: 16px;
+      }
+
+      .dimension {
+        font-size: 0.95rem;
+        color: #4b5563;
+      }
+
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: white;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .button-secondary {
+        background: rgba(99, 102, 241, 0.12);
+        color: var(--accent);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+
+      .button-secondary:hover,
+      .button-secondary:focus {
+        box-shadow: inset 0 0 0 1px var(--accent), 0 10px 18px var(--accent-soft);
+      }
+
+      button:hover,
+      button:focus {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 24px var(--accent-soft);
+        outline: none;
+      }
+
+      .error-message {
+        margin: 0;
+        font-size: 0.9rem;
+        color: #b91c1c;
+        background: rgba(248, 113, 113, 0.15);
+        border-radius: 14px;
+        padding: 10px 14px;
+      }
+
+      .self-tests {
+        font-size: 0.85rem;
+        color: #0c4a6e;
+        background: rgba(224, 242, 254, 0.68);
+        border-radius: 14px;
+        padding: 12px 16px;
+        border: 1px solid rgba(14, 116, 144, 0.2);
+      }
+
+      .self-tests.fail {
+        color: #9f1239;
+        background: rgba(254, 226, 226, 0.7);
+        border-color: rgba(185, 28, 28, 0.25);
+      }
+
+      .self-tests strong {
+        color: inherit;
+      }
+
+      .preview-wrapper {
         display: flex;
         flex-direction: column;
         gap: 16px;
         align-items: center;
       }
 
-      .scoreboard {
+      .preview-container {
+        display: grid;
+        gap: 24px;
         width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
+        justify-items: center;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       }
 
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
-
-      .game-wrapper {
+      .preview-card {
         position: relative;
-        width: 400px;
-        max-width: 100%;
-      }
-
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
-        position: absolute;
-        inset: 0;
+        padding: 20px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 32px 56px rgba(15, 23, 42, 0.16);
         display: flex;
         flex-direction: column;
-        justify-content: center;
         align-items: center;
         gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
-        text-align: center;
+        width: min(100%, 420px);
       }
 
-      .hidden {
+      .preview-card .export-canvas {
         display: none;
       }
 
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      canvas {
+        display: block;
+        width: min(100%, 380px);
+        height: auto;
+        max-height: 520px;
+        border-radius: 18px;
+        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.25);
       }
 
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
+      .page-view {
+        position: relative;
+        width: 270px;
+        height: 360px;
+        border-radius: 18px;
+        overflow: hidden;
+        background: var(--page-background, #ffffff);
+        box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
       }
 
-      .control-btn:active {
-        transform: translateY(1px);
+      .page-view-inner {
+        position: absolute;
+        inset: 0;
+        background: var(--page-background, #ffffff);
       }
 
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
+      .page-watermark {
+        position: absolute;
+        inset: 0;
         display: flex;
-        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 48px;
+        color: rgba(99, 102, 241, 0.12);
+        transform: rotate(-24deg);
+        pointer-events: none;
+        user-select: none;
+        white-space: nowrap;
       }
 
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
+      .page-content {
+        position: absolute;
+        padding: 0;
+      }
+
+      .page-content::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 12px;
+        pointer-events: none;
+      }
+
+      .page-number-preview {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        font-size: 0.75rem;
+        color: rgba(31, 41, 55, 0.72);
+        pointer-events: none;
+        user-select: none;
+      }
+
+      .para {
+        position: absolute;
+        white-space: pre-wrap;
+        word-break: break-word;
+        color: inherit;
+        padding: 4px 6px;
+        border-radius: 8px;
+        outline: none;
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+      }
+
+      .para[data-align='center'] {
+        text-align: center;
+      }
+
+      .para[data-align='right'] {
+        text-align: right;
+      }
+
+      .para[data-level='h1'] {
+        letter-spacing: 0.02em;
+      }
+
+      .para[data-level='h2'] {
+        letter-spacing: 0.01em;
+      }
+
+      .para[data-level='h3'] {
+        letter-spacing: 0.005em;
+      }
+
+      .para.selected {
+        box-shadow: 0 0 0 2px var(--accent);
+        transform: translateY(-1px);
+      }
+
+      .para.is-highlight {
+        background: rgba(99, 102, 241, 0.1);
+      }
+
+      .para.is-editing {
+        box-shadow: 0 0 0 2px var(--accent-strong);
+        background: rgba(255, 255, 255, 0.92);
+        transform: none;
+      }
+
+      .para-toolbar {
+        position: fixed;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(17, 24, 39, 0.9);
+        color: #f8fafc;
+        border-radius: 999px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.32);
+        backdrop-filter: blur(8px);
+        pointer-events: auto;
+      }
+
+      .para-toolbar.is-hidden {
+        display: none;
+      }
+
+      .para-toolbar button,
+      .para-toolbar select {
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 6px 10px;
+        border-radius: 999px;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
+        transition: background 0.2s ease, color 0.2s ease;
       }
 
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
+      .para-toolbar button:hover,
+      .para-toolbar select:hover,
+      .para-toolbar button:focus-visible,
+      .para-toolbar select:focus-visible {
+        outline: none;
+        background: rgba(148, 163, 184, 0.24);
       }
 
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
+      .para-toolbar button.is-active {
+        background: rgba(99, 102, 241, 0.6);
+        color: #fff;
+      }
+
+      .para-toolbar select {
+        appearance: none;
+        padding-right: 24px;
+      }
+
+      .toolbar-divider {
+        width: 1px;
+        height: 18px;
+        background: rgba(148, 163, 184, 0.4);
+      }
+
+      .toolbar-toggle {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+
+      .toolbar-toggle input {
+        margin: 0;
+      }
+
+      .hint {
+        font-size: 0.9rem;
+        color: #6b7280;
+        text-align: center;
+        line-height: 1.6;
+      }
+
+      .page-label {
+        font-size: 0.9rem;
+        color: #4b5563;
+      }
+
+      .is-hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 720px) {
+        body {
+          padding: 24px 12px;
         }
-      }
 
-      @media (max-width: 480px) {
-        .scoreboard {
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .direction-btn {
-          width: 56px;
-          height: 56px;
+        .panel {
+          padding: 22px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
-      </header>
-
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
+    <main>
+      <section class="panel">
+        <h1>文本排版输入</h1>
+        <textarea id="textInput" placeholder="在此输入要排版的正文内容…"></textarea>
+        <div class="settings-grid">
+          <label class="field">
+            <span class="field-label">主题</span>
+            <select id="themeSelect">
+              <option value="fresh">清爽白</option>
+              <option value="cream">奶油风</option>
+              <option value="minimal">极简黑</option>
+              <option value="morandi">莫兰迪</option>
+              <option value="vitality">活力橙</option>
+              <option value="commerce">电商红</option>
+              <option value="academic">学术蓝</option>
+              <option value="night">夜读绿</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">品牌色吸管</span>
+            <div class="color-input-group">
+              <input
+                type="color"
+                id="brandColorPicker"
+                value="#2563eb"
+                aria-label="选择品牌基准颜色"
+              />
+              <input
+                type="text"
+                id="brandColorHex"
+                value="#2563EB"
+                placeholder="#3355FF"
+                spellcheck="false"
+              />
+            </div>
+          </label>
+          <div class="field full palette-field">
+            <span class="field-label">自动色板</span>
+            <div class="palette-grid" id="brandPalette" role="list"></div>
+            <p class="contrast-status" id="contrastStatus"></p>
+          </div>
+          <label class="field">
+            <span class="field-label">正文字号</span>
+            <input type="range" id="fontSize" min="36" max="72" value="52" />
+            <span class="range-value" id="fontSizeValue">52 px</span>
+          </label>
+          <label class="field full">
+            <span class="field-label">水印</span>
+            <input
+              type="text"
+              id="watermarkInput"
+              placeholder="可选：输入水印，将以半透明形式铺在页面中央"
+            />
+          </label>
+          <div class="field full">
+            <label class="cover-toggle" for="coverToggle">
+              <input type="checkbox" id="coverToggle" /> 启用封面页
+            </label>
+          </div>
+          <label class="field full is-hidden" id="coverTitleField">
+            <span class="field-label">封面标题</span>
+            <input type="text" id="coverTitle" placeholder="输入封面标题" />
+          </label>
+          <label class="field full is-hidden" id="coverSubtitleField">
+            <span class="field-label">封面副标题</span>
+            <input type="text" id="coverSubtitle" placeholder="输入封面副标题" />
+          </label>
+          <label class="field full is-hidden" id="coverTemplateField">
+            <span class="field-label">封面版式</span>
+            <select id="coverTemplate">
+              <option value="centered">大标题居中</option>
+              <option value="stripe">左侧色条</option>
+              <option value="split">上下分割</option>
+            </select>
+          </label>
+          <div class="field full is-hidden" id="coverLogoField">
+            <span class="field-label">封面角标</span>
+            <div class="logo-controls">
+              <select id="coverLogoPreset">
+                <option value="none">无角标</option>
+                <option value="sunrise">晨光徽章</option>
+                <option value="inkstone">墨韵徽章</option>
+                <option value="forest">青叶徽章</option>
+                <option value="custom">自定义上传</option>
+              </select>
+              <div class="logo-actions">
+                <input type="file" id="coverLogoUpload" accept="image/*" />
+                <button
+                  type="button"
+                  id="clearLogoBtn"
+                  class="button-secondary button-compact"
+                >
+                  清除角标
+                </button>
+              </div>
+              <div class="logo-preview" id="coverLogoPreview">暂无角标</div>
+            </div>
+          </div>
         </div>
-      </main>
-
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
-          </button>
+        <div class="controls">
+          <p class="dimension">画布尺寸：1080 × 1440，3:4 比例</p>
+          <div class="button-row">
+            <button id="fillSampleBtn" type="button" class="button-secondary">
+              填充示例文案
+            </button>
+            <button id="downloadBtn" type="button">导出全部 PNG</button>
+            <button id="downloadZipBtn" type="button">一键下载 ZIP</button>
+          </div>
+          <p id="errorMessage" class="error-message is-hidden" role="alert"></p>
         </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
-          </button>
-        </div>
+        <div class="self-tests" id="selfTestResults" aria-live="polite"></div>
       </section>
-    </div>
+      <section class="panel preview-wrapper">
+        <h1>排版预览</h1>
+        <div id="previewContainer" class="preview-container"></div>
+        <p class="hint" id="pageHint">
+          预览以 3:4 比例展示。导出的 PNG 将保持 1080 × 1440 像素，并带有适配中文的
+          字体与边距。
+        </p>
+      </section>
+    </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
+      const THEMES = [
+        {
+          id: 'fresh',
+          name: '清爽白',
+          brandColor: '#2563eb',
+          background: '#fdfdfd',
+          textColor: '#1f2937',
+          pageNumberColor: 'rgba(31, 41, 55, 0.68)',
+          margin: { top: 150, right: 132, bottom: 150, left: 132 },
+          fontFamily:
+            "'Source Han Serif SC','Songti SC','STZhongsong','PingFang SC','Microsoft YaHei',serif",
+          lineHeightMultiplier: 1.44,
+          paragraphSpacingMultiplier: 0.7,
+          cover: {
+            background: '#edf2ff',
+            titleColor: '#1f2937',
+            subtitleColor: 'rgba(31, 41, 55, 0.66)'
+          }
+        },
+        {
+          id: 'cream',
+          name: '奶油风',
+          brandColor: '#d97706',
+          background: '#fef8ee',
+          textColor: '#422006',
+          pageNumberColor: 'rgba(66, 32, 6, 0.68)',
+          margin: { top: 170, right: 128, bottom: 170, left: 128 },
+          fontFamily:
+            "'Source Han Serif SC','Songti SC','STZhongsong','PingFang SC','Microsoft YaHei',serif",
+          lineHeightMultiplier: 1.38,
+          paragraphSpacingMultiplier: 0.68,
+          cover: {
+            background: '#fbeedd',
+            titleColor: '#422006',
+            subtitleColor: 'rgba(66, 32, 6, 0.7)'
+          }
+        },
+        {
+          id: 'minimal',
+          name: '极简黑',
+          brandColor: '#14b8a6',
+          background: '#0f172a',
+          textColor: '#e2e8f0',
+          pageNumberColor: 'rgba(226, 232, 240, 0.75)',
+          margin: { top: 150, right: 140, bottom: 150, left: 140 },
+          fontFamily:
+            "'Source Han Sans SC','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif",
+          lineHeightMultiplier: 1.45,
+          paragraphSpacingMultiplier: 0.75,
+          cover: {
+            background: '#1f2937',
+            titleColor: '#e2e8f0',
+            subtitleColor: 'rgba(226, 232, 240, 0.78)'
+          }
+        },
+        {
+          id: 'morandi',
+          name: '莫兰迪',
+          brandColor: '#907f71',
+          background: '#f5f1ed',
+          textColor: '#3a312b',
+          pageNumberColor: 'rgba(58, 49, 43, 0.65)',
+          margin: { top: 160, right: 120, bottom: 160, left: 120 },
+          fontFamily:
+            "'Source Han Serif SC','Songti SC','STKaiti','PingFang SC','Microsoft YaHei',serif",
+          lineHeightMultiplier: 1.4,
+          paragraphSpacingMultiplier: 0.7,
+          cover: {
+            background: '#e9e2db',
+            titleColor: '#3a312b',
+            subtitleColor: 'rgba(58, 49, 43, 0.7)'
+          }
+        },
+        {
+          id: 'vitality',
+          name: '活力橙',
+          brandColor: '#f97316',
+          background: '#fff4ec',
+          textColor: '#4a1d09',
+          pageNumberColor: 'rgba(74, 29, 9, 0.65)',
+          margin: { top: 160, right: 118, bottom: 160, left: 118 },
+          fontFamily:
+            "'Source Han Sans SC','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif",
+          lineHeightMultiplier: 1.42,
+          paragraphSpacingMultiplier: 0.72,
+          cover: {
+            background: '#ffe1c7',
+            titleColor: '#4a1d09',
+            subtitleColor: 'rgba(74, 29, 9, 0.68)'
+          }
+        },
+        {
+          id: 'commerce',
+          name: '电商红',
+          brandColor: '#ef4444',
+          background: '#fff1f3',
+          textColor: '#4c0519',
+          pageNumberColor: 'rgba(76, 5, 25, 0.68)',
+          margin: { top: 150, right: 120, bottom: 150, left: 120 },
+          fontFamily:
+            "'Source Han Sans SC','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif",
+          lineHeightMultiplier: 1.4,
+          paragraphSpacingMultiplier: 0.7,
+          cover: {
+            background: '#ffe4ea',
+            titleColor: '#4c0519',
+            subtitleColor: 'rgba(76, 5, 25, 0.68)'
+          }
+        },
+        {
+          id: 'academic',
+          name: '学术蓝',
+          brandColor: '#1d4ed8',
+          background: '#f1f5ff',
+          textColor: '#102443',
+          pageNumberColor: 'rgba(16, 36, 67, 0.68)',
+          margin: { top: 170, right: 130, bottom: 170, left: 130 },
+          fontFamily:
+            "'Source Han Serif SC','Songti SC','STZhongsong','PingFang SC','Microsoft YaHei',serif",
+          lineHeightMultiplier: 1.46,
+          paragraphSpacingMultiplier: 0.72,
+          cover: {
+            background: '#dce7ff',
+            titleColor: '#102443',
+            subtitleColor: 'rgba(16, 36, 67, 0.7)'
+          }
+        },
+        {
+          id: 'night',
+          name: '夜读绿',
+          brandColor: '#0d9488',
+          background: '#0b1c17',
+          textColor: '#d1fae5',
+          pageNumberColor: 'rgba(209, 250, 229, 0.78)',
+          margin: { top: 150, right: 130, bottom: 150, left: 130 },
+          fontFamily:
+            "'Source Han Sans SC','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif",
+          lineHeightMultiplier: 1.48,
+          paragraphSpacingMultiplier: 0.76,
+          cover: {
+            background: '#102822',
+            titleColor: '#d1fae5',
+            subtitleColor: 'rgba(209, 250, 229, 0.8)'
+          }
+        }
+      ];
+
+      function svgData(svg) {
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      }
+
+      const PRESET_LOGOS = [
+        {
+          id: 'sunrise',
+          name: '晨光徽章',
+          dataUrl: svgData(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+              <defs>
+                <radialGradient id="g1" cx="50%" cy="40%" r="70%">
+                  <stop offset="0%" stop-color="#fcd34d" />
+                  <stop offset="65%" stop-color="#f97316" />
+                  <stop offset="100%" stop-color="#ea580c" />
+                </radialGradient>
+              </defs>
+              <rect width="200" height="200" rx="48" fill="url(#g1)" />
+              <path
+                d="M100 60c22 0 40 18 40 40s-18 40-40 40-40-18-40-40 18-40 40-40z"
+                fill="#fff7ed"
+                opacity="0.8"
+              />
+              <path
+                d="M60 140h80"
+                stroke="#fff7ed"
+                stroke-width="10"
+                stroke-linecap="round"
+                opacity="0.9"
+              />
+            </svg>
+          `)
+        },
+        {
+          id: 'inkstone',
+          name: '墨韵徽章',
+          dataUrl: svgData(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+              <rect width="200" height="200" rx="48" fill="#111827" />
+              <circle cx="100" cy="100" r="64" fill="#1f2937" />
+              <path
+                d="M70 120c12-26 24-40 38-40s26 10 38 32"
+                stroke="#f9fafb"
+                stroke-width="12"
+                stroke-linecap="round"
+                fill="none"
+                opacity="0.9"
+              />
+            </svg>
+          `)
+        },
+        {
+          id: 'forest',
+          name: '青叶徽章',
+          dataUrl: svgData(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+              <defs>
+                <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#34d399" />
+                  <stop offset="100%" stop-color="#047857" />
+                </linearGradient>
+              </defs>
+              <rect width="200" height="200" rx="48" fill="url(#g2)" />
+              <path
+                d="M60 130c20-40 40-60 80-70-20 26-30 54-30 90"
+                stroke="#ecfdf5"
+                stroke-width="12"
+                stroke-linecap="round"
+                fill="none"
+                opacity="0.9"
+              />
+            </svg>
+          `)
+        }
+      ];
+
+      const COVER_TEMPLATES = [
+        { id: 'centered', draw: drawCenteredCoverTemplate },
+        { id: 'stripe', draw: drawStripeCoverTemplate },
+        { id: 'split', draw: drawSplitCoverTemplate }
+      ];
+
+      const DEFAULT_TEXT = `朝辞白帝彩云间，千里江陵一日还。\n两岸猿声啼不住，轻舟已过万重山。`;
+      const SAMPLE_TEXT = `少壮不努力，老大徒伤悲。\n\n` +
+        `第一章 初识排版\n` +
+        `排版是一门将文字与视觉完美结合的艺术，它既需要匠心，也讲究科学。` +
+        `在数字时代，我们通过屏幕而非纸张呈现内容，因此需要考虑像素、分辨率与颜色表现。` +
+        `合适的行距、字体与边距能够显著提升可读性。\n\n` +
+        `第二章 自动分页\n` +
+        `当篇幅较长时，自动分页功能可以帮我们避免被截断的段落，让阅读体验更加自然。` +
+        `分页算法会逐行测量文本宽度，遇到溢出就换行，并在空间不足时自动续页。` +
+        `此外，段落之间需要额外的留白，以便读者呼吸和思考。\n\n` +
+        `第三章 多页导出\n` +
+        `导出为 PNG 时，需要确保每页的像素尺寸一致，以便后续排版或印刷使用。` +
+        `新的 ZIP 导出功能会把所有页面打包在一个压缩包中，方便一次性分享。\n\n` +
+        `附录 A 主题风格\n` +
+        `清爽白适合科技简报与公告，奶油风偏向生活方式内容，极简黑与夜读绿适合暗色环境的阅读体验。` +
+        `莫兰迪与学术蓝强调沉稳质感，活力橙和电商红则能突显营销活动与促销信息。` +
+        `可以调整品牌色与字号，观察版面呼吸节奏的变化。\n\n` +
+        `附录 B 实用技巧\n` +
+        `导出 PNG 后可直接插入到幻灯片或画册中，ZIP 导出方便批量分享给团队审核。` +
+        `若需要打印，可搭配更高分辨率的字体资源与纸张纹理背景。\n\n` +
+        `附录 C 案例分享\n` +
+        `某教育机构通过自动分页功能快速生成了课件讲义，显著提升了制作效率。` +
+        `设计团队则利用水印与主题切换功能，为品牌宣传册打造多套视觉方案。\n\n` +
+        `结语\n` +
+        `感谢使用这款中文友好的排版工具，祝创作顺利！`;
+      const DEFAULT_COVER_TITLE = '文本排版导出';
+      const DEFAULT_COVER_SUBTITLE = 'Text Layout Exporter';
+      const DEFAULT_THEME_ID = 'fresh';
+      const DEFAULT_THEME = THEMES.find((theme) => theme.id === DEFAULT_THEME_ID) || THEMES[0];
+      const DEFAULT_BRAND_COLOR = DEFAULT_THEME?.brandColor || '#2563eb';
+
+      const state = {
+        theme: DEFAULT_THEME ? DEFAULT_THEME.id : DEFAULT_THEME_ID,
+        primaryColor: DEFAULT_BRAND_COLOR,
+        brandPalette: generatePalette(DEFAULT_BRAND_COLOR),
+        fontSize: 52,
+        watermark: '',
+        coverEnabled: false,
+        coverTitle: DEFAULT_COVER_TITLE,
+        coverSubtitle: DEFAULT_COVER_SUBTITLE,
+        coverTemplate: 'centered',
+        coverLogo: '',
+        coverLogoPreset: 'none',
+        coverLogoImage: null,
+        coverTitleManual: false,
+        coverSubtitleManual: false,
+        currentPreset: {
+          align: 'left',
+          level: 'body',
+          scale: 1,
+          bold: false,
+          highlight: false
+        }
       };
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+      const textInput = document.getElementById('textInput');
+      const themeSelect = document.getElementById('themeSelect');
+      const brandColorPicker = document.getElementById('brandColorPicker');
+      const brandColorHexInput = document.getElementById('brandColorHex');
+      const brandPaletteContainer = document.getElementById('brandPalette');
+      const contrastStatus = document.getElementById('contrastStatus');
+      const fontSizeInput = document.getElementById('fontSize');
+      const fontSizeValue = document.getElementById('fontSizeValue');
+      const watermarkInput = document.getElementById('watermarkInput');
+      const coverToggle = document.getElementById('coverToggle');
+      const coverTitleField = document.getElementById('coverTitleField');
+      const coverSubtitleField = document.getElementById('coverSubtitleField');
+      const coverTitleInput = document.getElementById('coverTitle');
+      const coverSubtitleInput = document.getElementById('coverSubtitle');
+      const coverTemplateField = document.getElementById('coverTemplateField');
+      const coverTemplateSelect = document.getElementById('coverTemplate');
+      const coverLogoField = document.getElementById('coverLogoField');
+      const coverLogoPresetSelect = document.getElementById('coverLogoPreset');
+      const coverLogoUpload = document.getElementById('coverLogoUpload');
+      const coverLogoPreview = document.getElementById('coverLogoPreview');
+      const clearLogoBtn = document.getElementById('clearLogoBtn');
+      const fillSampleBtn = document.getElementById('fillSampleBtn');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const downloadZipBtn = document.getElementById('downloadZipBtn');
+      const previewContainer = document.getElementById('previewContainer');
+      const pageHint = document.getElementById('pageHint');
+      const errorMessage = document.getElementById('errorMessage');
+      const selfTestResults = document.getElementById('selfTestResults');
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+      const measureCanvas = document.createElement('canvas');
+      const measureCtx = measureCanvas.getContext('2d');
 
-      highScoreEl.textContent = highScore.toString();
+      const STORAGE_KEYS = {
+        blocks: 'layoutBlocks',
+        preset: 'layoutBlockPreset'
+      };
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
+      const DEFAULT_BLOCK_PRESET = {
+        align: 'left',
+        level: 'body',
+        scale: 1,
+        bold: false,
+        highlight: false
+      };
 
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
+      const LEVEL_PRESETS = {
+        body: { scale: 1, weight: 400, spacing: 1 },
+        h1: { scale: 1.28, weight: 700, spacing: 1.45 },
+        h2: { scale: 1.16, weight: 600, spacing: 1.25 },
+        h3: { scale: 1.08, weight: 600, spacing: 1.1 }
+      };
+
+      let blocks = [];
+      let selectedBlockId = null;
+      let editingBlockId = null;
+      let toolbarElement = null;
+      const toolbarControls = {};
+      let isSyncingTextInput = false;
+      let blockIdCounter = Date.now();
+
+      const renderCache = {
+        canvases: [],
+        pages: [],
+        totalPages: 0
+      };
+
+      function showError(message) {
+        if (!message) {
+          clearError();
+          return;
+        }
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('is-hidden');
+      }
+
+      function clearError() {
+        errorMessage.textContent = '';
+        errorMessage.classList.add('is-hidden');
+      }
+
+      function normalizeText(raw) {
+        if (!raw || !raw.trim()) {
+          return DEFAULT_TEXT;
+        }
+        return raw.replace(/\r\n?/g, '\n').trimEnd();
+      }
+
+      function clampScale(value, min = 0.85, max = 1.3) {
+        if (!Number.isFinite(value)) {
+          return 1;
+        }
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function clonePreset(preset = {}) {
+        const align = ['left', 'center', 'right'].includes(preset.align)
+          ? preset.align
+          : 'left';
+        const level = ['body', 'h1', 'h2', 'h3'].includes(preset.level)
+          ? preset.level
+          : 'body';
+        return {
+          align,
+          level,
+          scale: clampScale(typeof preset.scale === 'number' ? preset.scale : 1),
+          bold: Boolean(preset.bold),
+          highlight: Boolean(preset.highlight)
+        };
+      }
+
+      function generateBlockId() {
+        blockIdCounter += 1;
+        return `block-${blockIdCounter}`;
+      }
+
+      function normalizeBlock(raw) {
+        if (!raw) {
+          return null;
+        }
+        const preset = clonePreset(raw);
+        const text = typeof raw.text === 'string' ? raw.text.replace(/\r\n?/g, '\n') : '';
+        const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : generateBlockId();
+        const numericId = Number(id.replace('block-', ''));
+        if (Number.isFinite(numericId)) {
+          blockIdCounter = Math.max(blockIdCounter, numericId);
+        }
+        return {
+          id,
+          text,
+          align: preset.align,
+          level: preset.level,
+          scale: preset.scale,
+          bold: preset.bold,
+          highlight: preset.highlight
+        };
+      }
+
+      function createBlock(text, overrides = {}) {
+        const preset = clonePreset({ ...state.currentPreset, ...overrides });
+        return normalizeBlock({
+          ...preset,
+          text,
+          id: generateBlockId()
+        });
+      }
+
+      function blocksToText(list = blocks) {
+        return list.map((block) => (typeof block.text === 'string' ? block.text : '')).join('\n');
+      }
+
+      function persistBlocks() {
+        if (typeof localStorage === 'undefined') {
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_KEYS.blocks, JSON.stringify(blocks));
+        } catch (error) {
+          console.warn('无法保存段落数据', error);
+        }
+      }
+
+      function persistCurrentPreset() {
+        if (typeof localStorage === 'undefined') {
+          return;
+        }
+        try {
+          localStorage.setItem(STORAGE_KEYS.preset, JSON.stringify(state.currentPreset));
+        } catch (error) {
+          console.warn('无法保存默认样式', error);
+        }
+      }
+
+      function loadBlocksFromStorage() {
+        if (typeof localStorage === 'undefined') {
+          return null;
+        }
+        try {
+          const stored = localStorage.getItem(STORAGE_KEYS.blocks);
+          if (!stored) {
+            return null;
+          }
+          const parsed = JSON.parse(stored);
+          if (!Array.isArray(parsed)) {
+            return null;
+          }
+          return parsed.map((item) => normalizeBlock(item)).filter(Boolean);
+        } catch (error) {
+          console.warn('读取段落数据失败', error);
+          return null;
+        }
+      }
+
+      function loadPresetFromStorage() {
+        if (typeof localStorage === 'undefined') {
+          return null;
+        }
+        try {
+          const stored = localStorage.getItem(STORAGE_KEYS.preset);
+          if (!stored) {
+            return null;
+          }
+          const parsed = JSON.parse(stored);
+          return clonePreset(parsed);
+        } catch (error) {
+          console.warn('读取默认样式失败', error);
+          return null;
+        }
+      }
+
+      function setBlocks(nextBlocks, { syncText = true } = {}) {
+        blocks = (nextBlocks || []).map((block) => normalizeBlock(block)).filter(Boolean);
+        if (!blocks.length) {
+          blocks = [createBlock('')];
+        }
+        persistBlocks();
+        if (syncText) {
+          syncTextInputFromBlocks();
+        }
+      }
+
+      function updateBlocksFromText(raw, { preserveStyles = true } = {}) {
+        const normalized = normalizeText(raw);
+        const lines = normalized.split('\n');
+        const nextBlocks = lines.map((line, index) => {
+          const existing = preserveStyles ? blocks[index] : null;
+          if (existing) {
+            return { ...existing, text: line };
+          }
+          return createBlock(line);
+        });
+        setBlocks(nextBlocks, { syncText: false });
+        syncTextInputFromBlocks();
+      }
+
+      function syncTextInputFromBlocks() {
+        if (!textInput) {
+          return;
+        }
+        const value = blocksToText();
+        if (textInput.value === value) {
+          return;
+        }
+        isSyncingTextInput = true;
+        textInput.value = value;
+        isSyncingTextInput = false;
+      }
+
+      function findBlockById(id) {
+        return blocks.find((block) => block.id === id);
+      }
+
+      function normalizeHex(input) {
+        if (!input && input !== 0) {
+          return null;
+        }
+        const value = String(input).trim();
+        if (!value) {
+          return null;
+        }
+        let hex = value.replace(/#/g, '');
+        if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+          hex = hex
+            .split('')
+            .map((char) => char + char)
+            .join('');
+        }
+        if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+          return `#${hex.toLowerCase()}`;
+        }
+        return null;
+      }
+
+      function hexToRgb(hex) {
+        const normalized = normalizeHex(hex) || '#000000';
+        const clean = normalized.replace('#', '');
+        const bigint = parseInt(clean, 16);
+        return {
+          r: (bigint >> 16) & 255,
+          g: (bigint >> 8) & 255,
+          b: bigint & 255
+        };
+      }
+
+      function rgbToHex({ r, g, b }) {
+        return `#${[r, g, b]
+          .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, '0'))
+          .join('')}`;
+      }
+
+      function mixColors(source, target, amount = 0.5) {
+        const clamped = Math.min(Math.max(amount, 0), 1);
+        const from = hexToRgb(source);
+        const to = hexToRgb(target);
+        const mixChannel = (a, b) => a * (1 - clamped) + b * clamped;
+        return rgbToHex({
+          r: mixChannel(from.r, to.r),
+          g: mixChannel(from.g, to.g),
+          b: mixChannel(from.b, to.b)
+        });
+      }
+
+      function lighten(hex, amount = 0.2) {
+        return mixColors(hex, '#ffffff', amount);
+      }
+
+      function darken(hex, amount = 0.2) {
+        return mixColors(hex, '#000000', amount);
+      }
+
+      function generatePalette(base) {
+        return {
+          primary: base,
+          secondary: lighten(base, 0.32),
+          accent: darken(base, 0.28),
+          background: lighten(base, 0.75)
+        };
+      }
+
+      function hexToRgba(hex, alpha) {
+        const { r, g, b } = hexToRgb(hex);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      }
+
+      function mixWithWhite(hex, amount = 0.2) {
+        return lighten(hex, amount);
+      }
+
+      function srgbChannelToLinear(value) {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4);
+      }
+
+      function relativeLuminance(hex) {
+        const { r, g, b } = hexToRgb(hex);
+        const [rLin, gLin, bLin] = [r, g, b].map(srgbChannelToLinear);
+        return 0.2126 * rLin + 0.7152 * gLin + 0.0722 * bLin;
+      }
+
+      function contrastRatio(colorA, colorB) {
+        const lumA = relativeLuminance(colorA);
+        const lumB = relativeLuminance(colorB);
+        const brighter = Math.max(lumA, lumB);
+        const darker = Math.min(lumA, lumB);
+        return Number(((brighter + 0.05) / (darker + 0.05)).toFixed(2));
+      }
+
+      function getReadableTextColor(hex) {
+        const dark = '#0f172a';
+        const light = '#ffffff';
+        return contrastRatio(hex, dark) >= contrastRatio(hex, light) ? dark : light;
+      }
+
+      function strokeContentFrame(ctx, config, strokeStyle, lineWidth = 2) {
+        ctx.save();
+        ctx.strokeStyle = strokeStyle;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(
+          config.margin.left,
+          config.margin.top,
+          config.width - config.margin.left - config.margin.right,
+          config.height - config.margin.top - config.margin.bottom
+        );
+        ctx.restore();
+      }
+
+      function setAccentColor(color) {
+        const root = document.documentElement;
+        root.style.setProperty('--accent', color);
+        root.style.setProperty('--accent-strong', mixWithWhite(color, 0.1));
+        root.style.setProperty('--accent-soft', hexToRgba(color, 0.18));
+      }
+
+      function getTheme() {
+        return THEMES.find((theme) => theme.id === state.theme) || THEMES[0];
+      }
+
+      function buildConfig() {
+        const theme = getTheme();
+        const fontSize = Number(state.fontSize) || 52;
+        const lineHeight = Math.round(
+          fontSize * (theme.lineHeightMultiplier || 1.4)
+        );
+        const paragraphSpacing = Math.round(
+          lineHeight * (theme.paragraphSpacingMultiplier || 0.7)
+        );
+
+        return {
+          width: 1080,
+          height: 1440,
+          margin: theme.margin,
+          background: theme.background || state.brandPalette?.background || '#ffffff',
+          textColor: theme.textColor,
+          pageNumberColor: theme.pageNumberColor,
+          fontFamily: theme.fontFamily,
+          fontSize,
+          lineHeight,
+          paragraphSpacing,
+          accent: state.primaryColor,
+          cover: theme.cover,
+          brandPalette: state.brandPalette
+        };
+      }
+
+      function getBlockComputedStyle(block, config) {
+        const levelSettings = LEVEL_PRESETS[block.level] || LEVEL_PRESETS.body;
+        const scaleSource = Number.isFinite(block.scale) ? block.scale : levelSettings.scale;
+        const scale = clampScale(scaleSource);
+        const fontSize = Math.max(12, Math.round(config.fontSize * scale));
+        const lineHeight = Math.max(
+          Math.round(config.lineHeight * Math.max(scale, 0.92)),
+          Math.round(fontSize * 1.2)
+        );
+        const paragraphSpacing = Math.round(
+          config.paragraphSpacing * (levelSettings.spacing || 1)
+        );
+        const fontWeight = block.bold ? 700 : levelSettings.weight || 400;
+        const align = ['left', 'center', 'right'].includes(block.align)
+          ? block.align
+          : 'left';
+
+        return {
+          scale,
+          fontSize,
+          lineHeight,
+          paragraphSpacing,
+          fontWeight,
+          align,
+          level: block.level,
+          highlight: Boolean(block.highlight)
+        };
+      }
+
+      function wrapBlockText(block, style, maxWidth, config) {
+        const text = typeof block.text === 'string' ? block.text : '';
+        const lines = [];
+        let currentLine = '';
+
+        measureCtx.font = `${style.fontWeight} ${style.fontSize}px ${config.fontFamily}`;
+        measureCtx.textBaseline = 'top';
+        measureCtx.textAlign = 'left';
+
+        const flushLine = () => {
+          const content = currentLine;
+          const width = content ? measureCtx.measureText(content).width : 0;
+          lines.push({ text: content, width });
+          currentLine = '';
+        };
+
+        for (let index = 0; index < text.length; index += 1) {
+          const char = text[index];
+          if (char === '\n') {
+            flushLine();
+            continue;
+          }
+          const tentativeLine = currentLine + char;
+          const { width } = measureCtx.measureText(tentativeLine);
+          if (width > maxWidth && currentLine) {
+            flushLine();
+            currentLine = char.trim() ? char : '';
+          } else {
+            currentLine = tentativeLine;
+          }
+        }
+
+        if (currentLine || !lines.length) {
+          flushLine();
+        }
+
+        return lines;
+      }
+
+      function layoutDocument(blockList, config) {
+        const normalizedBlocks = (blockList || []).map((block) => normalizeBlock(block));
+        const maxWidth = config.width - config.margin.left - config.margin.right;
+        const usableHeight = config.height - config.margin.top - config.margin.bottom;
+        const headingPattern = /(\s*(#+|[【〔〖]|[0-9０-９]+[\.\)．、]|[一二三四五六七八九十]+[、．.]))/;
+
+        const paragraphInfos = normalizedBlocks.map((block, index) => {
+          const trimmed = block.text.trim();
+          const style = getBlockComputedStyle(block, config);
+          const lines = wrapBlockText(block, style, maxWidth, config);
+          const isBlank = !trimmed.length;
+          const isShort = !isBlank && lines.length < 2;
+          let keepWithNext =
+            Boolean(block.keepWithNext) ||
+            (block.level && block.level !== 'body') ||
+            (trimmed && headingPattern.test(trimmed));
+          if (index === normalizedBlocks.length - 1) {
+            keepWithNext = false;
+          }
+
+          return {
+            block,
+            lines,
+            style,
+            isBlank,
+            isShort,
+            keepWithNext,
+            trimmed
+          };
+        });
+
+        const pages = [];
+        let currentPage = [];
+        let cursorY = 0;
+
+        const commitPage = () => {
+          if (currentPage.length) {
+            pages.push(currentPage);
+          }
+          currentPage = [];
+          cursorY = 0;
+        };
+
+        const pushLine = (info, line, lineIndex) => {
+          currentPage.push({
+            blockId: info.block.id,
+            text: line.text,
+            width: line.width,
+            offsetY: cursorY,
+            align: info.style.align,
+            fontSize: info.style.fontSize,
+            fontWeight: info.style.fontWeight,
+            highlight: info.style.highlight,
+            level: info.block.level,
+            lineHeight: info.style.lineHeight,
+            scale: info.style.scale,
+            isBlank: info.isBlank,
+            lineIndex,
+            totalLines: info.lines.length
+          });
+          cursorY += info.style.lineHeight;
+        };
+
+        for (let index = 0; index < paragraphInfos.length; index += 1) {
+          const paragraph = paragraphInfos[index];
+          const isLastParagraph = index === paragraphInfos.length - 1;
+
+          let blankHeightToNextContent = 0;
+          let nextContentParagraph = null;
+          for (let lookahead = index + 1; lookahead < paragraphInfos.length; lookahead += 1) {
+            const candidate = paragraphInfos[lookahead];
+            if (candidate.isBlank) {
+              blankHeightToNextContent += candidate.style.lineHeight;
+              continue;
+            }
+            nextContentParagraph = candidate;
+            break;
+          }
+
+          if (paragraph.isBlank) {
+            if (cursorY + paragraph.style.lineHeight > usableHeight && currentPage.length) {
+              commitPage();
+            }
+            pushLine(paragraph, { text: '', width: 0 }, 0);
+            continue;
+          }
+
+          while (true) {
+            const paragraphHeight = paragraph.lines.length * paragraph.style.lineHeight;
+            const spacingAfter = !isLastParagraph ? paragraph.style.paragraphSpacing : 0;
+            const fitsOnFreshPage = paragraphHeight + spacingAfter <= usableHeight;
+
+            if (cursorY > 0 && fitsOnFreshPage) {
+              let requiredExtraSpace = spacingAfter;
+
+              if (nextContentParagraph && nextContentParagraph.isShort) {
+                const nextHeight =
+                  nextContentParagraph.lines.length * nextContentParagraph.style.lineHeight;
+                requiredExtraSpace = Math.max(
+                  requiredExtraSpace,
+                  paragraph.style.paragraphSpacing + blankHeightToNextContent + nextHeight
+                );
+              }
+
+              if (paragraph.keepWithNext && nextContentParagraph) {
+                const nextMinLines = Math.max(1, Math.min(nextContentParagraph.lines.length, 2));
+                const nextMinHeight = nextMinLines * nextContentParagraph.style.lineHeight;
+                requiredExtraSpace = Math.max(
+                  requiredExtraSpace,
+                  paragraph.style.paragraphSpacing + blankHeightToNextContent + nextMinHeight
+                );
+              }
+
+              if (cursorY + paragraphHeight + requiredExtraSpace > usableHeight) {
+                commitPage();
+                continue;
+              }
+            }
+
+            break;
+          }
+
+          let lineIndex = 0;
+          let linesOnCurrentPage = 0;
+
+          while (lineIndex < paragraph.lines.length) {
+            if (cursorY + paragraph.style.lineHeight > usableHeight) {
+              if (linesOnCurrentPage === 1) {
+                const removed = currentPage.pop();
+                if (removed) {
+                  cursorY -= paragraph.style.lineHeight;
+                  lineIndex -= 1;
+                }
+              }
+              commitPage();
+              linesOnCurrentPage = 0;
+              continue;
+            }
+
+            pushLine(paragraph, paragraph.lines[lineIndex], lineIndex);
+            lineIndex += 1;
+            linesOnCurrentPage += 1;
+          }
+
+          if (!isLastParagraph) {
+            if (
+              cursorY + paragraph.style.paragraphSpacing > usableHeight &&
+              currentPage.length
+            ) {
+              commitPage();
+            }
+            cursorY += paragraph.style.paragraphSpacing;
+          }
+        }
+
+        if (currentPage.length) {
+          pages.push(currentPage);
+        }
+
+        if (!pages.length) {
+          pages.push([]);
+        }
+
+        const pageSegments = pages.map((lines, pageIndex) => {
+          const segments = [];
+          let segment = null;
+
+          lines.forEach((line) => {
+            if (!segment || segment.blockId !== line.blockId) {
+              if (segment) {
+                segment.text = segment.lines.join('\n');
+                segments.push(segment);
+              }
+              segment = {
+                blockId: line.blockId,
+                align: line.align,
+                fontSize: line.fontSize,
+                fontWeight: line.fontWeight,
+                highlight: line.highlight,
+                level: line.level,
+                lineHeight: line.lineHeight,
+                scale: line.scale,
+                offsetY: line.offsetY,
+                height: line.lineHeight,
+                pageIndex,
+                lines: [line.text],
+                widths: [line.width]
+              };
+            } else {
+              segment.lines.push(line.text);
+              segment.widths.push(line.width);
+              segment.height += line.lineHeight;
+            }
+          });
+
+          if (segment) {
+            segment.text = segment.lines.join('\n');
+            segments.push(segment);
+          }
+
+          return { lines, segments };
+        });
+
+        const totalSegmentsByBlock = {};
+        pageSegments.forEach(({ segments }) => {
+          segments.forEach((segment) => {
+            totalSegmentsByBlock[segment.blockId] =
+              (totalSegmentsByBlock[segment.blockId] || 0) + 1;
+          });
+        });
+
+        const segmentIndexTracker = {};
+        pageSegments.forEach(({ segments }) => {
+          segments.forEach((segment) => {
+            segmentIndexTracker[segment.blockId] =
+              (segmentIndexTracker[segment.blockId] || 0) + 1;
+            segment.segmentIndex = segmentIndexTracker[segment.blockId];
+            segment.totalSegments = totalSegmentsByBlock[segment.blockId];
+          });
+        });
+
+        return {
+          pages: pageSegments.map((entry) => entry.lines),
+          segments: pageSegments,
+          paragraphInfos
+        };
+      }
+
+      function deriveCoverMetadata() {
+        const lines = blocks
+          .map((block) => (block.text || '').trim())
+          .filter((line) => line.length);
+
+        return {
+          title: lines[0] || DEFAULT_COVER_TITLE,
+          subtitle: lines[1] || DEFAULT_COVER_SUBTITLE
+        };
+      }
+
+      function syncCoverTextFromSource({ force = false } = {}) {
+        const { title, subtitle } = deriveCoverMetadata();
+
+        if (force) {
+          state.coverTitleManual = false;
+          state.coverSubtitleManual = false;
+        }
+
+        if (force || !state.coverTitleManual) {
+          state.coverTitle = title;
+          if (coverTitleInput) {
+            coverTitleInput.value = title;
+          }
+        }
+
+        if (force || !state.coverSubtitleManual) {
+          state.coverSubtitle = subtitle;
+          if (coverSubtitleInput) {
+            coverSubtitleInput.value = subtitle;
+          }
+        }
+      }
+
+      function updateLogoPreview() {
+        if (!coverLogoPreview) {
+          return;
+        }
+        if (state.coverLogo) {
+          coverLogoPreview.style.backgroundImage = `url("${state.coverLogo}")`;
+          coverLogoPreview.textContent = '';
+          coverLogoPreview.classList.add('has-logo');
+        } else {
+          coverLogoPreview.style.backgroundImage = 'none';
+          coverLogoPreview.textContent = '暂无角标';
+          coverLogoPreview.classList.remove('has-logo');
+        }
+      }
+
+      function setCoverLogo(dataUrl, presetId = 'none') {
+        if (!dataUrl) {
+          state.coverLogo = '';
+          state.coverLogoImage = null;
+          state.coverLogoPreset = presetId;
+          if (coverLogoPresetSelect) {
+            coverLogoPresetSelect.value = state.coverLogoPreset;
+          }
+          updateLogoPreview();
+          render();
+          return;
+        }
+
+        state.coverLogo = dataUrl;
+        state.coverLogoImage = null;
+        state.coverLogoPreset = presetId;
+        updateLogoPreview();
+        if (coverLogoPresetSelect) {
+          coverLogoPresetSelect.value = state.coverLogoPreset;
+        }
+
+        const image = new Image();
+        image.crossOrigin = 'anonymous';
+        image.onload = () => {
+          state.coverLogoImage = image;
+          clearError();
+          render();
+        };
+        image.onerror = () => {
+          state.coverLogo = '';
+          state.coverLogoImage = null;
+          state.coverLogoPreset = 'none';
+          updateLogoPreview();
+          if (coverLogoPresetSelect) {
+            coverLogoPresetSelect.value = state.coverLogoPreset;
+          }
+          showError('角标图片加载失败，请尝试其他文件。');
+          render();
+        };
+        image.src = dataUrl;
+      }
+
+      function showInvalidHexMessage() {
+        brandColorHexInput.classList.add('input-invalid');
+        contrastStatus.textContent = '请输入有效的十六进制颜色（例如 #3366FF）。';
+        contrastStatus.classList.add('fail');
+      }
+
+      function updateBrandPalette() {
+        if (!brandPaletteContainer) {
+          return;
+        }
+        const palette = state.brandPalette || generatePalette(state.primaryColor);
+        state.brandPalette = palette;
+        const swatches = [
+          { key: 'primary', label: '主色', hex: palette.primary },
+          { key: 'secondary', label: '辅助色', hex: palette.secondary },
+          { key: 'accent', label: '强调色', hex: palette.accent },
+          { key: 'background', label: '背景色', hex: palette.background }
         ];
 
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
+        brandPaletteContainer.innerHTML = '';
+        let minRatio = Infinity;
 
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
+        swatches.forEach((swatch) => {
+          const textColor = getReadableTextColor(swatch.hex);
+          const ratio = contrastRatio(swatch.hex, textColor);
+          minRatio = Math.min(minRatio, ratio);
 
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
+          const card = document.createElement('div');
+          card.className = 'palette-swatch';
+          card.style.setProperty('--swatch-color', swatch.hex);
+          card.style.color = textColor;
+          card.setAttribute('role', 'listitem');
 
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
+          const label = document.createElement('span');
+          label.className = 'palette-label';
+          label.textContent = swatch.label;
 
-        requestAnimationFrame(gameLoop);
+          const hexValue = document.createElement('strong');
+          hexValue.className = 'palette-hex';
+          hexValue.textContent = swatch.hex.toUpperCase();
 
-        if (paused) {
-          return;
-        }
+          const contrast = document.createElement('span');
+          contrast.className = 'palette-contrast';
+          contrast.textContent = `对比度 ${ratio.toFixed(2)} ${ratio >= 4.5 ? '· AA' : '· 未达标'}`;
 
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
-      }
-
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
-        };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
-      }
-
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
-          }
-          ctx.fill();
-          ctx.stroke();
+          card.appendChild(label);
+          card.appendChild(hexValue);
+          card.appendChild(contrast);
+          brandPaletteContainer.appendChild(card);
         });
+
+        if (Number.isFinite(minRatio)) {
+          const passes = minRatio >= 4.5;
+          contrastStatus.textContent = passes
+            ? `对比度校验：通过（最低 ${minRatio.toFixed(2)}，符合 WCAG AA）`
+            : `对比度校验：未通过（最低 ${minRatio.toFixed(2)}，需 ≥ 4.5）`;
+          contrastStatus.classList.toggle('fail', !passes);
+        }
       }
 
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
+      function handleBrandHexInput(value, options = {}) {
+        const normalized = normalizeHex(value);
+        if (!normalized) {
+          showInvalidHexMessage();
+          return;
+        }
 
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
+        brandColorHexInput.classList.remove('input-invalid');
+        const formatted = normalized.toUpperCase();
+        state.primaryColor = normalized;
+        state.brandPalette = generatePalette(normalized);
+        if (brandColorPicker && brandColorPicker.value !== normalized) {
+          brandColorPicker.value = normalized;
+        }
+        if (brandColorHexInput.value !== formatted) {
+          brandColorHexInput.value = formatted;
+        }
+        setAccentColor(state.primaryColor);
+        updateBrandPalette();
 
-        ctx.fillStyle = gradient;
+        if (!options.skipRender) {
+          render();
+        }
+      }
+
+      function handleTextChange() {
+        if (isSyncingTextInput) {
+          return;
+        }
+        updateBlocksFromText(textInput.value);
+        syncCoverTextFromSource();
+        render({ keepViewport: true });
+      }
+
+      function drawBackground(ctx, config, overrideBackground) {
+        const background = overrideBackground || config.background;
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, config.width, config.height);
+        strokeContentFrame(ctx, config, hexToRgba(config.accent, 0.22));
+      }
+
+      function drawWatermark(ctx, config) {
+        if (!state.watermark.trim()) {
+          return;
+        }
+
+        ctx.save();
+        ctx.translate(config.width / 2, config.height / 2);
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = hexToRgba(config.accent, 0.08);
+        ctx.font = `600 ${Math.round(config.fontSize * 1.8)}px ${config.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(state.watermark, 0, 0);
+        ctx.restore();
+      }
+
+      function drawRoundedRectPath(ctx, x, y, width, height, radius) {
+        const r = Math.min(radius, width / 2, height / 2);
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + width - r, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+        ctx.lineTo(x + width, y + height - r);
+        ctx.quadraticCurveTo(
+          x + width,
+          y + height,
+          x + width - r,
+          y + height
         );
-
-        food = newFood;
+        ctx.lineTo(x + r, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
       }
 
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
+      function drawLogoBadge(ctx, config, logoImage, x, y, size = 160, radius = 36) {
+        if (!logoImage || !logoImage.complete) {
           return;
         }
 
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
+        const safeRadius = Math.min(radius, size / 2);
+
+        ctx.save();
+        drawRoundedRectPath(ctx, x, y, size, size, safeRadius);
+        ctx.clip();
+        ctx.drawImage(logoImage, x, y, size, size);
+        ctx.restore();
+
+        ctx.save();
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = hexToRgba(config.accent, 0.45);
+        drawRoundedRectPath(ctx, x, y, size, size, safeRadius);
+        ctx.stroke();
+        ctx.restore();
       }
 
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
+      function drawPageNumber(ctx, config, pageIndex, totalPages) {
+        ctx.save();
+        ctx.fillStyle = config.pageNumberColor || hexToRgba(config.textColor, 0.65);
+        ctx.font = `400 ${Math.round(config.fontSize * 0.5)}px ${config.fontFamily}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(
+          `第 ${pageIndex + 1} 页 / 共 ${totalPages} 页`,
+          config.width / 2,
+          config.height - config.margin.bottom / 2
+        );
+        ctx.restore();
+      }
+
+      function drawPage(canvas, lines, config, pageIndex, totalPages) {
+        canvas.width = config.width;
+        canvas.height = config.height;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, config.width, config.height);
+
+        drawBackground(ctx, config);
+        drawWatermark(ctx, config);
+
+        lines.forEach((line) => {
+          const text = line.text || '';
+          const fontSize = line.fontSize || config.fontSize;
+          const fontWeight = line.fontWeight || 400;
+          const lineHeight = line.lineHeight || config.lineHeight;
+          const align = ['center', 'right'].includes(line.align) ? line.align : 'left';
+          const baseX =
+            align === 'center'
+              ? config.width / 2
+              : align === 'right'
+              ? config.width - config.margin.right
+              : config.margin.left;
+          const baseY = config.margin.top + line.offsetY;
+
+          ctx.save();
+          ctx.font = `${fontWeight} ${fontSize}px ${config.fontFamily}`;
+          ctx.textAlign = align;
+          ctx.textBaseline = 'top';
+
+          if (line.highlight && text) {
+            const highlightWidth =
+              line.width || ctx.measureText(text).width || 0;
+            const paddingX = 18;
+            const paddingY = 10;
+            const rectWidth = highlightWidth + paddingX;
+            const rectHeight = lineHeight + paddingY;
+            let rectX = baseX;
+            if (align === 'center') {
+              rectX -= rectWidth / 2;
+            } else if (align === 'right') {
+              rectX -= rectWidth;
+            }
+            const rectY = baseY - paddingY / 2;
+            ctx.fillStyle = hexToRgba(config.accent, 0.16);
+            ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+            ctx.fillStyle = config.textColor;
+          } else {
+            ctx.fillStyle = config.textColor;
+          }
+
+          if (text) {
+            ctx.fillText(text, baseX, baseY);
+          }
+          ctx.restore();
+        });
+
+        drawPageNumber(ctx, config, pageIndex, totalPages);
+      }
+
+      function drawCenteredCoverTemplate({
+        ctx,
+        config,
+        title,
+        subtitle,
+        coverBackground,
+        logo
+      }) {
+        drawBackground(ctx, config, coverBackground);
+
+        ctx.save();
+        ctx.fillStyle = hexToRgba(config.accent, 0.08);
+        ctx.fillRect(
+          config.margin.left,
+          config.margin.top,
+          config.width - config.margin.left - config.margin.right,
+          config.height - config.margin.top - config.margin.bottom
+        );
+        ctx.restore();
+
+        drawWatermark(ctx, config);
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = config.cover?.titleColor || config.textColor;
+        ctx.font = `700 ${Math.round(config.fontSize * 2.2)}px ${config.fontFamily}`;
+        ctx.fillText(
+          title,
+          config.width / 2,
+          config.margin.top + config.lineHeight * 0.4
+        );
+
+        ctx.strokeStyle = hexToRgba(config.accent, 0.3);
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(
+          config.width / 2 - 180,
+          config.margin.top + config.lineHeight * 2.2
+        );
+        ctx.lineTo(
+          config.width / 2 + 180,
+          config.margin.top + config.lineHeight * 2.2
+        );
+        ctx.stroke();
+
+        ctx.fillStyle = config.cover?.subtitleColor || hexToRgba(config.textColor, 0.7);
+        ctx.font = `400 ${Math.round(config.fontSize * 1.1)}px ${config.fontFamily}`;
+        ctx.fillText(
+          subtitle,
+          config.width / 2,
+          config.margin.top + config.lineHeight * 3
+        );
+        ctx.restore();
+
+        if (logo) {
+          const size = 180;
+          const x = config.width - config.margin.right - size;
+          const y = config.margin.top - size / 2;
+          drawLogoBadge(ctx, config, logo, x, y, size, 48);
+        }
+
+        strokeContentFrame(ctx, config, hexToRgba(config.accent, 0.22));
+      }
+
+      function drawStripeCoverTemplate({
+        ctx,
+        config,
+        title,
+        subtitle,
+        coverBackground,
+        logo
+      }) {
+        drawBackground(ctx, config, coverBackground);
+
+        const stripeWidth = Math.round(config.width * 0.18);
+        ctx.save();
+        ctx.fillStyle = hexToRgba(config.accent, 0.95);
+        ctx.fillRect(0, 0, stripeWidth, config.height);
+        ctx.fillStyle = hexToRgba(config.accent, 0.12);
+        ctx.fillRect(stripeWidth, 0, Math.round(stripeWidth * 0.45), config.height);
+        ctx.restore();
+
+        drawWatermark(ctx, config);
+
+        ctx.save();
+        ctx.textBaseline = 'top';
+        ctx.textAlign = 'left';
+        const textX = stripeWidth + config.margin.left * 0.6;
+        const textY = config.margin.top;
+        ctx.fillStyle = config.cover?.titleColor || config.textColor;
+        ctx.font = `700 ${Math.round(config.fontSize * 2)}px ${config.fontFamily}`;
+        ctx.fillText(title, textX, textY);
+
+        ctx.strokeStyle = hexToRgba(config.accent, 0.35);
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(textX, textY + config.lineHeight * 1.6);
+        ctx.lineTo(
+          config.width - config.margin.right,
+          textY + config.lineHeight * 1.6
+        );
+        ctx.stroke();
+
+        ctx.fillStyle = config.cover?.subtitleColor || hexToRgba(config.textColor, 0.75);
+        ctx.font = `400 ${Math.round(config.fontSize * 1.05)}px ${config.fontFamily}`;
+        ctx.fillText(subtitle, textX, textY + config.lineHeight * 2.6);
+        ctx.restore();
+
+        if (logo) {
+          const size = 150;
+          const x = Math.max(24, stripeWidth / 2 - size / 2);
+          const y = config.margin.top - size / 2;
+          drawLogoBadge(ctx, config, logo, x, y, size, 42);
+        }
+
+        strokeContentFrame(ctx, config, hexToRgba(config.accent, 0.22));
+      }
+
+      function drawSplitCoverTemplate({
+        ctx,
+        config,
+        title,
+        subtitle,
+        coverBackground,
+        logo
+      }) {
+        ctx.fillStyle = coverBackground;
+        ctx.fillRect(0, 0, config.width, config.height);
+
+        const topHeight = Math.round(config.height * 0.42);
+        ctx.fillStyle = hexToRgba(config.accent, 0.95);
+        ctx.fillRect(0, 0, config.width, topHeight);
+
+        ctx.fillStyle = mixWithWhite(config.accent, 0.75);
+        ctx.fillRect(0, topHeight, config.width, config.height - topHeight);
+
+        ctx.fillStyle = hexToRgba('#ffffff', 0.22);
+        ctx.fillRect(
+          config.margin.left,
+          topHeight - 6,
+          config.width - config.margin.left - config.margin.right,
+          12
+        );
+
+        drawWatermark(ctx, config);
+
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = '#ffffff';
+        ctx.font = `700 ${Math.round(config.fontSize * 2.1)}px ${config.fontFamily}`;
+        ctx.fillText(title, config.width / 2, config.margin.top * 0.7);
+
+        ctx.fillStyle = hexToRgba(config.textColor, 0.9);
+        ctx.font = `400 ${Math.round(config.fontSize * 1.15)}px ${config.fontFamily}`;
+        ctx.fillText(
+          subtitle,
+          config.width / 2,
+          topHeight + config.margin.top * 0.4
+        );
+        ctx.restore();
+
+        if (logo) {
+          const size = 170;
+          const x = config.width - config.margin.right - size;
+          const y = topHeight - size / 2;
+          drawLogoBadge(ctx, config, logo, x, y, size, 50);
+        }
+
+        strokeContentFrame(ctx, config, hexToRgba(config.accent, 0.28));
+      }
+
+      function drawCoverPage(canvas, config, pageIndex, totalPages) {
+        canvas.width = config.width;
+        canvas.height = config.height;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, config.width, config.height);
+
+        const coverBackground = config.cover?.background || config.background;
+        const template =
+          COVER_TEMPLATES.find((item) => item.id === state.coverTemplate) ||
+          COVER_TEMPLATES[0];
+        const logoImage =
+          state.coverLogoImage && state.coverLogoImage.complete
+            ? state.coverLogoImage
+            : null;
+
+        template.draw({
+          ctx,
+          config,
+          title: state.coverTitle,
+          subtitle: state.coverSubtitle,
+          coverBackground,
+          logo: logoImage
+        });
+
+        drawPageNumber(ctx, config, pageIndex, totalPages);
+      }
+
+      function buildPageView(pageEntry, config, pageIndex, totalPages) {
+        const previewWidth = 270;
+        const scale = previewWidth / config.width;
+        const previewHeight = Math.round(config.height * scale);
+        const contentWidth = config.width - config.margin.left - config.margin.right;
+
+        const pageView = document.createElement('div');
+        pageView.className = 'page-view';
+        pageView.style.setProperty('--page-background', config.background);
+        pageView.style.width = `${previewWidth}px`;
+        pageView.style.height = `${previewHeight}px`;
+        pageView.dataset.pageIndex = String(pageIndex);
+
+        const inner = document.createElement('div');
+        inner.className = 'page-view-inner';
+        inner.style.background = config.background;
+        pageView.appendChild(inner);
+
+        if (state.watermark.trim()) {
+          const watermark = document.createElement('div');
+          watermark.className = 'page-watermark';
+          watermark.textContent = state.watermark;
+          watermark.style.color = hexToRgba(config.accent, 0.12);
+          inner.appendChild(watermark);
+        }
+
+        const content = document.createElement('div');
+        content.className = 'page-content';
+        content.style.fontFamily = config.fontFamily;
+        content.style.color = config.textColor;
+        content.style.left = `${config.margin.left * scale}px`;
+        content.style.right = `${config.margin.right * scale}px`;
+        content.style.top = `${config.margin.top * scale}px`;
+        content.style.bottom = `${config.margin.bottom * scale}px`;
+        content.dataset.pageIndex = String(pageIndex);
+        inner.appendChild(content);
+
+        const segments = Array.isArray(pageEntry?.segments) ? pageEntry.segments : [];
+        segments.forEach((segment) => {
+          const para = document.createElement('div');
+          para.className = 'para';
+          para.dataset.id = segment.blockId;
+          para.dataset.align = segment.align || 'left';
+          para.dataset.level = segment.level || 'body';
+          para.dataset.segmentIndex = String(segment.segmentIndex || 1);
+          para.dataset.totalSegments = String(segment.totalSegments || 1);
+          para.dataset.pageIndex = String(pageIndex);
+          para.dataset.offset = String(segment.offsetY);
+          para.style.left = '0px';
+          para.style.width = `${contentWidth * scale}px`;
+          para.style.top = `${segment.offsetY * scale}px`;
+          para.style.fontSize = `${segment.fontSize * scale}px`;
+          para.style.lineHeight = `${segment.lineHeight * scale}px`;
+          para.style.fontWeight = segment.fontWeight || 400;
+          para.textContent = segment.text || '';
+          if (segment.highlight) {
+            para.classList.add('is-highlight');
+            para.style.background = hexToRgba(config.accent, 0.14);
+          } else {
+            para.style.background = 'transparent';
+          }
+          content.appendChild(para);
+        });
+
+        const pageNumber = document.createElement('div');
+        pageNumber.className = 'page-number-preview';
+        pageNumber.textContent = `第 ${pageIndex + 1} 页 / 共 ${totalPages} 页`;
+        inner.appendChild(pageNumber);
+
+        return pageView;
+      }
+
+      function render(options = {}) {
+        const { keepViewport = false, focusBlockId = null } = options;
+        clearError();
+        const config = buildConfig();
+        measureCanvas.width = config.width;
+        measureCanvas.height = config.height;
+
+        const layout = layoutDocument(blocks, config);
+        const includeCover = state.coverEnabled;
+        const totalPages = layout.pages.length + (includeCover ? 1 : 0);
+        const previousScroll = keepViewport ? previewContainer.scrollTop : 0;
+
+        if (selectedBlockId && !findBlockById(selectedBlockId)) {
+          selectedBlockId = null;
+        }
+        editingBlockId = null;
+
+        previewContainer.innerHTML = '';
+
+        const canvases = [];
+        const allPages = [];
+        if (includeCover) {
+          allPages.push({ type: 'cover' });
+        }
+        layout.segments.forEach((page, index) => {
+          allPages.push({ type: 'content', page, contentIndex: index });
+        });
+
+        allPages.forEach((page, index) => {
+          const card = document.createElement('div');
+          card.className = 'preview-card';
+
+          if (page.type === 'cover') {
+            const canvas = document.createElement('canvas');
+            drawCoverPage(canvas, config, index, totalPages);
+            canvases.push(canvas);
+            card.appendChild(canvas);
+          } else {
+            const canvas = document.createElement('canvas');
+            drawPage(canvas, layout.pages[page.contentIndex], config, index, totalPages);
+            canvas.classList.add('export-canvas');
+            canvases.push(canvas);
+
+            const view = buildPageView(page.page, config, index, totalPages);
+            card.appendChild(view);
+            card.appendChild(canvas);
+          }
+
+          const label = document.createElement('span');
+          label.className = 'page-label';
+          label.textContent = `第 ${index + 1} 页`;
+          card.appendChild(label);
+          previewContainer.appendChild(card);
+        });
+
+        if (!allPages.length) {
+          const card = document.createElement('div');
+          card.className = 'preview-card';
+          const canvas = document.createElement('canvas');
+          drawPage(canvas, [], config, 0, 1);
+          canvas.classList.add('export-canvas');
+          canvases.push(canvas);
+          const view = buildPageView({ segments: [] }, config, 0, 1);
+          card.appendChild(view);
+          card.appendChild(canvas);
+          const label = document.createElement('span');
+          label.className = 'page-label';
+          label.textContent = '第 1 页';
+          card.appendChild(label);
+          previewContainer.appendChild(card);
+        }
+
+        renderCache.canvases = canvases;
+        renderCache.layout = layout;
+        renderCache.totalPages = totalPages;
+        renderCache.config = config;
+
+        const theme = getTheme();
+        pageHint.textContent = `当前主题：${theme.name} · 正文字号 ${config.fontSize}px · 总页数 ${totalPages} 页。`;
+
+        if (keepViewport) {
+          previewContainer.scrollTop = previousScroll;
+        }
+
+        if (focusBlockId) {
+          const target = previewContainer.querySelector(
+            `.para[data-id="${focusBlockId}"]`
+          );
+          if (target) {
+            target.scrollIntoView({ block: 'center' });
+          }
+        }
+
+        applySelectionToPreview();
+        updateToolbarPosition();
+
+        runSelfTests(config);
+      }
+
+      function blockMatchesPreset(block, preset) {
+        if (!block) {
+          return false;
+        }
+        const target = clonePreset(preset || DEFAULT_BLOCK_PRESET);
+        return (
+          block.align === target.align &&
+          block.level === target.level &&
+          Math.abs(block.scale - target.scale) < 0.001 &&
+          Boolean(block.bold) === Boolean(target.bold) &&
+          Boolean(block.highlight) === Boolean(target.highlight)
+        );
+      }
+
+      function setCurrentPreset(preset) {
+        state.currentPreset = clonePreset(preset || DEFAULT_BLOCK_PRESET);
+        persistCurrentPreset();
+        updateToolbarState();
+      }
+
+      function hideToolbar() {
+        if (toolbarElement) {
+          toolbarElement.classList.add('is-hidden');
+        }
+      }
+
+      function ensureToolbar() {
+        if (toolbarElement) {
+          return toolbarElement;
+        }
+
+        const toolbar = document.createElement('div');
+        toolbar.className = 'para-toolbar is-hidden';
+        toolbar.setAttribute('role', 'toolbar');
+        toolbar.setAttribute('aria-label', '段落编辑工具条');
+
+        const createButton = (label, action, value, options = {}) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.textContent = label;
+          button.dataset.action = action;
+          if (value !== undefined) {
+            button.dataset.value = value;
+          }
+          if (options.title) {
+            button.title = options.title;
+          }
+          if (options.ariaLabel || options.title) {
+            button.setAttribute('aria-label', options.ariaLabel || options.title);
+          }
+          if (options.isToggle) {
+            button.setAttribute('aria-pressed', 'false');
+          }
+          toolbar.appendChild(button);
+          return button;
         };
 
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
+        const alignLeft = createButton('L', 'align', 'left', {
+          title: '左对齐',
+          isToggle: true
+        });
+        const alignCenter = createButton('C', 'align', 'center', {
+          title: '居中对齐',
+          isToggle: true
+        });
+        const alignRight = createButton('R', 'align', 'right', {
+          title: '右对齐',
+          isToggle: true
+        });
+        toolbar.appendChild(document.createElement('span')).className = 'toolbar-divider';
+
+        const levelSelect = document.createElement('select');
+        levelSelect.innerHTML = `
+          <option value="body">正文</option>
+          <option value="h1">H1</option>
+          <option value="h2">H2</option>
+          <option value="h3">H3</option>
+        `;
+        levelSelect.setAttribute('aria-label', '标题级别');
+        toolbar.appendChild(levelSelect);
+        toolbar.appendChild(document.createElement('span')).className = 'toolbar-divider';
+
+        const scaleDown = createButton('A−', 'scale', 'down', {
+          title: '减小字号'
+        });
+        const scaleUp = createButton('A+', 'scale', 'up', {
+          title: '增大字号'
+        });
+        toolbar.appendChild(document.createElement('span')).className = 'toolbar-divider';
+
+        const boldButton = createButton('B', 'bold', undefined, {
+          title: '加粗',
+          isToggle: true
+        });
+        boldButton.style.fontWeight = '700';
+        const highlightButton = createButton('H', 'highlight', undefined, {
+          title: '高亮',
+          isToggle: true
+        });
+        toolbar.appendChild(document.createElement('span')).className = 'toolbar-divider';
+
+        const toggleLabel = document.createElement('label');
+        toggleLabel.className = 'toolbar-toggle';
+        const toggleInput = document.createElement('input');
+        toggleInput.type = 'checkbox';
+        toggleInput.setAttribute('aria-label', '设为下一段默认样式');
+        const toggleText = document.createElement('span');
+        toggleText.textContent = '设为下一段默认样式';
+        toggleLabel.append(toggleInput, toggleText);
+        toolbar.appendChild(toggleLabel);
+
+        toolbarControls.alignLeft = alignLeft;
+        toolbarControls.alignCenter = alignCenter;
+        toolbarControls.alignRight = alignRight;
+        toolbarControls.levelSelect = levelSelect;
+        toolbarControls.scaleDown = scaleDown;
+        toolbarControls.scaleUp = scaleUp;
+        toolbarControls.bold = boldButton;
+        toolbarControls.highlight = highlightButton;
+        toolbarControls.defaultToggle = toggleInput;
+
+        alignLeft.addEventListener('click', () => handleToolbarAlign('left'));
+        alignCenter.addEventListener('click', () => handleToolbarAlign('center'));
+        alignRight.addEventListener('click', () => handleToolbarAlign('right'));
+        scaleDown.addEventListener('click', () => handleToolbarScale('down'));
+        scaleUp.addEventListener('click', () => handleToolbarScale('up'));
+        boldButton.addEventListener('click', handleToolbarBold);
+        highlightButton.addEventListener('click', handleToolbarHighlight);
+        levelSelect.addEventListener('change', (event) =>
+          handleToolbarLevel(event.target.value)
+        );
+        toggleInput.addEventListener('change', (event) =>
+          handleToolbarPresetToggle(event.target.checked)
+        );
+
+        document.body.appendChild(toolbar);
+        toolbarElement = toolbar;
+        return toolbar;
+      }
+
+      function updateToolbarState() {
+        if (!selectedBlockId) {
+          hideToolbar();
+          return;
+        }
+        const toolbar = ensureToolbar();
+        const block = findBlockById(selectedBlockId);
+        if (!block) {
+          hideToolbar();
           return;
         }
 
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
+        const alignLeftActive = block.align === 'left';
+        const alignCenterActive = block.align === 'center';
+        const alignRightActive = block.align === 'right';
+        toolbarControls.alignLeft.classList.toggle('is-active', alignLeftActive);
+        toolbarControls.alignLeft.setAttribute('aria-pressed', alignLeftActive ? 'true' : 'false');
+        toolbarControls.alignCenter.classList.toggle('is-active', alignCenterActive);
+        toolbarControls.alignCenter.setAttribute(
+          'aria-pressed',
+          alignCenterActive ? 'true' : 'false'
+        );
+        toolbarControls.alignRight.classList.toggle('is-active', alignRightActive);
+        toolbarControls.alignRight.setAttribute('aria-pressed', alignRightActive ? 'true' : 'false');
 
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
+        const boldActive = Boolean(block.bold);
+        const highlightActive = Boolean(block.highlight);
+        toolbarControls.bold.classList.toggle('is-active', boldActive);
+        toolbarControls.bold.setAttribute('aria-pressed', boldActive ? 'true' : 'false');
+        toolbarControls.highlight.classList.toggle('is-active', highlightActive);
+        toolbarControls.highlight.setAttribute('aria-pressed', highlightActive ? 'true' : 'false');
+        toolbarControls.levelSelect.value = block.level || 'body';
+        toolbarControls.defaultToggle.checked = blockMatchesPreset(block, state.currentPreset);
+        toolbarControls.defaultToggle.setAttribute(
+          'aria-checked',
+          toolbarControls.defaultToggle.checked ? 'true' : 'false'
+        );
+
+        const minScale = 0.85;
+        const maxScale = 1.3;
+        toolbarControls.scaleDown.disabled = block.scale <= minScale + 0.001;
+        toolbarControls.scaleUp.disabled = block.scale >= maxScale - 0.001;
+        toolbarControls.scaleDown.setAttribute(
+          'aria-disabled',
+          toolbarControls.scaleDown.disabled ? 'true' : 'false'
+        );
+        toolbarControls.scaleUp.setAttribute(
+          'aria-disabled',
+          toolbarControls.scaleUp.disabled ? 'true' : 'false'
+        );
+
+        toolbar.classList.toggle('is-hidden', false);
       }
 
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
-            }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
+      function applySelectionToPreview() {
+        const nodes = previewContainer.querySelectorAll('.para');
+        nodes.forEach((node) => {
+          if (selectedBlockId && node.dataset.id === selectedBlockId) {
+            node.classList.add('selected');
+          } else {
+            node.classList.remove('selected');
+          }
         });
-      });
 
-      initGame();
+        if (!selectedBlockId) {
+          hideToolbar();
+          return;
+        }
+
+        updateToolbarState();
+        updateToolbarPosition();
+      }
+
+      function updateToolbarPosition() {
+        if (!toolbarElement || toolbarElement.classList.contains('is-hidden')) {
+          return;
+        }
+        const target = selectedBlockId
+          ? previewContainer.querySelector(`.para[data-id="${selectedBlockId}"]`)
+          : null;
+        if (!target) {
+          hideToolbar();
+          return;
+        }
+        const rect = target.getBoundingClientRect();
+        const toolbarRect = toolbarElement.getBoundingClientRect();
+        let top = window.scrollY + rect.top - toolbarRect.height - 12;
+        if (top < window.scrollY + 8) {
+          top = window.scrollY + rect.bottom + 12;
+        }
+        let left = window.scrollX + rect.left + rect.width / 2 - toolbarRect.width / 2;
+        const minLeft = window.scrollX + 12;
+        const maxLeft = window.scrollX + window.innerWidth - toolbarRect.width - 12;
+        left = Math.min(Math.max(left, minLeft), maxLeft);
+        toolbarElement.style.top = `${top}px`;
+        toolbarElement.style.left = `${left}px`;
+      }
+
+      function selectBlock(blockId) {
+        if (!blockId) {
+          clearSelection();
+          return;
+        }
+        selectedBlockId = blockId;
+        applySelectionToPreview();
+        updateToolbarPosition();
+      }
+
+      function clearSelection() {
+        selectedBlockId = null;
+        applySelectionToPreview();
+        hideToolbar();
+      }
+
+      function commitBlockMutation(blockId, mutator, options = {}) {
+        const block = findBlockById(blockId);
+        if (!block) {
+          return;
+        }
+        mutator(block);
+        persistBlocks();
+        if (options.syncText !== false) {
+          syncTextInputFromBlocks();
+        }
+        if (options.syncCover) {
+          syncCoverTextFromSource();
+        }
+        reflowPaginate({ keepViewport: options.keepViewport !== false, focusBlockId: blockId });
+      }
+
+      function handleToolbarAlign(value) {
+        if (!selectedBlockId) {
+          return;
+        }
+        commitBlockMutation(
+          selectedBlockId,
+          (block) => {
+            block.align = value;
+          },
+          { syncText: false }
+        );
+      }
+
+      function handleToolbarLevel(value) {
+        if (!selectedBlockId) {
+          return;
+        }
+        const targetLevel = ['body', 'h1', 'h2', 'h3'].includes(value) ? value : 'body';
+        commitBlockMutation(
+          selectedBlockId,
+          (block) => {
+            block.level = targetLevel;
+            const preset = LEVEL_PRESETS[targetLevel] || LEVEL_PRESETS.body;
+            block.scale = clampScale(preset.scale);
+          },
+          { syncText: false }
+        );
+        updateToolbarState();
+      }
+
+      function handleToolbarScale(direction) {
+        if (!selectedBlockId) {
+          return;
+        }
+        const delta = direction === 'down' ? -0.05 : 0.05;
+        commitBlockMutation(
+          selectedBlockId,
+          (block) => {
+            block.scale = clampScale((block.scale || 1) + delta);
+          },
+          { syncText: false }
+        );
+        updateToolbarState();
+      }
+
+      function handleToolbarBold() {
+        if (!selectedBlockId) {
+          return;
+        }
+        commitBlockMutation(
+          selectedBlockId,
+          (block) => {
+            block.bold = !block.bold;
+          },
+          { syncText: false }
+        );
+        updateToolbarState();
+      }
+
+      function handleToolbarHighlight() {
+        if (!selectedBlockId) {
+          return;
+        }
+        commitBlockMutation(
+          selectedBlockId,
+          (block) => {
+            block.highlight = !block.highlight;
+          },
+          { syncText: false }
+        );
+        updateToolbarState();
+      }
+
+      function handleToolbarPresetToggle(checked) {
+        const block = selectedBlockId ? findBlockById(selectedBlockId) : null;
+        if (!block) {
+          return;
+        }
+        if (checked) {
+          setCurrentPreset(block);
+        } else {
+          setCurrentPreset(DEFAULT_BLOCK_PRESET);
+        }
+      }
+
+      function sanitizeParagraphText(value) {
+        if (typeof value !== 'string') {
+          return '';
+        }
+        return value.replace(/\r\n?/g, '\n');
+      }
+
+      function startEditingBlock(blockId, element) {
+        if (editingBlockId === blockId) {
+          return;
+        }
+        const block = findBlockById(blockId);
+        if (!block) {
+          return;
+        }
+        editingBlockId = blockId;
+        element.contentEditable = 'true';
+        element.classList.add('is-editing');
+        element.textContent = block.text || '';
+        element.focus();
+
+        const selection = window.getSelection();
+        if (selection) {
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+
+        const handleKeyDown = (event) => {
+          if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            element.blur();
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            element.textContent = block.text || '';
+            element.blur();
+          }
+        };
+        element.__editingKeydown = handleKeyDown;
+        element.addEventListener('keydown', handleKeyDown);
+
+        const handleBlur = () => {
+          finishEditingBlock(element, blockId);
+        };
+        element.addEventListener('blur', handleBlur, { once: true });
+      }
+
+      function finishEditingBlock(element, blockId) {
+        const block = findBlockById(blockId);
+        const rawText = element.innerText || '';
+        const newText = sanitizeParagraphText(rawText);
+
+        element.contentEditable = 'false';
+        element.classList.remove('is-editing');
+        if (element.__editingKeydown) {
+          element.removeEventListener('keydown', element.__editingKeydown);
+          delete element.__editingKeydown;
+        }
+
+        editingBlockId = null;
+
+        if (!block) {
+          reflowPaginate({ keepViewport: true });
+          return;
+        }
+
+        if (block.text !== newText) {
+          commitBlockMutation(
+            blockId,
+            (target) => {
+              target.text = newText;
+            },
+            { syncText: true, syncCover: true }
+          );
+        } else {
+          reflowPaginate({ keepViewport: true, focusBlockId: blockId });
+        }
+
+        selectBlock(blockId);
+      }
+
+      function handlePreviewClick(event) {
+        const para = event.target.closest('.para');
+        if (!para || !previewContainer.contains(para)) {
+          clearSelection();
+          return;
+        }
+        const blockId = para.dataset.id;
+        if (!blockId) {
+          return;
+        }
+        selectBlock(blockId);
+      }
+
+      function handlePreviewDoubleClick(event) {
+        const para = event.target.closest('.para');
+        if (!para || !previewContainer.contains(para)) {
+          return;
+        }
+        const blockId = para.dataset.id;
+        if (!blockId) {
+          return;
+        }
+        selectBlock(blockId);
+        startEditingBlock(blockId, para);
+      }
+
+      function reflowPaginate(options = {}) {
+        const keepViewport = options.keepViewport !== false;
+        const focusBlockId = options.focusBlockId || selectedBlockId || null;
+        render({ keepViewport, focusBlockId });
+      }
+
+      function layoutPagesFromText(text, config) {
+        const normalized = normalizeText(text || '');
+        const lines = normalized.split('\n');
+        const tempBlocks = lines.map((line, index) =>
+          normalizeBlock({
+            ...DEFAULT_BLOCK_PRESET,
+            text: line,
+            id: `temp-${index}`
+          })
+        );
+        return layoutDocument(tempBlocks, config).pages;
+      }
+
+      function canvasToBlob(canvas) {
+        return new Promise((resolve, reject) => {
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('无法从画布生成图像。'));
+                return;
+              }
+              resolve(blob);
+            },
+            'image/png'
+          );
+        });
+      }
+
+      function getExportCanvases() {
+        return Array.isArray(renderCache.canvases) ? renderCache.canvases : [];
+      }
+
+      async function downloadAllPNGs() {
+        clearError();
+        const canvases = getExportCanvases();
+        if (!canvases.length) {
+          showError('暂无可导出的页面，请先输入或生成内容。');
+          return;
+        }
+
+        try {
+          await Promise.all(
+            canvases.map(async (canvas, index) => {
+              const blob = await canvasToBlob(canvas);
+              const url = URL.createObjectURL(blob);
+              const anchor = document.createElement('a');
+              anchor.href = url;
+              anchor.download = `排版导出-第${String(index + 1).padStart(2, '0')}页.png`;
+              document.body.appendChild(anchor);
+              anchor.click();
+              document.body.removeChild(anchor);
+              URL.revokeObjectURL(url);
+            })
+          );
+        } catch (error) {
+          console.error(error);
+          showError('导出 PNG 失败，请重试。');
+        }
+      }
+
+      async function downloadZip() {
+        clearError();
+        if (typeof JSZip === 'undefined') {
+          showError('ZIP 支持脚本未正确加载，请检查网络后重试。');
+          return;
+        }
+
+        const canvases = getExportCanvases();
+        if (!canvases.length) {
+          showError('暂无可导出的页面，请先输入或生成内容。');
+          return;
+        }
+
+        try {
+          const zip = new JSZip();
+          await Promise.all(
+            canvases.map(async (canvas, index) => {
+              const blob = await canvasToBlob(canvas);
+              zip.file(`排版导出-第${String(index + 1).padStart(2, '0')}页.png`, blob);
+            })
+          );
+
+          const content = await zip.generateAsync({ type: 'blob' });
+          const url = URL.createObjectURL(content);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = '排版导出-全部页面.zip';
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          URL.revokeObjectURL(url);
+        } catch (error) {
+          console.error(error);
+          showError('打包 ZIP 失败，请稍后重试。');
+        }
+      }
+
+      function runSelfTests(config) {
+        const tests = [
+          {
+            name: '空输入会使用默认示例',
+            run: () => normalizeText('   ') === DEFAULT_TEXT
+          },
+          {
+            name: '多段落文本可自动分页',
+            run: () => layoutPagesFromText(SAMPLE_TEXT, config).length > 1
+          },
+          {
+            name: '保留空白行',
+            run: () =>
+              layoutPagesFromText('首段\n\n次段', config).some((page) =>
+                page.some((item) => item.text === '')
+              )
+          }
+        ];
+
+        const results = tests.map((test) => {
+          try {
+            return { name: test.name, passed: Boolean(test.run()) };
+          } catch (error) {
+            console.error(`自测失败：${test.name}`, error);
+            return { name: test.name, passed: false };
+          }
+        });
+
+        const passedCount = results.filter((item) => item.passed).length;
+        const allPassed = passedCount === results.length;
+        selfTestResults.classList.toggle('fail', !allPassed);
+        const summary = allPassed
+          ? `自测结果：全部 ${passedCount} 项通过 ✅`
+          : `自测结果：通过 ${passedCount}/${results.length} 项 ⚠️`;
+        const detail = results
+          .map((item) => `${item.passed ? '✅' : '❌'} ${item.name}`)
+          .join('<br />');
+        selfTestResults.innerHTML = `<strong>${summary}</strong><br />${detail}`;
+      }
+
+      function toggleCoverFields(show) {
+        coverTitleField.classList.toggle('is-hidden', !show);
+        coverSubtitleField.classList.toggle('is-hidden', !show);
+        coverTemplateField.classList.toggle('is-hidden', !show);
+        coverLogoField.classList.toggle('is-hidden', !show);
+        if (show) {
+          if (!coverTitleInput.value.trim()) {
+            coverTitleInput.value = state.coverTitle;
+          }
+          if (!coverSubtitleInput.value.trim()) {
+            coverSubtitleInput.value = state.coverSubtitle;
+          }
+          coverTemplateSelect.value = state.coverTemplate;
+          coverLogoPresetSelect.value = state.coverLogoPreset;
+          updateLogoPreview();
+        }
+      }
+
+      textInput.addEventListener('input', handleTextChange);
+      themeSelect.addEventListener('change', (event) => {
+        const themeId = event.target.value;
+        const theme = THEMES.find((item) => item.id === themeId) || THEMES[0];
+        state.theme = theme.id;
+        handleBrandHexInput(theme.brandColor || state.primaryColor, { skipRender: true });
+        render();
+      });
+      if (brandColorPicker) {
+        brandColorPicker.addEventListener('input', (event) => {
+          handleBrandHexInput(event.target.value);
+        });
+      }
+      if (brandColorHexInput) {
+        brandColorHexInput.addEventListener('input', (event) => {
+          const value = event.target.value;
+          if (!value.trim()) {
+            showInvalidHexMessage();
+            return;
+          }
+          const normalized = normalizeHex(value);
+          if (normalized) {
+            handleBrandHexInput(normalized);
+            return;
+          }
+          const digits = value.replace(/#/g, '');
+          if (digits.length >= 3) {
+            showInvalidHexMessage();
+          }
+        });
+        brandColorHexInput.addEventListener('blur', () => {
+          const normalized = normalizeHex(brandColorHexInput.value);
+          if (!normalized) {
+            brandColorHexInput.classList.remove('input-invalid');
+            brandColorHexInput.value = state.primaryColor.toUpperCase();
+            updateBrandPalette();
+            return;
+          }
+          handleBrandHexInput(normalized, { skipRender: true });
+        });
+      }
+      fontSizeInput.addEventListener('input', (event) => {
+        state.fontSize = Number(event.target.value);
+        fontSizeValue.textContent = `${state.fontSize} px`;
+        render();
+      });
+      watermarkInput.addEventListener('input', (event) => {
+        state.watermark = event.target.value;
+        render();
+      });
+      coverToggle.addEventListener('change', (event) => {
+        state.coverEnabled = event.target.checked;
+        toggleCoverFields(state.coverEnabled);
+        if (state.coverEnabled) {
+          syncCoverTextFromSource();
+        }
+        render();
+      });
+      coverTitleInput.addEventListener('input', () => {
+        const value = coverTitleInput.value.trim();
+        if (value) {
+          state.coverTitleManual = true;
+          state.coverTitle = value;
+        } else {
+          state.coverTitleManual = false;
+          syncCoverTextFromSource();
+        }
+        render();
+      });
+      coverSubtitleInput.addEventListener('input', () => {
+        const value = coverSubtitleInput.value.trim();
+        if (value) {
+          state.coverSubtitleManual = true;
+          state.coverSubtitle = value;
+        } else {
+          state.coverSubtitleManual = false;
+          syncCoverTextFromSource();
+        }
+        render();
+      });
+      coverTemplateSelect.addEventListener('change', (event) => {
+        const templateId = event.target.value;
+        const exists = COVER_TEMPLATES.some((item) => item.id === templateId);
+        state.coverTemplate = exists ? templateId : 'centered';
+        render();
+      });
+      coverLogoPresetSelect.addEventListener('change', (event) => {
+        const value = event.target.value;
+        if (value === 'none') {
+          coverLogoUpload.value = '';
+          setCoverLogo('', 'none');
+          clearError();
+          return;
+        }
+        if (value === 'custom') {
+          coverLogoUpload.click();
+          return;
+        }
+        const preset = PRESET_LOGOS.find((item) => item.id === value);
+        if (preset) {
+          coverLogoUpload.value = '';
+          setCoverLogo(preset.dataUrl, value);
+        }
+      });
+      coverLogoUpload.addEventListener('change', (event) => {
+        const [file] = event.target.files || [];
+        if (!file) {
+          coverLogoPresetSelect.value = state.coverLogoPreset;
+          return;
+        }
+        if (!file.type.startsWith('image/')) {
+          showError('请上传图片文件作为角标。');
+          event.target.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            coverLogoPresetSelect.value = 'custom';
+            setCoverLogo(reader.result, 'custom');
+          }
+        };
+        reader.onerror = () => {
+          showError('读取角标图片失败，请重试。');
+        };
+        reader.readAsDataURL(file);
+      });
+      clearLogoBtn.addEventListener('click', () => {
+        coverLogoUpload.value = '';
+        coverLogoPresetSelect.value = 'none';
+        setCoverLogo('', 'none');
+        clearError();
+      });
+      fillSampleBtn.addEventListener('click', () => {
+        textInput.value = SAMPLE_TEXT;
+        state.coverTitleManual = false;
+        state.coverSubtitleManual = false;
+        handleTextChange();
+      });
+      downloadBtn.addEventListener('click', downloadAllPNGs);
+      downloadZipBtn.addEventListener('click', downloadZip);
+      previewContainer.addEventListener('click', handlePreviewClick);
+      previewContainer.addEventListener('dblclick', handlePreviewDoubleClick);
+      previewContainer.addEventListener('scroll', updateToolbarPosition);
+      window.addEventListener('scroll', updateToolbarPosition, { passive: true });
+      window.addEventListener('resize', updateToolbarPosition);
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const storedPreset = loadPresetFromStorage();
+        if (storedPreset) {
+          state.currentPreset = storedPreset;
+        }
+
+        const storedBlocks = loadBlocksFromStorage();
+        if (storedBlocks && storedBlocks.length) {
+          setBlocks(storedBlocks, { syncText: false });
+        } else {
+          const normalized = normalizeText(DEFAULT_TEXT);
+          const initialBlocks = normalized.split('\n').map((line, index) =>
+            normalizeBlock({
+              ...state.currentPreset,
+              text: line,
+              id: `init-${index}`
+            })
+          );
+          setBlocks(initialBlocks, { syncText: false });
+        }
+        syncTextInputFromBlocks();
+
+        fontSizeValue.textContent = `${state.fontSize} px`;
+        themeSelect.value = state.theme;
+        handleBrandHexInput(state.primaryColor, { skipRender: true });
+        coverTemplateSelect.value = state.coverTemplate;
+        coverLogoPresetSelect.value = state.coverLogoPreset;
+        updateLogoPreview();
+        toggleCoverFields(state.coverEnabled);
+        syncCoverTextFromSource({ force: true });
+        coverTitleInput.value = state.coverTitle;
+        coverSubtitleInput.value = state.coverSubtitle;
+        selfTestResults.textContent = '自测进行中…';
+        render();
+      });
     </script>
   </body>
 </html>
