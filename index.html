@@ -1,531 +1,1233 @@
+<!--
+  作者：PromptCraft（示例作者：OpenAI gpt-5-codex）
+  许可：MIT License
+-->
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="h-full scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
-    <style>
-      :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
-      }
-
-      .page-wrapper {
-        width: min(100%, 480px);
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: center;
-      }
-
-      .scoreboard {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
-      }
-
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
-
-      .game-wrapper {
-        position: relative;
-        width: 400px;
-        max-width: 100%;
-      }
-
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
-        text-align: center;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
-      }
-
-      .control-btn:active {
-        transform: translateY(1px);
-      }
-
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
-        display: flex;
-        gap: 12px;
-      }
-
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
-      }
-
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
-      }
-
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .scoreboard {
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .direction-btn {
-          width: 56px;
-          height: 56px;
-        }
-      }
-    </style>
+    <title>提示词卡片生成器</title>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['"Inter"', '"Noto Sans SC"', 'system-ui', 'sans-serif'],
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
-      </header>
-
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
+  <body
+    class="min-h-screen bg-slate-100 text-slate-800 antialiased transition-colors duration-300 dark:bg-slate-900 dark:text-slate-100"
+  >
+    <!-- 顶部导航：标题、说明与主题切换 -->
+    <header
+      class="border-b border-slate-200/70 bg-white/80 backdrop-blur-sm transition dark:border-slate-800 dark:bg-slate-900/80"
+    >
+      <div
+        class="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.35em] text-slate-400 dark:text-slate-500">
+            Prompt Builder
+          </p>
+          <h1 class="mt-2 text-2xl font-bold text-slate-900 transition dark:text-white">提示词卡片生成器</h1>
+          <p class="mt-2 max-w-xl text-sm text-slate-500 dark:text-slate-400">
+            整理生成式 AI 所需的结构化提示词，支持模板存储、批量主题以及一键导出。
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            id="theme-toggle"
+            type="button"
+            aria-pressed="false"
+            class="group flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-4 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-300 hover:text-slate-900 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-sky-500 dark:hover:text-white dark:hover:shadow-xl"
+          >
+            <span class="text-lg transition group-hover:scale-110" aria-hidden="true">🌞</span>
+            <span class="theme-toggle-label">切换为深色模式</span>
           </button>
         </div>
-      </main>
+      </div>
+    </header>
 
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
+    <!-- 页面主体：三栏布局，移动端自动折行 -->
+    <div class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 px-6 py-6 lg:flex-row">
+      <!-- 左侧表单区 -->
+      <form
+        id="prompt-form"
+        class="flex w-full flex-col gap-4 rounded-xl border border-slate-200/80 bg-white/80 p-6 shadow-lg transition dark:border-slate-800 dark:bg-slate-900/70 lg:w-1/4"
+        aria-labelledby="form-title"
+      >
+        <header class="flex items-center justify-between">
+          <h2 id="form-title" class="text-xl font-semibold text-slate-900 dark:text-white">提示词设置</h2>
+          <span
+            class="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600 transition dark:bg-sky-500/20 dark:text-sky-200"
+            >基础信息</span
+          >
+        </header>
+
+        <!-- 输入：标题 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">标题</span>
+          <input
+            type="text"
+            id="prompt-title"
+            name="title"
+            placeholder="例如：新品发布社交媒体推广提示词"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          />
+        </label>
+
+        <!-- 输入：目标/用途 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">目标 / 用途</span>
+          <input
+            type="text"
+            id="prompt-goal"
+            name="goal"
+            placeholder="说明希望 AI 达成的结果，例如：提高活动报名率"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          />
+        </label>
+
+        <!-- 输入：目标读者/平台（下拉） -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">目标读者 / 平台</span>
+          <select
+            id="prompt-audience"
+            name="audience"
+            class="w-full appearance-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          >
+            <option value="" disabled selected>请选择投放平台或受众画像</option>
+            <option value="微信公众号读者">微信公众号读者</option>
+            <option value="小红书用户">小红书用户</option>
+            <option value="企业内部邮件">企业内部邮件</option>
+            <option value="抖音/短视频观众">抖音 / 短视频观众</option>
+            <option value="LinkedIn 专业人士">LinkedIn 专业人士</option>
+          </select>
+        </label>
+
+        <!-- 输入：场景/任务描述 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">场景 / 任务描述</span>
+          <textarea
+            rows="3"
+            id="prompt-task"
+            name="task"
+            placeholder="描述业务背景、使用场景以及需要完成的任务"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          ></textarea>
+        </label>
+
+        <!-- 输入：角色设定 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">角色设定</span>
+          <input
+            type="text"
+            id="prompt-role"
+            name="role"
+            placeholder="例如：资深营销顾问、创意策划总监"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          />
+        </label>
+
+        <!-- 多选：语气与风格 -->
+        <fieldset
+          class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 transition dark:border-slate-700 dark:bg-slate-900/60"
+        >
+          <legend class="px-2 text-sm font-medium text-slate-600 dark:text-slate-300">文风与语气（可多选）</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="tone"
+                value="专业可信"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>专业可信</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="tone"
+                value="亲切友好"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>亲切友好</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="tone"
+                value="数据驱动"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>数据驱动</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="tone"
+                value="创意活泼"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>创意活泼</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 多选：结构与格式 -->
+        <fieldset
+          class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 transition dark:border-slate-700 dark:bg-slate-900/60"
+        >
+          <legend class="px-2 text-sm font-medium text-slate-600 dark:text-slate-300">结构与格式（可多选）</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="structure"
+                value="分段说明"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>分段说明</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="structure"
+                value="列出要点"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>列出要点</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="structure"
+                value="表格输出"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>表格输出</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="structure"
+                value="Markdown 标题"
+                class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>Markdown 标题</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 单选：输出语言 -->
+        <fieldset
+          class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 transition dark:border-slate-700 dark:bg-slate-900/60"
+        >
+          <legend class="px-2 text-sm font-medium text-slate-600 dark:text-slate-300">输出语言</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <label class="flex items-center gap-2">
+              <input
+                type="radio"
+                name="output-language"
+                value="中文"
+                class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>中文</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="radio"
+                name="output-language"
+                value="英文"
+                class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>英文</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="radio"
+                name="output-language"
+                value="中英双语"
+                class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400 dark:border-slate-600 dark:bg-slate-800"
+              />
+              <span>中英双语</span>
+            </label>
+          </div>
+        </fieldset>
+        <!-- 输入：变量设置区 -->
+        <fieldset
+          class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/80 p-3 transition dark:border-slate-700 dark:bg-slate-900/60"
+        >
+          <legend class="px-2 text-sm font-medium text-slate-600 dark:text-slate-300">变量设置区</legend>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            每行一个键值对，格式为
+            <code class="rounded bg-white px-1 py-0.5 text-[11px] text-slate-600 dark:bg-slate-900/80 dark:text-slate-300"
+              >变量名=变量值</code
+            >，例如：<code class="rounded bg-white px-1 py-0.5 text-[11px] text-slate-600 dark:bg-slate-900/80 dark:text-slate-300"
+              >主题=AI 生成器</code
+            >。
+          </p>
+          <textarea
+            rows="3"
+            id="prompt-variables"
+            name="variables"
+            placeholder="主题=AI 生成器\n语气=亲切专业\n产品=PromptMate"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          ></textarea>
+          <p class="text-xs text-slate-500 dark:text-slate-400">
+            在正文中以 <code class="rounded bg-white px-1 py-0.5 text-[11px] text-slate-600 dark:bg-slate-900/80 dark:text-slate-300"
+              >{{变量名}}</code
+            > 调用，未配置的变量会自动留空。
+          </p>
+        </fieldset>
+
+        <!-- 输入：约束与红线 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">约束与红线</span>
+          <textarea
+            rows="3"
+            id="prompt-constraints"
+            name="constraints"
+            placeholder="列出必须遵守的规范、敏感词限制或禁止事项"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          ></textarea>
+        </label>
+
+        <!-- 输入：批量主题输入 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600 dark:text-slate-300">批量主题输入</span>
+          <textarea
+            rows="3"
+            id="prompt-batch"
+            name="batch-topics"
+            placeholder="每行一个主题或关键词，系统将为每个主题生成独立卡片"
+            class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-sky-500 dark:focus:ring-sky-500/30"
+          ></textarea>
+        </label>
+
+        <!-- 底部操作按钮 -->
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            class="flex-1 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 active:translate-y-0"
+          >
+            生成卡片预览
+          </button>
+          <button
+            type="reset"
+            class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:text-slate-300 dark:hover:border-slate-500 dark:hover:text-slate-100"
+          >
+            清空表单
           </button>
         </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
+      </form>
+      <!-- 中间预览区 -->
+      <section
+        class="flex w-full flex-col gap-4 rounded-xl border border-slate-200/80 bg-white/80 p-8 shadow-lg transition dark:border-slate-800 dark:bg-slate-900/70 lg:w-2/4"
+        aria-labelledby="preview-title"
+      >
+        <header class="flex flex-col gap-2">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 id="preview-title" class="text-xl font-semibold text-slate-900 dark:text-white">卡片预览</h2>
+            <span class="text-xs text-slate-500 dark:text-slate-400">实时预览已组装的提示词内容</span>
+          </div>
+          <p class="text-sm text-slate-500 dark:text-slate-400">
+            可同时查看多张提示词卡片，方便比对不同主题或版本，右侧工具栏支持复制与导出。
+          </p>
+        </header>
+
+        <!-- 主题样式提示（静态展示） -->
+        <div
+          class="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50/70 p-3 text-xs text-slate-500 transition dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400"
+        >
+          <p class="font-medium">主题样式预览</p>
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-white via-slate-200 to-slate-400"></span>
+            浅色（默认）
           </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700 transition hover:-translate-y-0.5 hover:border-amber-300 hover:text-amber-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 active:translate-y-0 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-200"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-amber-100 via-amber-200 to-amber-300 dark:from-amber-300 dark:via-amber-400 dark:to-amber-500"></span>
+            奶油
           </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100 transition hover:-translate-y-0.5 hover:border-slate-500 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 active:translate-y-0"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-slate-600 via-slate-700 to-black"></span>
+            深色
           </button>
+        </div>
+
+        <!-- 卡片列表：支持滚动 -->
+        <div class="flex-1 overflow-hidden">
+          <div
+            id="preview-card-list"
+            class="flex h-full min-h-[360px] max-h-[640px] flex-col gap-6 overflow-y-auto pr-2"
+            aria-live="polite"
+          ></div>
         </div>
       </section>
+
+      <!-- 右侧工具栏 -->
+      <aside
+        class="flex w-full flex-col gap-5 rounded-xl border border-slate-200/80 bg-white/80 p-6 shadow-lg transition dark:border-slate-800 dark:bg-slate-900/70 lg:w-1/4"
+        aria-labelledby="toolbar-title"
+      >
+        <header class="flex items-center justify-between">
+          <h2 id="toolbar-title" class="text-xl font-semibold text-slate-900 dark:text-white">工具栏</h2>
+          <span class="text-xs text-slate-500 dark:text-slate-400">导出与复制</span>
+        </header>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300">生成与复制</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              class="w-full rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-sky-600 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 active:translate-y-0"
+            >
+              重新生成卡片
+            </button>
+            <button
+              type="button"
+              id="copy-plain-btn"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
+            >
+              复制提示词
+            </button>
+            <button
+              type="button"
+              id="copy-markdown-btn"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
+            >
+              复制 Markdown
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300">导出选项</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              id="export-png-btn"
+              class="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 active:translate-y-0"
+            >
+              导出 PNG
+            </button>
+            <button
+              type="button"
+              id="export-pdf-btn"
+              class="w-full rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-indigo-600 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300 active:translate-y-0"
+            >
+              导出 PDF
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300">模板管理</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              id="save-template-btn"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
+            >
+              保存模板
+            </button>
+            <button
+              type="button"
+              id="load-template-btn"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:-translate-y-0.5 hover:border-slate-300 hover:text-slate-800 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 active:translate-y-0 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:text-white"
+            >
+              加载模板
+            </button>
+            <button
+              type="button"
+              id="delete-template-btn"
+              class="w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-300 hover:text-rose-700 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:translate-y-0 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-200 dark:hover:border-rose-400 dark:hover:text-rose-100"
+            >
+              删除模板
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
+    <!-- 第三方库 -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
     <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
-      };
+      // ----------------------
+      // 基础 DOM 引用
+      // ----------------------
+      const rootElement = document.documentElement;
+      const promptForm = document.getElementById('prompt-form');
+      const titleInput = document.getElementById('prompt-title');
+      const goalInput = document.getElementById('prompt-goal');
+      const audienceSelect = document.getElementById('prompt-audience');
+      const taskInput = document.getElementById('prompt-task');
+      const roleInput = document.getElementById('prompt-role');
+      const variablesInput = document.getElementById('prompt-variables');
+      const constraintsInput = document.getElementById('prompt-constraints');
+      const batchTopicsInput = document.getElementById('prompt-batch');
+      const previewContainer = document.getElementById('preview-card-list');
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+      const copyPlainButton = document.getElementById('copy-plain-btn');
+      const copyMarkdownButton = document.getElementById('copy-markdown-btn');
+      const exportPngButton = document.getElementById('export-png-btn');
+      const exportPdfButton = document.getElementById('export-pdf-btn');
+      const saveTemplateButton = document.getElementById('save-template-btn');
+      const loadTemplateButton = document.getElementById('load-template-btn');
+      const deleteTemplateButton = document.getElementById('delete-template-btn');
+      const themeToggleButton = document.getElementById('theme-toggle');
+      const themeToggleLabel = themeToggleButton?.querySelector('.theme-toggle-label');
+      const themeToggleIcon = themeToggleButton?.querySelector('span[aria-hidden="true"]');
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+      const TEMPLATE_STORAGE_KEY = 'prompt-card-templates';
+      const THEME_STORAGE_KEY = 'prompt-card-preferred-theme';
 
-      highScoreEl.textContent = highScore.toString();
+      // ----------------------
+      // 主题切换逻辑
+      // ----------------------
+      function applyTheme(theme) {
+        const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
+        rootElement.classList.toggle('dark', normalizedTheme === 'dark');
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
+        if (themeToggleButton) {
+          themeToggleButton.setAttribute('aria-pressed', normalizedTheme === 'dark');
+        }
 
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
+        if (themeToggleLabel) {
+          themeToggleLabel.textContent = normalizedTheme === 'dark' ? '切换为浅色模式' : '切换为深色模式';
+        }
 
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
+        if (themeToggleIcon) {
+          themeToggleIcon.textContent = normalizedTheme === 'dark' ? '🌙' : '🌞';
+        }
 
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
-
-        draw();
-        requestAnimationFrame(gameLoop);
+        localStorage.setItem(THEME_STORAGE_KEY, normalizedTheme);
       }
 
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
+      function resolvePreferredTheme() {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (stored === 'dark' || stored === 'light') {
+          return stored;
         }
-
-        requestAnimationFrame(gameLoop);
-
-        if (paused) {
-          return;
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          return 'dark';
         }
-
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
+        return 'light';
       }
 
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
-        };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
-      }
-
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
-          }
-          ctx.fill();
-          ctx.stroke();
+      if (themeToggleButton) {
+        themeToggleButton.addEventListener('click', () => {
+          const isDark = rootElement.classList.contains('dark');
+          applyTheme(isDark ? 'light' : 'dark');
         });
       }
 
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
+      applyTheme(resolvePreferredTheme());
 
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
+      // ----------------------
+      // 表单工具函数
+      // ----------------------
+      function getCheckedValues(name) {
+        return Array.from(promptForm.querySelectorAll(`input[name="${name}"]:checked`))
+          .map((input) => input.value.trim())
+          .filter(Boolean);
       }
 
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
-        );
-
-        food = newFood;
+      function normalizeMultiline(value) {
+        return value
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join('\n');
       }
 
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
+      function parseVariablePairs(value) {
+        return value
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .reduce((acc, line) => {
+            const separatorIndex = line.indexOf('=');
+            if (separatorIndex === -1) {
+              return acc;
             }
-            break;
-          default:
-            break;
-        }
+
+            const key = line.slice(0, separatorIndex).trim();
+            if (!key) {
+              return acc;
+            }
+
+            const variableValue = line.slice(separatorIndex + 1).trim();
+            acc[key] = variableValue;
+            return acc;
+          }, {});
       }
 
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
+      function applyVariablesToText(text, variables) {
+        if (!text) return text;
 
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
+        return text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, key) => {
+          const normalizedKey = key.trim();
+          if (Object.prototype.hasOwnProperty.call(variables, normalizedKey)) {
+            return variables[normalizedKey];
+          }
+          return '';
         });
+      }
+
+      function assemblePrompt(variables = {}) {
+        const sections = [];
+
+        const title = titleInput.value.trim();
+        if (title) {
+          sections.push(`# ${title}`);
+        }
+
+        const goal = goalInput.value.trim();
+        if (goal) {
+          sections.push(`### 目标\n${goal}`);
+        }
+
+        const role = roleInput.value.trim();
+        if (role) {
+          sections.push(`### 角色\n${role}`);
+        }
+
+        const audienceValue = audienceSelect.value.trim();
+        if (audienceValue) {
+          sections.push(`### 受众/平台\n${audienceValue}`);
+        }
+
+        const task = normalizeMultiline(taskInput.value);
+        if (task) {
+          sections.push(`### 任务\n${task}`);
+        }
+
+        const tones = getCheckedValues('tone');
+        if (tones.length) {
+          sections.push(`### 文风与语气\n${tones.map((tone) => `- ${tone}`).join('\n')}`);
+        }
+
+        const structures = getCheckedValues('structure');
+        if (structures.length) {
+          sections.push(`### 结构\n${structures.map((structure) => `- ${structure}`).join('\n')}`);
+        }
+
+        const constraints = normalizeMultiline(constraintsInput.value);
+        if (constraints) {
+          sections.push(`### 约束与红线\n${constraints}`);
+        }
+
+        const combinedText = sections.join('\n\n');
+        return applyVariablesToText(combinedText, variables);
+      }
+
+      function formatTimestamp(date) {
+        return date.toLocaleString('zh-CN', {
+          hour12: false,
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+      }
+
+      function collectVariables() {
+        return parseVariablePairs(variablesInput.value);
+      }
+
+      function getBatchTopics() {
+        return batchTopicsInput.value
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+      }
+
+      function sanitizeFileName(name) {
+        const sanitized = (name || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+        return sanitized || '提示词卡片';
+      }
+
+      function buildCardElement({
+        index,
+        title,
+        audience,
+        body,
+        timestamp,
+        topicLabel,
+        hasContent,
+        usesBatch,
+      }) {
+        const article = document.createElement('article');
+        article.className =
+          'preview-card flex flex-col rounded-3xl border border-slate-200/80 bg-gradient-to-br from-white via-white to-slate-50 p-8 shadow-xl transition dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800';
+        article.dataset.index = String(index);
+        article.dataset.resolvedTitle = title || '提示词卡片';
+        article.dataset.hasContent = hasContent ? 'true' : 'false';
+        if (topicLabel) {
+          article.dataset.topic = topicLabel;
+        }
+
+        const header = document.createElement('header');
+        header.className = 'flex flex-wrap items-start justify-between gap-4';
+
+        const headerText = document.createElement('div');
+        const upperLabel = document.createElement('p');
+        upperLabel.className = 'text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500';
+        upperLabel.textContent = 'AI 提示词卡片';
+        headerText.appendChild(upperLabel);
+
+        const heading = document.createElement('h3');
+        heading.className = 'mt-3 text-2xl font-bold text-slate-900 dark:text-white';
+        heading.textContent = title || '等待生成的提示词';
+        headerText.appendChild(heading);
+
+        const badgeGroup = document.createElement('div');
+        badgeGroup.className = 'flex flex-wrap items-center justify-end gap-2';
+
+        if (usesBatch) {
+          const orderBadge = document.createElement('span');
+          orderBadge.className = 'rounded-full bg-violet-100 px-3 py-1 text-xs font-medium text-violet-600 dark:bg-violet-500/20 dark:text-violet-200';
+          orderBadge.textContent = `第 ${index} 张`;
+          badgeGroup.appendChild(orderBadge);
+        }
+
+        if (topicLabel) {
+          const topicBadge = document.createElement('span');
+          topicBadge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-200';
+          topicBadge.textContent = `主题：${topicLabel}`;
+          badgeGroup.appendChild(topicBadge);
+        }
+
+        const audienceBadge = document.createElement('span');
+        audienceBadge.className = 'rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600 dark:bg-sky-500/20 dark:text-sky-200';
+        audienceBadge.textContent = audience ? `目标受众：${audience}` : '目标受众：尚未选择';
+        badgeGroup.appendChild(audienceBadge);
+
+        header.appendChild(headerText);
+        header.appendChild(badgeGroup);
+
+        const bodyWrapper = document.createElement('div');
+        bodyWrapper.className = 'mt-6 flex-1 rounded-2xl bg-white/70 p-6 text-sm leading-relaxed text-slate-700 dark:bg-slate-900/60 dark:text-slate-100';
+
+        const bodyPre = document.createElement('pre');
+        bodyPre.className = 'h-full whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-100';
+        bodyPre.textContent = body;
+        bodyWrapper.appendChild(bodyPre);
+
+        const footer = document.createElement('footer');
+        footer.className = 'mt-8 flex items-center justify-between border-t border-slate-200/80 pt-4 text-xs text-slate-400 dark:border-slate-700 dark:text-slate-500';
+
+        const timestampLabel = document.createElement('span');
+        timestampLabel.textContent = `最后更新：${timestamp}`;
+        footer.appendChild(timestampLabel);
+
+        const sourceLabel = document.createElement('span');
+        sourceLabel.textContent = '生成来源：提示词卡片生成器';
+        footer.appendChild(sourceLabel);
+
+        article.dataset.fileLabel = topicLabel || title || '';
+        article.appendChild(header);
+        article.appendChild(bodyWrapper);
+        article.appendChild(footer);
+
+        return article;
+      }
+      function renderPreviewCards() {
+        if (!previewContainer) {
+          return false;
+        }
+
+        const baseVariables = collectVariables();
+        const topics = getBatchTopics();
+        const hasBatchTopics = topics.length > 0;
+        const cardTopics = hasBatchTopics ? topics : ['__single__'];
+        const now = new Date();
+        const fragment = document.createDocumentFragment();
+        let hasContent = false;
+
+        cardTopics.forEach((topic, index) => {
+          const topicVariables = { ...baseVariables };
+          let topicLabel = '';
+          if (topic !== '__single__') {
+            topicLabel = topic;
+            topicVariables['主题'] = topic;
+          }
+          topicVariables['序号'] = index + 1;
+
+          const assembledText = assemblePrompt(topicVariables);
+          if (assembledText) {
+            hasContent = true;
+          }
+
+          const rawTitle = titleInput.value.trim();
+          const resolvedTitle =
+            applyVariablesToText(rawTitle, topicVariables) ||
+            (topic !== '__single__' && topic ? topic : '等待生成的提示词');
+
+          const audienceOption = audienceSelect.selectedOptions[0];
+          const rawAudienceLabel =
+            audienceOption && audienceOption.value
+              ? (audienceOption.textContent || audienceOption.value).trim()
+              : '';
+          const resolvedAudience = rawAudienceLabel
+            ? applyVariablesToText(rawAudienceLabel, topicVariables)
+            : '';
+
+          const bodyText =
+            assembledText || '请在左侧填写提示词信息，生成结果会实时显示在这里。';
+          const timestampText = assembledText ? formatTimestamp(now) : '--';
+
+          const cardElement = buildCardElement({
+            index: index + 1,
+            title: resolvedTitle,
+            audience: resolvedAudience,
+            body: bodyText,
+            timestamp: timestampText,
+            topicLabel,
+            hasContent: Boolean(assembledText),
+            usesBatch: hasBatchTopics,
+          });
+
+          fragment.appendChild(cardElement);
+        });
+
+        previewContainer.innerHTML = '';
+        previewContainer.appendChild(fragment);
+
+        return hasContent;
+      }
+
+      function getRenderableCards() {
+        if (!previewContainer) {
+          return [];
+        }
+        return Array.from(previewContainer.querySelectorAll('.preview-card'));
+      }
+
+      function getAssembledPrompts() {
+        const baseVariables = collectVariables();
+        const topics = getBatchTopics();
+        const hasBatchTopics = topics.length > 0;
+        const cardTopics = hasBatchTopics ? topics : ['__single__'];
+
+        return cardTopics.map((topic, index) => {
+          const topicVariables = { ...baseVariables };
+          let topicLabel = '';
+          if (topic !== '__single__') {
+            topicLabel = topic;
+            topicVariables['主题'] = topic;
+          }
+          topicVariables['序号'] = index + 1;
+
+          const text = assemblePrompt(topicVariables);
+          const rawTitle = titleInput.value.trim();
+          const resolvedTitle =
+            applyVariablesToText(rawTitle, topicVariables) ||
+            (topicLabel || '提示词卡片');
+
+          return {
+            topic: topicLabel,
+            text,
+            title: resolvedTitle,
+          };
+        });
+      }
+
+      function buildCombinedPromptOutput() {
+        const prompts = getAssembledPrompts().filter((item) => item.text);
+        if (!prompts.length) {
+          return '';
+        }
+        return prompts.map((item) => item.text).join('\n\n---\n\n');
+      }
+
+      function buildCardFileName(extension, card, index, total) {
+        const resolvedTitle = sanitizeFileName(card.dataset.resolvedTitle || '提示词卡片');
+        const rawTopic = card.dataset.topic || '';
+        const topicLabel = rawTopic ? sanitizeFileName(rawTopic) : '';
+        const parts = [];
+
+        if (total > 1) {
+          parts.push(String(index + 1).padStart(2, '0'));
+        }
+
+        if (topicLabel) {
+          parts.push(topicLabel);
+        }
+
+        const suffix = parts.length ? `-${parts.join('-')}` : '';
+        return `${resolvedTitle}${suffix}.${extension}`;
+      }
+
+      function collectFormData() {
+        const outputLanguageInput = promptForm.querySelector('input[name="output-language"]:checked');
+
+        return {
+          title: titleInput.value.trim(),
+          goal: goalInput.value.trim(),
+          audience: audienceSelect.value,
+          task: taskInput.value.trim(),
+          role: roleInput.value.trim(),
+          tones: getCheckedValues('tone'),
+          structures: getCheckedValues('structure'),
+          outputLanguage: outputLanguageInput ? outputLanguageInput.value : '',
+          variables: variablesInput.value.trim(),
+          constraints: constraintsInput.value.trim(),
+          batchTopics: batchTopicsInput.value.trim(),
+        };
+      }
+
+      function populateForm(data) {
+        if (!data) return;
+
+        titleInput.value = data.title || '';
+        goalInput.value = data.goal || '';
+        audienceSelect.value = data.audience || '';
+        taskInput.value = data.task || '';
+        roleInput.value = data.role || '';
+        variablesInput.value = data.variables || '';
+        constraintsInput.value = data.constraints || '';
+        batchTopicsInput.value = data.batchTopics || '';
+
+        Array.from(promptForm.querySelectorAll('input[name="tone"]')).forEach((input) => {
+          input.checked = (data.tones || []).includes(input.value);
+        });
+
+        Array.from(promptForm.querySelectorAll('input[name="structure"]')).forEach((input) => {
+          input.checked = (data.structures || []).includes(input.value);
+        });
+
+        const outputLanguageInputs = promptForm.querySelectorAll('input[name="output-language"]');
+        outputLanguageInputs.forEach((input) => {
+          input.checked = input.value === data.outputLanguage;
+        });
+
+        updatePreview();
+      }
+
+      function resolveTemplateName(variables) {
+        const rawTitle = titleInput.value.trim();
+        const resolvedTitle = applyVariablesToText(rawTitle, variables).trim();
+        return resolvedTitle;
+      }
+
+      function formatTemplateSavedAt(savedAt) {
+        if (!savedAt) {
+          return '未知时间';
+        }
+
+        const date = new Date(savedAt);
+        if (Number.isNaN(date.getTime())) {
+          return '未知时间';
+        }
+
+        return formatTimestamp(date);
+      }
+
+      function getStoredTemplates() {
+        try {
+          const stored = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+          if (!stored) {
+            return [];
+          }
+          const parsed = JSON.parse(stored);
+          if (!Array.isArray(parsed)) {
+            return [];
+          }
+          return parsed;
+        } catch (error) {
+          console.error('读取模板失败', error);
+          return [];
+        }
+      }
+
+      function persistTemplates(templates) {
+        try {
+          localStorage.setItem(TEMPLATE_STORAGE_KEY, JSON.stringify(templates));
+          return true;
+        } catch (error) {
+          console.error('保存模板失败', error);
+          window.alert('保存模板失败，请检查浏览器权限或存储空间。');
+          return false;
+        }
+      }
+
+      function handleSaveTemplate() {
+        const variables = collectVariables();
+        const templateName = resolveTemplateName(variables);
+
+        if (!templateName) {
+          window.alert('请先填写标题，系统会以标题作为模板名称。');
+          return;
+        }
+
+        const templates = getStoredTemplates();
+        const formData = collectFormData();
+        const nowIsoString = new Date().toISOString();
+        const newTemplate = {
+          id: Date.now(),
+          name: templateName,
+          savedAt: nowIsoString,
+          data: formData,
+        };
+
+        const existingIndex = templates.findIndex((item) => item.name === templateName);
+        if (existingIndex !== -1) {
+          const confirmOverride = window.confirm(`已存在名为「${templateName}」的模板，是否覆盖？`);
+          if (!confirmOverride) {
+            return;
+          }
+          templates[existingIndex] = newTemplate;
+        } else {
+          templates.push(newTemplate);
+        }
+
+        if (persistTemplates(templates)) {
+          window.alert(`模板「${templateName}」已保存到本地。`);
+        }
+      }
+
+      function handleLoadTemplate() {
+        const templates = getStoredTemplates();
+        if (!templates.length) {
+          window.alert('暂无可用的模板，请先保存一个模板。');
+          return;
+        }
+
+        const templateList = templates
+          .map((item, index) => `${index + 1}. ${item.name}（保存于 ${formatTemplateSavedAt(item.savedAt)}）`)
+          .join('\n');
+        const userInput = window.prompt(`请输入要加载的模板序号：\n${templateList}`);
+
+        if (!userInput) {
+          return;
+        }
+
+        const selectedIndex = Number.parseInt(userInput, 10);
+        if (Number.isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > templates.length) {
+          window.alert('未识别的模板序号，请重新尝试。');
+          return;
+        }
+
+        const selectedTemplate = templates[selectedIndex - 1];
+        if (!selectedTemplate || !selectedTemplate.data) {
+          window.alert('所选模板数据不完整，无法加载。');
+          return;
+        }
+
+        populateForm(selectedTemplate.data);
+        window.alert(`已加载模板「${selectedTemplate.name}」。`);
+      }
+
+      function handleDeleteTemplate() {
+        const templates = getStoredTemplates();
+        if (!templates.length) {
+          window.alert('当前没有可删除的模板。');
+          return;
+        }
+
+        const templateList = templates
+          .map((item, index) => `${index + 1}. ${item.name}（保存于 ${formatTemplateSavedAt(item.savedAt)}）`)
+          .join('\n');
+        const userInput = window.prompt(`请输入要删除的模板序号：\n${templateList}`);
+
+        if (!userInput) {
+          return;
+        }
+
+        const selectedIndex = Number.parseInt(userInput, 10);
+        if (Number.isNaN(selectedIndex) || selectedIndex < 1 || selectedIndex > templates.length) {
+          window.alert('未识别的模板序号，请重新尝试。');
+          return;
+        }
+
+        const targetTemplate = templates[selectedIndex - 1];
+        const confirmDelete = window.confirm(`确定要删除模板「${targetTemplate.name}」吗？该操作不可恢复。`);
+        if (!confirmDelete) {
+          return;
+        }
+
+        templates.splice(selectedIndex - 1, 1);
+
+        if (persistTemplates(templates)) {
+          window.alert(`模板「${targetTemplate.name}」已删除。`);
+        }
+      }
+
+      function updatePreview() {
+        renderPreviewCards();
+      }
+
+      promptForm.addEventListener('input', updatePreview);
+      promptForm.addEventListener('change', updatePreview);
+      promptForm.addEventListener('reset', () => {
+        window.requestAnimationFrame(updatePreview);
       });
 
-      initGame();
+      async function copyTextToClipboard(text, successMessage) {
+        if (!text) {
+          window.alert('当前没有可复制的提示词内容，请先填写表单信息。');
+          return;
+        }
+
+        if (!navigator.clipboard || !navigator.clipboard.writeText) {
+          window.alert('当前浏览器不支持快速复制，请手动选择文本。');
+          return;
+        }
+
+        try {
+          await navigator.clipboard.writeText(text);
+          window.alert(successMessage);
+        } catch (error) {
+          console.error('复制失败', error);
+          window.alert('复制失败，请稍后重试。');
+        }
+      }
+
+      copyPlainButton.addEventListener('click', () => {
+        const combinedText = buildCombinedPromptOutput();
+        copyTextToClipboard(combinedText, '提示词内容已复制到剪贴板。');
+      });
+
+      copyMarkdownButton.addEventListener('click', () => {
+        const combinedText = buildCombinedPromptOutput();
+        copyTextToClipboard(combinedText, 'Markdown 内容已复制到剪贴板。');
+      });
+
+      function resolveCanvasBackground() {
+        return rootElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+      }
+
+      async function exportCardAsPng() {
+        if (!window.html2canvas) {
+          window.alert('未能加载截图组件，请稍后重试。');
+          return;
+        }
+
+        try {
+          const cards = getRenderableCards();
+          const validCards = cards.filter((card) => card.dataset.hasContent === 'true');
+
+          if (!validCards.length) {
+            window.alert('当前没有可导出的提示词内容，请先填写表单信息。');
+            return;
+          }
+
+          const backgroundColor = resolveCanvasBackground();
+
+          for (let index = 0; index < validCards.length; index += 1) {
+            const card = validCards[index];
+            const canvas = await window.html2canvas(card, {
+              backgroundColor,
+              scale: window.devicePixelRatio || 1,
+            });
+            const imageData = canvas.toDataURL('image/png');
+
+            const link = document.createElement('a');
+            link.href = imageData;
+            link.download = buildCardFileName('png', card, index, validCards.length);
+            link.click();
+          }
+
+          window.alert(
+            validCards.length > 1
+              ? `PNG 已成功导出，共生成 ${validCards.length} 张卡片。`
+              : 'PNG 已成功导出并保存。',
+          );
+        } catch (error) {
+          console.error('导出 PNG 失败', error);
+          window.alert('导出 PNG 失败，请稍后重试。');
+        }
+      }
+
+      async function exportCardAsPdf() {
+        if (!window.html2canvas || !window.jspdf || !window.jspdf.jsPDF) {
+          window.alert('未能加载导出组件，请稍后重试。');
+          return;
+        }
+
+        try {
+          const { jsPDF } = window.jspdf;
+          const pdf = new jsPDF('p', 'pt', 'a4');
+          const cards = getRenderableCards();
+          const validCards = cards.filter((card) => card.dataset.hasContent === 'true');
+
+          if (!validCards.length) {
+            window.alert('当前没有可导出的提示词内容，请先填写表单信息。');
+            return;
+          }
+
+          const backgroundColor = resolveCanvasBackground();
+
+          for (let index = 0; index < validCards.length; index += 1) {
+            const card = validCards[index];
+            const canvas = await window.html2canvas(card, {
+              backgroundColor,
+              scale: window.devicePixelRatio || 1,
+            });
+            const imageData = canvas.toDataURL('image/png');
+
+            if (index > 0) {
+              pdf.addPage();
+            }
+
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imageData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          }
+
+          const firstCard = validCards[0];
+          const baseName = sanitizeFileName(firstCard.dataset.resolvedTitle || '提示词卡片');
+          const suffix = validCards.length > 1 ? '-合集' : '';
+          pdf.save(`${baseName}${suffix}.pdf`);
+
+          window.alert(
+            validCards.length > 1
+              ? `PDF 已成功导出，共包含 ${validCards.length} 张卡片。`
+              : 'PDF 已成功导出并保存。',
+          );
+        } catch (error) {
+          console.error('导出 PDF 失败', error);
+          window.alert('导出 PDF 失败，请稍后重试。');
+        }
+      }
+
+      exportPngButton.addEventListener('click', exportCardAsPng);
+      exportPdfButton.addEventListener('click', exportCardAsPdf);
+
+      if (saveTemplateButton) {
+        saveTemplateButton.addEventListener('click', handleSaveTemplate);
+      }
+
+      if (loadTemplateButton) {
+        loadTemplateButton.addEventListener('click', handleLoadTemplate);
+      }
+
+      if (deleteTemplateButton) {
+        deleteTemplateButton.addEventListener('click', handleDeleteTemplate);
+      }
+
+      updatePreview();
     </script>
   </body>
 </html>
