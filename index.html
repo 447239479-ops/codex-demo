@@ -4,528 +4,362 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
-    <style>
-      :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
-      }
-
-      .page-wrapper {
-        width: min(100%, 480px);
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: center;
-      }
-
-      .scoreboard {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
-      }
-
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
-
-      .game-wrapper {
-        position: relative;
-        width: 400px;
-        max-width: 100%;
-      }
-
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
-        text-align: center;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
-      }
-
-      .control-btn:active {
-        transform: translateY(1px);
-      }
-
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
-        display: flex;
-        gap: 12px;
-      }
-
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
-      }
-
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
-      }
-
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .scoreboard {
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .direction-btn {
-          width: 56px;
-          height: 56px;
-        }
-      }
-    </style>
+    <title>提示词卡片生成器</title>
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
   </head>
-  <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
-      </header>
+  <body class="min-h-screen bg-slate-100 text-slate-800">
+    <!-- 页面整体布局：三栏结构 -->
+    <div class="mx-auto flex min-h-screen max-w-7xl flex-col gap-6 p-6 lg:flex-row">
+      <!-- 左侧表单区：输入提示词参数 -->
+      <section
+        class="flex w-full flex-col gap-4 rounded-xl bg-white p-6 shadow-lg ring-1 ring-slate-200 lg:w-1/4"
+        aria-labelledby="form-title"
+      >
+        <header class="flex items-center justify-between">
+          <h1 id="form-title" class="text-xl font-semibold text-slate-900">
+            提示词设置
+          </h1>
+          <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-700"
+            >基本配置</span
+          >
+        </header>
 
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
-        </div>
-      </main>
+        <!-- 输入：标题 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">标题</span>
+          <input
+            type="text"
+            placeholder="例如：新品发布社交媒体文案生成"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          />
+        </label>
 
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
+        <!-- 输入：目标/用途 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">目标 / 用途</span>
+          <input
+            type="text"
+            placeholder="请描述想要达成的目标，例如：提升活动报名率"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          />
+        </label>
+
+        <!-- 输入：目标读者/平台（下拉） -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">目标读者 / 平台</span>
+          <select
+            class="w-full appearance-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          >
+            <option value="" disabled selected>请选择主要发布平台或受众</option>
+            <option>微信公众号读者</option>
+            <option>小红书用户</option>
+            <option>企业内部邮件</option>
+            <option>抖音/短视频观众</option>
+            <option>LinkedIn 专业人士</option>
+          </select>
+        </label>
+
+        <!-- 输入：场景/任务描述 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">场景 / 任务描述</span>
+          <textarea
+            rows="3"
+            placeholder="详细说明业务背景、目标场景和需要完成的任务"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          ></textarea>
+        </label>
+
+        <!-- 输入：角色设定 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">角色设定</span>
+          <input
+            type="text"
+            placeholder="例如：资深营销顾问、专业翻译官"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          />
+        </label>
+
+        <!-- 多选：语气与风格 -->
+        <fieldset class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <legend class="px-2 text-sm font-medium text-slate-600">语气与风格（可多选）</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>专业可信</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>亲切友好</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>数据驱动</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>创意活泼</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 多选：结构与格式 -->
+        <fieldset class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <legend class="px-2 text-sm font-medium text-slate-600">结构与格式（可多选）</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>分段说明</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>列出要点</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>表格输出</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>Markdown 标题</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 单选：输出语言 -->
+        <fieldset class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <legend class="px-2 text-sm font-medium text-slate-600">输出语言</legend>
+          <div class="grid grid-cols-1 gap-2 text-sm text-slate-600">
+            <label class="flex items-center gap-2">
+              <input type="radio" name="output-language" class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>中文</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="radio" name="output-language" class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>英文</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input type="radio" name="output-language" class="h-4 w-4 border-slate-300 text-sky-500 focus:ring-sky-400" />
+              <span>中英双语</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- 输入：约束与红线 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">约束与红线</span>
+          <textarea
+            rows="3"
+            placeholder="列出禁止出现的内容、敏感词或必须遵守的规则"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          ></textarea>
+        </label>
+
+        <!-- 输入：批量主题输入 -->
+        <label class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-slate-600">批量主题输入</span>
+          <textarea
+            rows="3"
+            placeholder="每行一个主题或关键词，支持批量生成"
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+          ></textarea>
+        </label>
+
+        <!-- 底部操作：预留生成按钮 -->
+        <div class="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            class="flex-1 rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-200"
+          >
+            生成卡片
           </button>
-        </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
+          <button
+            type="button"
+            class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          >
+            重置
           </button>
         </div>
       </section>
+
+      <!-- 中间预览区：展示生成卡片 -->
+      <main
+        class="flex w-full flex-col gap-4 rounded-xl bg-white p-8 shadow-lg ring-1 ring-slate-200 lg:w-2/4"
+        aria-labelledby="preview-title"
+      >
+        <header class="flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h2 id="preview-title" class="text-xl font-semibold text-slate-900">
+              卡片预览
+            </h2>
+            <span class="text-xs text-slate-400">实时展示生成效果</span>
+          </div>
+          <p class="text-sm text-slate-500">
+            在这里预览生成的提示词卡片内容，包括标题、适用场景与具体指令。
+          </p>
+        </header>
+
+        <!-- 主题切换：浅色 / 奶油 / 深色 -->
+        <div class="flex flex-wrap items-center gap-2 rounded-2xl bg-slate-50/70 p-3">
+          <p class="text-xs font-medium text-slate-500">主题样式</p>
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1.5 text-xs font-semibold text-white shadow-sm"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-white via-slate-200 to-slate-400"></span>
+            浅色（默认）
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-4 py-1.5 text-xs font-semibold text-amber-700"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-amber-100 via-amber-200 to-amber-300"></span>
+            奶油
+          </button>
+          <button
+            type="button"
+            class="flex items-center gap-2 rounded-full border border-slate-600 bg-slate-900 px-4 py-1.5 text-xs font-semibold text-slate-100"
+          >
+            <span class="h-2.5 w-2.5 rounded-full bg-gradient-to-br from-slate-600 via-slate-700 to-black"></span>
+            深色
+          </button>
+        </div>
+
+        <!-- 卡片预览容器：展示默认浅色主题 -->
+        <article
+          class="rounded-3xl border border-slate-200 bg-gradient-to-br from-white via-white to-slate-50 p-8 shadow-xl"
+        >
+          <!-- 卡片头部：标题与标签 -->
+          <header class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">AI 提示词卡片</p>
+              <h3 class="mt-3 text-2xl font-bold text-slate-900">新品发布社交媒体活动推广</h3>
+            </div>
+            <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-600">目标受众：年轻职场人</span>
+          </header>
+
+          <!-- 卡片正文：结构化内容区 -->
+          <div class="mt-6 space-y-5 text-sm leading-relaxed text-slate-600">
+            <section class="space-y-1">
+              <h4 class="text-xs font-semibold tracking-wide text-slate-500">使用场景</h4>
+              <p class="rounded-xl bg-white/70 p-4">
+                适用于品牌新品上线前的预热阶段，通过社交媒体渠道集中输出亮点，快速唤起潜在用户兴趣。
+              </p>
+            </section>
+            <section class="space-y-2">
+              <h4 class="text-xs font-semibold tracking-wide text-slate-500">核心指令</h4>
+              <ul class="space-y-2">
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 h-2 w-2 rounded-full bg-sky-400"></span>
+                  <span>生成 3 条社交媒体文案，突出产品核心卖点与用户收益。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 h-2 w-2 rounded-full bg-sky-400"></span>
+                  <span>每条文案包含标题、正文和号召性结尾，引导点击活动链接。</span>
+                </li>
+                <li class="flex items-start gap-2">
+                  <span class="mt-1 h-2 w-2 rounded-full bg-sky-400"></span>
+                  <span>语气保持专业又富感染力，可适度使用表情符号增强亲和力。</span>
+                </li>
+              </ul>
+            </section>
+            <section class="space-y-1">
+              <h4 class="text-xs font-semibold tracking-wide text-slate-500">格式建议</h4>
+              <p class="rounded-xl bg-white/70 p-4">
+                使用编号列表呈现输出，每条文案控制在 80 字以内，重点信息使用粗体或表情突出。
+              </p>
+            </section>
+            <section class="space-y-1">
+              <h4 class="text-xs font-semibold tracking-wide text-slate-500">约束提示</h4>
+              <p class="rounded-xl bg-white/70 p-4">
+                避免过度夸张或无法兑现的承诺，遵循平台广告与营销内容规范。
+              </p>
+            </section>
+          </div>
+
+          <!-- 卡片底部：时间戳与来源 -->
+          <footer class="mt-8 flex items-center justify-between border-t border-slate-200 pt-4 text-xs text-slate-400">
+            <span>最后生成：2024-03-08 14:30</span>
+            <span>生成来源：提示词卡片生成器</span>
+          </footer>
+        </article>
+      </main>
+
+      <!-- 右侧工具栏：导出与复制操作 -->
+      <aside
+        class="flex w-full flex-col gap-5 rounded-xl bg-white p-6 shadow-lg ring-1 ring-slate-200 lg:w-1/4"
+        aria-labelledby="toolbar-title"
+      >
+        <header class="flex items-center justify-between">
+          <h2 id="toolbar-title" class="text-xl font-semibold text-slate-900">
+            工具栏
+          </h2>
+          <span class="text-xs text-slate-400">导出与复制</span>
+        </header>
+
+        <!-- 操作按钮组：生成与复制 -->
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600">生成与复制</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              class="w-full rounded-lg bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            >
+              生成提示词
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            >
+              复制提示词
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            >
+              复制 Markdown
+            </button>
+          </div>
+        </div>
+
+        <!-- 操作按钮组：导出 -->
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600">导出选项</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              class="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            >
+              导出 PNG
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+            >
+              导出 PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- 操作按钮组：模板管理 -->
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-slate-600">模板管理</h3>
+          <div class="grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            >
+              保存模板
+            </button>
+            <button
+              type="button"
+              class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            >
+              加载模板
+            </button>
+          </div>
+        </div>
+      </aside>
     </div>
-
-    <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
-      };
-
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
-
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
-
-      highScoreEl.textContent = highScore.toString();
-
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
-
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
-
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
-
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
-
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
-
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
-
-        requestAnimationFrame(gameLoop);
-
-        if (paused) {
-          return;
-        }
-
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
-      }
-
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
-        };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
-      }
-
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
-          }
-          ctx.fill();
-          ctx.stroke();
-        });
-      }
-
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
-
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
-        );
-
-        food = newFood;
-      }
-
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
-            }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
-        });
-      });
-
-      initGame();
-    </script>
   </body>
 </html>
