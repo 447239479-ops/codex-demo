@@ -1,531 +1,4073 @@
+<!--
+  变更日志：
+  1) 提炼本地存储、时间格式、关键词处理、模板渲染与导出、敏感检测等公共方法，提升可维护性。
+  2) 为核心交互添加语义化 aria-label、焦点可见样式与更高对比度，增强可访问性。
+  3) 新增八组示例测试数据支持一键加载，便于快速验证边界场景。
+  4) 补充关键函数 JSDoc 注释，并在复制导出时保留轻提示与敏感校验逻辑。
+-->
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
+    <!--
+      架构注释图：
+      ┌────────────────┐
+      │   UI 控制层    │ 负责表单、列表、预览等交互事件绑定
+      └──────┬─────────┘
+             │
+      ┌──────▼─────────┐      ┌──────────────────┐
+      │ 状态管理与存储 │◀────▶│ 关键词索引 & 词库 │
+      └──────┬─────────┘      └────────┬─────────┘
+             │                           │
+      ┌──────▼─────────┐      ┌─────────▼────────┐
+      │  模板渲染引擎  │──────▶│ 导出/复制 服务   │
+      └────────────────┘      └──────────────────┘
+    -->
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>公众号文章日报生成器</title>
     <style>
       :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
+        color-scheme: light;
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --success: #16a34a;
+        --warning: #ca8a04;
+        --danger: #dc2626;
+        --radius: 14px;
+        --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei",
+          "Segoe UI", system-ui, sans-serif;
       }
 
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
 
       body {
         margin: 0;
         min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
-      }
-
-      .page-wrapper {
-        width: min(100%, 480px);
+        background: var(--bg);
+        color: var(--text);
+        padding: 24px clamp(16px, 4vw, 40px);
         display: flex;
         flex-direction: column;
+        gap: 24px;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      p,
+      ul,
+      ol {
+        margin: 0;
+      }
+
+      button {
+        font-family: inherit;
+      }
+
+      .app-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1280px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      header.top-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        padding: 16px 20px;
+        border-radius: var(--radius);
+      }
+
+      .top-bar-left,
+      .top-bar-right {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      label.field-label {
+        font-size: 0.92rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      input[type="date"],
+      select,
+      input[type="text"],
+      textarea,
+      input[type="time"],
+      input[type="number"] {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        background: #fff;
+        color: var(--text);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+
+      button.primary {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s ease, transform 0.15s ease,
+          box-shadow 0.2s ease;
+      }
+
+      button.primary:hover {
+        background: var(--primary-hover);
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+        transform: translateY(-1px);
+      }
+
+      button.secondary {
+        background: #f8fafc;
+        color: var(--text);
+        border: 1px solid #94a3b8;
+        padding: 10px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s ease, transform 0.15s ease,
+          box-shadow 0.2s ease;
+      }
+
+      button.secondary:hover {
+        background: #e2e8f0;
+        transform: translateY(-1px);
+      }
+
+      button:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.45);
+        outline-offset: 2px;
+      }
+
+      button.danger {
+        background: #fff5f5;
+        color: var(--danger);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+      }
+
+      button.danger:hover {
+        background: #fee2e2;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        border-radius: var(--radius);
+        padding: clamp(16px, 3vw, 24px);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: 0;
+      }
+
+      .section-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      form#entryForm {
+        display: grid;
+        gap: 14px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+      }
+
+      .field label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .toggle input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+      }
+
+      .form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .form-actions span {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        background: #f8fafc;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        z-index: 1;
+      }
+
+      th,
+      td {
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        font-size: 0.92rem;
+        vertical-align: top;
+      }
+
+      tbody tr:hover {
+        background: rgba(226, 232, 240, 0.3);
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 0.75rem;
+        line-height: 1.8;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary);
+        margin-right: 4px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .tag:hover,
+      .tag.active-tag {
+        background: rgba(37, 99, 235, 0.15);
+        color: var(--primary-hover);
+      }
+
+      .importance {
+        font-weight: 600;
+        color: var(--warning);
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .actions button {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .actions button:hover {
+        background: #e2e8f0;
+      }
+
+      .actions button[data-action="colloquial"].applied {
+        background: rgba(37, 99, 235, 0.12);
+        border-color: rgba(37, 99, 235, 0.3);
+        color: var(--primary-hover);
+        cursor: pointer;
+      }
+
+      .preview-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+      }
+
+      .preview-header .buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .preview-header .preview-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 12px;
+        flex: 1 1 320px;
+      }
+
+      .preview-header .preview-controls {
+        display: flex;
         gap: 16px;
         align-items: center;
+        flex-wrap: wrap;
       }
 
-      .scoreboard {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
+      .preview-header .preview-controls .toggle {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .preview-header .preview-controls .toggle.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .preview-header .preview-controls .toggle.disabled input {
+        pointer-events: none;
+      }
+
+      .preview-header .preview-controls button.secondary {
+        border-radius: 999px;
+      }
+
+      .preview-surface {
+        border: 1px solid var(--border);
         border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
+        padding: clamp(16px, 3vw, 24px);
+        background: #fff;
+        max-height: 70vh;
+        overflow: auto;
+        line-height: 1.7;
+        font-size: 0.98rem;
       }
 
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
+      .preview-surface h1 {
+        font-size: 1.6rem;
+        margin-bottom: 12px;
       }
 
-      .game-wrapper {
+      .preview-surface h2 {
+        font-size: 1.18rem;
+        margin-top: 22px;
+        margin-bottom: 12px;
+      }
+
+      .preview-surface p {
+        margin-bottom: 10px;
+      }
+
+      .preview-surface ul {
+        padding-left: 20px;
+        margin-bottom: 14px;
+      }
+
+      .preview-entry {
         position: relative;
-        width: 400px;
-        max-width: 100%;
+        padding: 12px 12px 12px 16px;
+        border-left: 3px solid transparent;
+        border-radius: 8px;
+        transition: background 0.2s ease, border-color 0.2s ease;
       }
 
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
+      .preview-entry + .preview-entry {
+        margin-top: 12px;
       }
 
-      .overlay {
+      .preview-surface h2 + .preview-entry {
+        margin-top: 8px;
+      }
+
+      .preview-entry.has-warning {
+        border-color: var(--warning);
+        background: rgba(202, 138, 4, 0.08);
+      }
+
+      .preview-entry-warning {
         position: absolute;
+        top: 8px;
+        right: 8px;
+        background: rgba(202, 138, 4, 0.14);
+        color: var(--warning);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .preview-placeholder {
+        color: var(--muted);
+        text-align: center;
+        padding: 60px 0;
+      }
+
+      .status-message {
+        font-size: 0.9rem;
+        color: var(--muted);
+        min-height: 1.2rem;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #e0e7ff;
+        color: var(--primary);
+        font-weight: 600;
+        font-size: 0.75rem;
+      }
+
+      .history-select {
+        position: relative;
+      }
+
+      .keyword-suggestions {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        margin-top: 4px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px;
+        z-index: 10;
+      }
+
+      .keyword-suggestions button {
+        border: none;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.15s ease;
+      }
+
+      .keyword-suggestions button:hover {
+        background: rgba(37, 99, 235, 0.16);
+        transform: translateY(-1px);
+      }
+
+      .settings-overlay {
+        position: fixed;
         inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 60px 16px 24px;
+        z-index: 999;
+      }
+
+      .settings-dialog {
+        width: min(520px, 100%);
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+        padding: 24px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        gap: 20px;
+      }
+
+      .weekly-dialog {
+        width: min(880px, 100%);
+        max-height: calc(100vh - 120px);
+        overflow: hidden;
+      }
+
+      .weekly-body {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        height: 100%;
+      }
+
+      .weekly-date-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
+        padding: 4px;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+
+      .empty-tip {
+        font-size: 0.9rem;
+        color: var(--muted);
+        padding: 24px 12px;
         text-align: center;
       }
 
-      .hidden {
-        display: none;
-      }
-
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
-      }
-
-      .control-btn:active {
-        transform: translateY(1px);
-      }
-
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
+      .weekly-date-item {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 14px;
         display: flex;
+        flex-direction: column;
+        gap: 6px;
+        cursor: pointer;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .weekly-date-item input {
+        accent-color: var(--primary);
+      }
+
+      .weekly-date-item strong {
+        font-size: 0.95rem;
+      }
+
+      .weekly-date-item span {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .weekly-date-item.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        background: rgba(37, 99, 235, 0.04);
+      }
+
+      .weekly-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .weekly-action-buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .weekly-selected-count {
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .weekly-preview {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .weekly-preview-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .weekly-preview-surface {
+        max-height: 360px;
+        overflow: auto;
+      }
+
+      .preview-warning {
+        background: rgba(202, 138, 4, 0.12);
+        border: 1px solid rgba(202, 138, 4, 0.4);
+        color: var(--warning);
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 0.88rem;
+      }
+
+      .weekly-toc {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        background: rgba(37, 99, 235, 0.04);
+        margin-bottom: 8px;
+      }
+
+      .weekly-toc strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.92rem;
+      }
+
+      .weekly-toc ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 16px;
+      }
+
+      .weekly-toc a {
+        color: var(--primary);
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+
+      .weekly-toc a:hover {
+        text-decoration: underline;
+      }
+
+      .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         gap: 12px;
       }
 
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
+      .settings-section h3 {
+        margin-bottom: 8px;
+      }
+
+      .settings-tip {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+
+      .template-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .template-option {
+        display: flex;
+        gap: 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
+      .template-option input {
+        margin-top: 4px;
       }
 
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
+      .template-option strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .template-option p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+
+      .template-option.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+
+      @media (max-width: 1080px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-surface {
+          max-height: none;
         }
       }
 
-      @media (max-width: 480px) {
-        .scoreboard {
+      @media (max-width: 640px) {
+        header.top-bar {
           flex-direction: column;
-          gap: 8px;
+          align-items: flex-start;
         }
 
-        .direction-btn {
-          width: 56px;
-          height: 56px;
+        .top-bar-right {
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .form-actions {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .preview-header {
+          flex-direction: column;
+          align-items: flex-start;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <label class="field-label" for="datePicker">
+            📅 日期
+            <input type="date" id="datePicker" />
+          </label>
+          <label class="field-label history-select" for="historySelect">
+            🗂️ 历史记录
+            <select id="historySelect">
+              <option value="">选择历史日期…</option>
+            </select>
+          </label>
+          <label class="field-label history-select" for="sampleDataSelect">
+            🧪 示例数据
+            <select id="sampleDataSelect">
+              <option value="">加载示例数据…</option>
+            </select>
+          </label>
+          <button
+            id="openWeeklyBtn"
+            class="secondary"
+            aria-label="合并多天内容生成周报"
+          >
+            🗓️ 合并为周报
+          </button>
+        </div>
+        <div class="top-bar-right">
+          <button
+            id="settingsBtn"
+            class="secondary"
+            aria-label="打开设置面板"
+          >
+            ⚙️ 设置
+          </button>
+          <button id="saveBtn" class="primary" aria-label="保存当天草稿">
+            💾 保存
+          </button>
+          <button
+            id="clearBtn"
+            class="secondary danger"
+            aria-label="清空当天草稿"
+          >
+            🧹 清空当天
+          </button>
+        </div>
       </header>
 
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
-        </div>
-      </main>
+      <div class="layout">
+        <div class="panel" id="leftPanel">
+          <div class="section-title">新增学习记录</div>
+          <form id="entryForm">
+            <div class="field-grid">
+              <div class="field">
+                <label for="timeInput">时间</label>
+                <input type="time" id="timeInput" required />
+              </div>
+              <div class="field">
+                <label for="categoryInput">分类</label>
+                <select id="categoryInput" required>
+                  <option value="AI">AI</option>
+                  <option value="财税">财税</option>
+                  <option value="供应链">供应链</option>
+                  <option value="运营">运营</option>
+                  <option value="阅读">阅读</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="importanceInput">重要程度</label>
+                <select id="importanceInput" required>
+                  <option value="5">5 - 必须记录</option>
+                  <option value="4">4 - 很重要</option>
+                  <option value="3">3 - 有参考</option>
+                  <option value="2">2 - 一般</option>
+                  <option value="1">1 - 备忘</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="keywordsInput">关键词（逗号、空格分隔）</label>
+              <input
+                type="text"
+                id="keywordsInput"
+                placeholder="如：AIGC，prompt，财税" />
+              <div id="keywordSuggestions" class="keyword-suggestions" hidden></div>
+            </div>
+            <div class="field">
+              <label for="contentInput">内容</label>
+              <textarea
+                id="contentInput"
+                placeholder="记录今天学到的知识点、案例或复盘…"
+                required
+              ></textarea>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="publishableInput" checked /> 可对外发布
+            </label>
+            <div class="form-actions">
+              <button
+                type="submit"
+                class="primary"
+                id="submitBtn"
+                aria-label="添加学习记录"
+              >
+                ➕ 添加记录
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="cancelEditBtn"
+                aria-label="取消当前编辑"
+                hidden
+              >
+                取消编辑
+              </button>
+              <span id="formStatus" aria-live="polite"
+                >默认保存到当前日期草稿</span
+              >
+            </div>
+          </form>
 
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
-          </button>
+          <div class="section-title">当日记录列表</div>
+          <div class="filters">
+            <label class="field">
+              <span>按分类筛选</span>
+              <select id="filterCategory">
+                <option value="">全部分类</option>
+                <option value="AI">AI</option>
+                <option value="财税">财税</option>
+                <option value="供应链">供应链</option>
+                <option value="运营">运营</option>
+                <option value="阅读">阅读</option>
+                <option value="其他">其他</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>关键词包含</span>
+              <input
+                type="text"
+                id="filterKeyword"
+                placeholder="输入关键词" />
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="filterPublishable" /> 仅看可发
+            </label>
+            <label class="field">
+              <span>排序</span>
+              <select id="sortOrder">
+                <option value="importance-desc">重要程度（高→低）</option>
+                <option value="importance-asc">重要程度（低→高）</option>
+                <option value="time-asc">时间（早→晚）</option>
+                <option value="time-desc">时间（晚→早）</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrapper" style="overflow: auto; max-height: 360px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 88px;">时间</th>
+                  <th style="width: 86px;">分类</th>
+                  <th>关键词</th>
+                  <th style="width: 90px;">重要度</th>
+                  <th style="width: 84px;">可发</th>
+                  <th>内容摘要</th>
+                  <th style="width: 190px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="entriesBody"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
-          </button>
+
+        <div class="panel" id="previewPanel">
+          <div class="preview-header">
+            <div>
+              <div class="section-title">公众号文案预览</div>
+              <div
+                class="status-message"
+                id="statusMessage"
+                role="status"
+                aria-live="polite"
+              ></div>
+            </div>
+            <div class="preview-actions">
+              <div class="preview-controls">
+                <label class="toggle" id="colloquialToggleWrapper">
+                  <input type="checkbox" id="toggleColloquial" /> 人话化已应用
+                </label>
+                <label class="toggle">
+                  <input type="checkbox" id="toggleBlur" /> 模糊化
+                </label>
+                <button
+                  id="batchColloquial"
+                  class="secondary"
+                  aria-label="对可发布内容批量执行人话化"
+                >
+                  ✨ 批量人话化
+                </button>
+              </div>
+              <div class="buttons">
+                <button
+                  id="downloadMarkdown"
+                  class="secondary"
+                  aria-label="导出 Markdown 文件"
+                >
+                  ⬇️ 导出 .md
+                </button>
+                <button
+                  id="downloadHTML"
+                  class="secondary"
+                  aria-label="导出 HTML 文件"
+                >
+                  ⬇️ 导出 .html
+                </button>
+                <button
+                  id="copyMarkdown"
+                  class="secondary"
+                  aria-label="复制 Markdown 文案"
+                >
+                  📄 复制 Markdown
+                </button>
+                <button
+                  id="copyHTML"
+                  class="secondary"
+                  aria-label="复制 HTML 文案"
+                >
+                  🌐 复制 HTML
+                </button>
+                <button
+                  id="copyPreview"
+                  class="secondary"
+                  aria-label="复制预览纯文本"
+                >
+                  📋 复制预览
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="previewSurface" class="preview-surface">
+            <div class="preview-placeholder">暂无可对外发布内容，先去左侧添加吧。</div>
+          </div>
         </div>
-      </section>
+      </div>
+      <div id="settingsOverlay" class="settings-overlay" hidden>
+        <div class="settings-dialog">
+          <div class="settings-header">
+            <h2>设置</h2>
+            <button
+              id="closeSettings"
+              class="secondary"
+              aria-label="关闭设置面板"
+            >
+              关闭
+            </button>
+          </div>
+          <div class="settings-section">
+            <h3>公众号模板</h3>
+            <p class="settings-tip">切换模板可调整标题样式、摘要算法与正文排版。</p>
+            <div class="template-options">
+              <label class="template-option" data-template="minimal">
+                <input type="radio" name="templateOption" value="minimal" />
+                <div>
+                  <strong>极简模板</strong>
+                  <p>突出今日关键词、亮点摘要与可复用结论，结构紧凑。</p>
+                </div>
+              </label>
+              <label class="template-option" data-template="insight">
+                <input type="radio" name="templateOption" value="insight" />
+                <div>
+                  <strong>行业洞察</strong>
+                  <p>聚焦赛道热度与洞察要点，正文按分类导读 + 洞察陈述。</p>
+                </div>
+              </label>
+              <label class="template-option" data-template="learning">
+                <input type="radio" name="templateOption" value="learning" />
+                <div>
+                  <strong>学习卡片</strong>
+                  <p>以卡片化方式呈现概念/方法/行动三段式，强调实践步骤。</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="weeklyOverlay" class="settings-overlay" hidden>
+        <div class="settings-dialog weekly-dialog">
+          <div class="settings-header">
+            <h2>合并为周报</h2>
+            <button
+              id="closeWeekly"
+              class="secondary"
+              aria-label="关闭周报面板"
+            >
+              关闭
+            </button>
+          </div>
+          <div class="weekly-body">
+            <p class="settings-tip">
+              选择多个日期，将可发记录整合为一份跨天周报。支持人话化、模糊化以及 Markdown / HTML 导出。
+            </p>
+            <div id="weeklyDateList" class="weekly-date-list"></div>
+            <div class="weekly-actions">
+              <span id="weeklySelectedCount" class="weekly-selected-count">已选 0 天</span>
+              <div class="weekly-action-buttons">
+                <button
+                  id="weeklyClearSelection"
+                  class="secondary"
+                  aria-label="清空已选择的日期"
+                >
+                  清空选择
+                </button>
+                <button
+                  id="weeklyGenerate"
+                  class="primary"
+                  aria-label="生成周报预览"
+                  disabled
+                >
+                  生成预览
+                </button>
+              </div>
+            </div>
+            <div id="weeklyPreviewSection" class="weekly-preview" hidden>
+              <div class="weekly-preview-bar">
+                <div class="preview-controls">
+                  <label class="toggle">
+                    <input type="checkbox" id="weeklyToggleColloquial" /> 人话化已应用
+                  </label>
+                  <label class="toggle">
+                    <input type="checkbox" id="weeklyToggleBlur" /> 模糊化
+                  </label>
+                </div>
+                <div class="buttons">
+                <button
+                  id="weeklyDownloadMarkdown"
+                  class="secondary"
+                  aria-label="下载周报 Markdown 文件"
+                >
+                  ⬇️ 导出 .md
+                </button>
+                <button
+                  id="weeklyDownloadHTML"
+                  class="secondary"
+                  aria-label="下载周报 HTML 文件"
+                >
+                  ⬇️ 导出 .html
+                </button>
+                <button
+                  id="weeklyCopyMarkdown"
+                  class="secondary"
+                  aria-label="复制周报 Markdown"
+                >
+                  📄 复制 Markdown
+                </button>
+                <button
+                  id="weeklyCopyHTML"
+                  class="secondary"
+                  aria-label="复制周报 HTML"
+                >
+                  🌐 复制 HTML
+                </button>
+                </div>
+              </div>
+              <div id="weeklyWarningBanner" class="preview-warning" hidden></div>
+              <div id="weeklyPreviewSurface" class="preview-surface weekly-preview-surface">
+                <div class="preview-placeholder">请选择日期并生成周报预览。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
+        <script>
+      // ==== 常量 & 模板定义 ====
+      const STORAGE_PREFIX = "wx-daily:";
+      const TEMPLATE_CONFIG_KEY = STORAGE_PREFIX + "templates";
+      const KEYWORD_INDEX_PREFIX = STORAGE_PREFIX + "index:";
+      const COLLOQUIAL_PREFIX = STORAGE_PREFIX + "colloquial:";
+      const AUTOSAVE_INTERVAL = 10000;
+      const CATEGORIES = ["AI", "财税", "供应链", "运营", "阅读", "其他"];
+      const SUMMARY_PRIMARY_CATEGORIES = ["AI", "财税", "供应链"];
+      const SENSITIVE_WARNING_TEXT = "含可能敏感信息，请人工复核";
+
+      const sampleEntries = [
+        {
+          id: "sample-1",
+          time: "09:20",
+          category: "AI",
+          keywords: ["aigc", "prompt", "流程自动化"],
+          content:
+            "梳理了晨会上提到的最新 Prompt 优化套路：先用 role 描述专家身份，再给出上下文，然后明确步骤目标，最后补一段约束条款，整体命中率提升 35%。顺便用 n8n 串起来做了一个自动草稿生成器。",
+          importance: 5,
+          publishable: true,
+        },
+        {
+          id: "sample-2",
+          time: "13:45",
+          category: "财税",
+          keywords: ["增值税", "进项抵扣"],
+          content:
+            "学习国家税务总局关于小规模纳税人增值税申报的最新口径，核心变化是简化附表填列，允许线上上传扫描件。实践中要提醒同事留存电子版发票，缺件会导致进项无法抵扣。",
+          importance: 4,
+          publishable: true,
+        },
+        {
+          id: "sample-3",
+          time: "20:10",
+          category: "运营",
+          keywords: ["拉新", "转化", "a/b"],
+          content:
+            "复盘朋友圈拉新活动：版本 A 采用短视频切入，点击率 6.1%；版本 B 强调限时福利，点击率 4.8%，但转化率高 12%。后续计划把视频和福利文案组合做三段式触达。",
+          importance: 3,
+          publishable: true,
+        },
+      ];
+
+      /**
+       * @typedef {Object} Entry
+       * @property {string} id 唯一标识
+       * @property {string} time 时间（HH:mm）
+       * @property {string} category 所属分类
+       * @property {string[]} keywords 关键词列表
+       * @property {string} content 记录内容
+       * @property {number} importance 重要程度 1-5
+       * @property {boolean} publishable 是否可对外发布
+       * @property {string} [originalContent] 原始内容（用于对比）
+       * @property {string[]} [detectionFlags] 敏感检测结果
+       */
+
+      /**
+       * @typedef {Object} DailyDoc
+       * @property {string} date 日期（YYYY-MM-DD）
+       * @property {Entry[]} entries 当日记录
+       */
+
+      const SAMPLE_DATASETS = [
+        {
+          id: "default",
+          label: "默认示例（三条经典）",
+          entries: sampleEntries,
+        },
+        {
+          id: "empty-note",
+          label: "测试：空内容与不可发",
+          entries: [
+            {
+              id: "empty-note-1",
+              time: "08:30",
+              category: "阅读",
+              keywords: ["晨读", "摘录"],
+              content: "",
+              importance: 2,
+              publishable: true,
+            },
+            {
+              id: "empty-note-2",
+              time: "11:15",
+              category: "运营",
+              keywords: ["review", "funnel"],
+              content: "复盘昨天的拉新漏斗，数据缺口需要同事补齐。",
+              importance: 3,
+              publishable: false,
+            },
+          ],
+        },
+        {
+          id: "english-only",
+          label: "测试：全英文内容",
+          entries: [
+            {
+              id: "english-only-1",
+              time: "09:05",
+              category: "AI",
+              keywords: ["llm", "fine-tune", "dataset"],
+              content:
+                "Reviewed the LLM fine-tuning playbook and benchmarked parameter-efficient adapters across three tasks.",
+              importance: 4,
+              publishable: true,
+            },
+            {
+              id: "english-only-2",
+              time: "15:22",
+              category: "供应链",
+              keywords: ["leadtime", "forecast"],
+              content:
+                "Documented how safety stock is recalculated when forecast error surges in volatile weeks.",
+              importance: 3,
+              publishable: true,
+            },
+          ],
+        },
+        {
+          id: "chinese-only",
+          label: "测试：全中文长段落",
+          entries: [
+            {
+              id: "chinese-only-1",
+              time: "10:18",
+              category: "财税",
+              keywords: ["税收优惠", "小微企业"],
+              content:
+                "整理了小微企业增值税减免的最新政策解读，重点关注备案材料与留存凭证的变化，并记录了常见误区。",
+              importance: 5,
+              publishable: true,
+            },
+            { 
+              id: "chinese-only-2",
+              time: "20:02",
+              category: "阅读",
+              keywords: ["非虚构", "洞察"],
+              content:
+                "读完《效率陷阱》第一章，对\n所谓“忙碌=价值”的思维模式做了反思。",
+              importance: 3,
+              publishable: true,
+            },
+          ],
+        },
+        {
+          id: "long-keywords",
+          label: "测试：超长关键词列表",
+          entries: [
+            {
+              id: "long-keywords-1",
+              time: "13:03",
+              category: "供应链",
+              keywords: [
+                "hyper-detailed-demand-sensing-model",
+                "predictive-maintenance",
+                "multi-echelon-inventory",
+                "end-to-end-visibility",
+                "跨境运输",
+                "海关监管"],
+              content:
+                "补充了供应链数字化项目的指标树，梳理 demand sensing、库存分层、跨境通关等关键路径。",
+              importance: 5,
+              publishable: true,
+            },
+          ],
+        },
+        {
+          id: "all-unpublishable",
+          label: "测试：全部不可发",
+          entries: [
+            {
+              id: "all-unpublishable-1",
+              time: "09:40",
+              category: "运营",
+              keywords: ["内部复盘"],
+              content: "记录了内部用户访谈的细节，仅供团队参考。",
+              importance: 4,
+              publishable: false,
+            },
+            {
+              id: "all-unpublishable-2",
+              time: "16:05",
+              category: "AI",
+              keywords: ["对比实验"],
+              content: "列出模型版本对比结果，涉及合作方数据，暂不可发。",
+              importance: 5,
+              publishable: false,
+            },
+          ],
+        },
+        {
+          id: "sensitive-check",
+          label: "测试：敏感信息检测",
+          entries: [
+            {
+              id: "sensitive-check-1",
+              time: "14:12",
+              category: "财税",
+              keywords: ["订单号", "对账"],
+              content:
+                "对账时发现订单号 OD-99887766 对应金额 ￥123456，需要联系 finance@example.com 确认。",
+              importance: 4,
+              publishable: true,
+            },
+            {
+              id: "sensitive-check-2",
+              time: "18:46",
+              category: "运营",
+              keywords: ["客户全称", "电话"],
+              content:
+                "客户南京云链科技有限公司反馈线索进展，联系人 13912345678，预计下周给出评估表。",
+              importance: 3,
+              publishable: true,
+            },
+          ],
+        },
+        {
+          id: "code-snippet",
+          label: "测试：含代码段",
+          entries: [
+            {
+              id: "code-snippet-1",
+              time: "17:20",
+              category: "AI",
+              keywords: ["prompt", "script"],
+              content:
+                "快速写了一个脚本处理批量提示：\nfunction sanitize(input) {\n  return input.trim().replace(/\n+/g, '\\n');\n}",
+              importance: 3,
+              publishable: true,
+            },
+            {
+              id: "code-snippet-2",
+              time: "21:05",
+              category: "阅读",
+              keywords: ["方法论"],
+              content: "整理卡片：第一步观察，第二步拆解，第三步做出实验。",
+              importance: 2,
+              publishable: true,
+            },
+          ],
+        },
+        {
+          id: "dense-day",
+          label: "测试：高密度高优先级",
+          entries: [
+            {
+              id: "dense-day-1",
+              time: "07:55",
+              category: "AI",
+              keywords: ["晨报", "模型进展"],
+              content: "记录晨会重点：大模型回归指标提升 12%，准备上线 A/B。",
+              importance: 5,
+              publishable: true,
+            },
+            {
+              id: "dense-day-2",
+              time: "12:10",
+              category: "供应链",
+              keywords: ["交付", "异常"],
+              content: "午间例会追踪华东仓出库异常，已安排临时补货。",
+              importance: 4,
+              publishable: true,
+            },
+            {
+              id: "dense-day-3",
+              time: "23:05",
+              category: "运营",
+              keywords: ["复盘", "增长"],
+              content: "夜间整理明天发布的增长方案 PPT 要点。",
+              importance: 3,
+              publishable: true,
+            },
+          ],
+        },
+      ];
+
+      const StorageService = {
+        /**
+         * 读取指定日期的草稿。
+         * @param {string} date
+         * @returns {DailyDoc | null}
+         */
+        readDoc(date) {
+          if (!date) return null;
+          const stored = localStorage.getItem(STORAGE_PREFIX + date);
+          if (!stored) return null;
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed && Array.isArray(parsed.entries)) {
+              return parsed;
+            }
+          } catch (error) {
+            console.warn("草稿读取失败", error);
+          }
+          return null;
+        },
+        /**
+         * 写入指定日期的草稿。
+         * @param {string} date
+         * @param {Entry[]} entries
+         */
+        writeDoc(date, entries) {
+          if (!date) return;
+          const payload = { date, entries };
+          localStorage.setItem(STORAGE_PREFIX + date, JSON.stringify(payload));
+        },
+        /**
+         * 删除指定日期草稿。
+         * @param {string} date
+         */
+        removeDoc(date) {
+          if (!date) return;
+          localStorage.removeItem(STORAGE_PREFIX + date);
+        },
+        /**
+         * 读取指定日期的人话化草稿。
+         * @param {string} date
+         * @returns {Map<string, string>}
+         */
+        readColloquial(date) {
+          if (!date) return new Map();
+          const stored = localStorage.getItem(COLLOQUIAL_PREFIX + date);
+          if (!stored) return new Map();
+          try {
+            const parsed = JSON.parse(stored);
+            if (parsed && typeof parsed === "object") {
+              return new Map(Object.entries(parsed));
+            }
+          } catch (error) {
+            console.warn("人话化草稿读取失败", error);
+          }
+          return new Map();
+        },
+        /**
+         * 保存指定日期的人话化草稿。
+         * @param {string} date
+         * @param {Map<string, string>} map
+         */
+        writeColloquial(date, map) {
+          if (!date) return;
+          if (!map || !map.size) {
+            localStorage.removeItem(COLLOQUIAL_PREFIX + date);
+            return;
+          }
+          const payload = {};
+          map.forEach((value, key) => {
+            payload[key] = value;
+          });
+          localStorage.setItem(COLLOQUIAL_PREFIX + date, JSON.stringify(payload));
+        },
+        /**
+         * 清除指定日期的人话化草稿。
+         * @param {string} date
+         */
+        removeColloquial(date) {
+          if (!date) return;
+          localStorage.removeItem(COLLOQUIAL_PREFIX + date);
+        },
+        /**
+         * 读取缓存的关键词索引。
+         * @param {string} date
+         * @returns {Record<string, number> | null}
+         */
+        readKeywordIndex(date) {
+          if (!date) return null;
+          const stored = localStorage.getItem(KEYWORD_INDEX_PREFIX + date);
+          if (!stored) return null;
+          try {
+            return JSON.parse(stored);
+          } catch (error) {
+            console.warn("关键词索引解析失败", error);
+            return null;
+          }
+        },
+        /**
+         * 写入关键词索引。
+         * @param {string} date
+         * @param {Record<string, number>} index
+         */
+        writeKeywordIndex(date, index) {
+          if (!date) return;
+          if (!index || !Object.keys(index).length) {
+            localStorage.removeItem(KEYWORD_INDEX_PREFIX + date);
+            return;
+          }
+          localStorage.setItem(
+            KEYWORD_INDEX_PREFIX + date,
+            JSON.stringify(index)
+          );
+        },
+        /**
+         * 删除关键词索引。
+         * @param {string} date
+         */
+        removeKeywordIndex(date) {
+          if (!date) return;
+          localStorage.removeItem(KEYWORD_INDEX_PREFIX + date);
+        },
+        /**
+         * 获取所有草稿日期列表。
+         * @returns {string[]}
+         */
+        listDocDates() {
+          const dates = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key) continue;
+            if (key === TEMPLATE_CONFIG_KEY) continue;
+            if (key.startsWith(KEYWORD_INDEX_PREFIX)) continue;
+            if (key.startsWith(STORAGE_PREFIX)) {
+              const date = key.replace(STORAGE_PREFIX, "");
+              if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+                dates.push(date);
+              }
+            }
+          }
+          return dates.sort((a, b) => b.localeCompare(a));
+        },
+        /**
+         * 读取模板偏好设置。
+         * @returns {{ active: string } | null}
+         */
+        readTemplateConfig() {
+          const stored = localStorage.getItem(TEMPLATE_CONFIG_KEY);
+          if (!stored) return null;
+          try {
+            return JSON.parse(stored);
+          } catch (error) {
+            console.warn("模板配置读取失败", error);
+            return null;
+          }
+        },
+        /**
+         * 写入模板偏好设置。
+         * @param {{ active: string }} payload
+         */
+        writeTemplateConfig(payload) {
+          localStorage.setItem(TEMPLATE_CONFIG_KEY, JSON.stringify(payload));
+        },
       };
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+      const DateUtils = {
+        /**
+         * 将日期格式化为 yyyy-mm-dd。
+         * @param {Date} date
+         * @returns {string}
+         */
+        toISODate(date) {
+          return date.toISOString().slice(0, 10);
+        },
+        /**
+         * 将日期字符串格式化为 yyyy.mm.dd。
+         * @param {string} dateStr
+         * @returns {string}
+         */
+        toTitle(dateStr) {
+          return (dateStr || "").replace(/-/g, ".");
+        },
+        /**
+         * 获取当前时间的 HH:mm 字符串。
+         * @returns {string}
+         */
+        currentTimeValue() {
+          const now = new Date();
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+          return `${hours}:${minutes}`;
+        },
+      };
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+      const KeywordUtils = {
+        /**
+         * 将关键词输入解析为数组。
+         * @param {string} value
+         * @returns {string[]}
+         */
+        parse(value) {
+          if (!value) return [];
+          const parts = value
+            .split(/[\s,，]+/)
+            .map((part) => part.trim().toLowerCase())
+            .filter(Boolean);
+          return Array.from(new Set(parts));
+        },
+        /**
+         * 根据记录构建关键词索引。
+         * @param {Entry[]} entries
+         * @returns {Record<string, number>}
+         */
+        buildIndex(entries) {
+          const stats = {};
+          entries.forEach((entry) => {
+            entry.keywords.forEach((kw) => {
+              stats[kw] = (stats[kw] || 0) + 1;
+            });
+          });
+          return stats;
+        },
+        /**
+         * 汇总缓存的关键词索引。
+         * @param {Map<string, Record<string, number>>} cache
+         * @returns {Map<string, number>}
+         */
+        mergeCache(cache) {
+          const aggregate = new Map();
+          cache.forEach((index) => {
+            Object.entries(index || {}).forEach(([kw, count]) => {
+              aggregate.set(kw, (aggregate.get(kw) || 0) + count);
+            });
+          });
+          return aggregate;
+        },
+      };
 
-      highScoreEl.textContent = highScore.toString();
+      const TEMPLATE_PRESETS = {
+        minimal: {
+          id: "minimal",
+          name: "极简模板",
+          titleTag: "h1",
+          subtitleTag: "p",
+          subtitleStrong: true,
+          markdownSubtitlePrefix: "",
+          getTitle: (ctx) => `我的学习日报｜${ctx.dateTitle}`,
+          getSubtitle: () => "AI+财税+运营｜真实可复用的学习笔记",
+          buildSummary(ctx, h) {
+            const keywords = h.getTopKeywords(ctx.entries, 6).map((item) => item.keyword);
+            const highlights = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 60,
+            });
+            const conclusions = h
+              .getCategoryConclusions(ctx.entries, SUMMARY_PRIMARY_CATEGORIES, 60)
+              .map((item) => item);
+            return [
+              `今日关键词：${keywords.length ? keywords.join("、") : "-"}`,
+              `今日亮点：${highlights.length ? highlights.join("；") : "-"}`,
+              `可复用结论：${conclusions.length ? conclusions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByCategory(ctx.entries);
+          },
+          renderEntry(ctx, entry, h) {
+            return {
+              meta: `【${entry.category}】（${entry.time}） 关键词 ${h.formatTagLine(entry.keywords)}`,
+              blocks: h.parseBlocks(entry.content),
+            };
+          },
+          getCTA: () => "如果这份『AI×财税×运营』学习日报对你有用，欢迎收藏与转发～",
+        },
+        insight: {
+          id: "insight",
+          name: "行业洞察",
+          titleTag: "h1",
+          subtitleTag: "h2",
+          subtitleStrong: false,
+          markdownSubtitlePrefix: "## ",
+          getTitle: (ctx) => `行业洞察日报｜${ctx.dateTitle}`,
+          getSubtitle: () => "AI × 财税 × 供应链：今日经营观察",
+          buildSummary(ctx, h) {
+            const heatmap = h.getCategoryHeatmap(ctx.entries);
+            const highlights = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 60,
+              prefixCategory: true,
+            });
+            const decisions = h
+              .getCategoryConclusions(ctx.entries, SUMMARY_PRIMARY_CATEGORIES, 52)
+              .map((line) => line.replace(/^•\s*/, ""));
+            return [
+              `重点赛道：${heatmap.length ? heatmap.join("、") : "-"}`,
+              `关键结论：${highlights.length ? highlights.join("；") : "-"}`,
+              `决策提示：${decisions.length ? decisions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByCategory(ctx.entries, {
+              titleBuilder: (category) => `行业 · ${category}`,
+            });
+          },
+          renderEntry(ctx, entry, h) {
+            const blocks = h.parseBlocks(entry.content);
+            const insight = h.extractFirstSentence(entry.content, 80);
+            blocks.unshift({ type: "paragraph", text: `洞察：${insight}` });
+            return {
+              meta: `【${entry.time}】${entry.category} ｜ ${h.formatTagLine(entry.keywords)}`,
+              blocks,
+            };
+          },
+          getCTA: () => "持续跟踪产业风向，欢迎分享给更多同路人。",
+        },
+        learning: {
+          id: "learning",
+          name: "学习卡片",
+          titleTag: "h1",
+          subtitleTag: "h2",
+          subtitleStrong: false,
+          markdownSubtitlePrefix: "## ",
+          getTitle: (ctx) => `学习卡片｜${ctx.dateTitle}`,
+          getSubtitle: () => "一日一更的跨学科学习记录",
+          buildSummary(ctx, h) {
+            const keywords = h.getTopKeywords(ctx.entries, 5).map((item) => item.keyword);
+            const concepts = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 50,
+              importance: 3,
+            });
+            const actions = h.getActionLines(ctx.entries, 2, 50);
+            return [
+              `关键词卡：${keywords.length ? keywords.join("、") : "-"}`,
+              `概念卡：${concepts.length ? concepts.join("；") : "-"}`,
+              `行动卡：${actions.length ? actions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByImportance(ctx.entries);
+          },
+          renderEntry(ctx, entry, h) {
+            return {
+              meta: `#${entry.category}｜${entry.time}｜${h.formatTagLine(entry.keywords)}`,
+              blocks: h.toBulletBlocks(entry.content),
+            };
+          },
+          getCTA: () => "坚持输出学习卡片，欢迎留言互换心得。",
+        },
+      };
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
+      // ==== DOM 引用 ====
+      const datePicker = document.getElementById("datePicker");
+      const historySelect = document.getElementById("historySelect");
+      const sampleDataSelect = document.getElementById("sampleDataSelect");
+      const openWeeklyBtn = document.getElementById("openWeeklyBtn");
+      const saveBtn = document.getElementById("saveBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const settingsBtn = document.getElementById("settingsBtn");
+      const settingsOverlay = document.getElementById("settingsOverlay");
+      const closeSettingsBtn = document.getElementById("closeSettings");
+      const weeklyOverlay = document.getElementById("weeklyOverlay");
+      const closeWeeklyBtn = document.getElementById("closeWeekly");
+      const weeklyDateList = document.getElementById("weeklyDateList");
+      const weeklyGenerateBtn = document.getElementById("weeklyGenerate");
+      const form = document.getElementById("entryForm");
+      const timeInput = document.getElementById("timeInput");
+      const categoryInput = document.getElementById("categoryInput");
+      const keywordsInput = document.getElementById("keywordsInput");
+      const keywordSuggestions = document.getElementById("keywordSuggestions");
+      const contentInput = document.getElementById("contentInput");
+      const importanceInput = document.getElementById("importanceInput");
+      const publishableInput = document.getElementById("publishableInput");
+      const submitBtn = document.getElementById("submitBtn");
+      const cancelEditBtn = document.getElementById("cancelEditBtn");
+      const formStatus = document.getElementById("formStatus");
+      const entriesBody = document.getElementById("entriesBody");
+      const filterCategory = document.getElementById("filterCategory");
+      const filterKeyword = document.getElementById("filterKeyword");
+      const filterPublishable = document.getElementById("filterPublishable");
+      const sortOrder = document.getElementById("sortOrder");
+      const statusMessage = document.getElementById("statusMessage");
+      const previewSurface = document.getElementById("previewSurface");
+      const copyMarkdownBtn = document.getElementById("copyMarkdown");
+      const copyHTMLBtn = document.getElementById("copyHTML");
+      const copyPreviewBtn = document.getElementById("copyPreview");
+      const downloadMarkdownBtn = document.getElementById("downloadMarkdown");
+      const downloadHTMLBtn = document.getElementById("downloadHTML");
+      const weeklyPreviewSection = document.getElementById("weeklyPreviewSection");
+      const weeklyPreviewSurface = document.getElementById("weeklyPreviewSurface");
+      const weeklyToggleColloquial = document.getElementById("weeklyToggleColloquial");
+      const weeklyToggleBlur = document.getElementById("weeklyToggleBlur");
+      const weeklyWarningBanner = document.getElementById("weeklyWarningBanner");
+      const weeklyCopyMarkdownBtn = document.getElementById("weeklyCopyMarkdown");
+      const weeklyCopyHTMLBtn = document.getElementById("weeklyCopyHTML");
+      const weeklyDownloadMarkdownBtn = document.getElementById("weeklyDownloadMarkdown");
+      const weeklyDownloadHTMLBtn = document.getElementById("weeklyDownloadHTML");
+      const weeklySelectedCount = document.getElementById("weeklySelectedCount");
+      const weeklyClearSelectionBtn = document.getElementById("weeklyClearSelection");
+      const toggleColloquial = document.getElementById("toggleColloquial");
+      const toggleBlur = document.getElementById("toggleBlur");
+      const colloquialToggleWrapper = document.getElementById("colloquialToggleWrapper");
+      const batchColloquialBtn = document.getElementById("batchColloquial");
+      const templateRadios = Array.from(
+        document.querySelectorAll('input[name="templateOption"]')
+      );
+      const templateOptionCards = Array.from(
+        document.querySelectorAll(".template-option")
+      );
 
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
+      // ==== 状态 ====
+      const state = {
+        currentDoc: { date: "", entries: [] },
+        editingId: null,
+        statusTimer: null,
+        templateId: "minimal",
+        isDirty: false,
+        autosaveTimer: null,
+        keywordIndexCache: new Map(),
+        keywordLibrary: new Map(),
+        activeTagFilter: "",
+        colloquialTexts: new Map(),
+        previewOptions: { useColloquial: false, enableBlur: false },
+        lastPreviewWarnings: [],
+        lastProcessedEntries: [],
+        weekly: {
+          selectedDates: new Set(),
+          useColloquial: false,
+          enableBlur: false,
+          preview: null,
+        },
+      };
+      let suggestionHideTimer = null;
+      let currentSuggestionQuery = "";
 
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
+      // ==== 初始化 ====
+      document.addEventListener("DOMContentLoaded", init);
 
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
-
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
-
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
-
-        requestAnimationFrame(gameLoop);
-
-        if (paused) {
-          return;
-        }
-
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
-      }
-
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
+      /**
+       * 初始化应用并加载当前日期的草稿与设置。
+       */
+      function init() {
+        loadTemplateConfig();
+        refreshTemplateUI();
+        const today = DateUtils.toISODate(new Date());
+        datePicker.value = today;
+        const stored = StorageService.readDoc(today);
+        state.currentDoc = {
+          date: today,
+          entries: stored ? stored.entries : deepClone(sampleEntries),
         };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
+        state.colloquialTexts = StorageService.readColloquial(today);
+        state.previewOptions.useColloquial = state.colloquialTexts.size > 0;
+        state.previewOptions.enableBlur = false;
+        state.weekly.useColloquial = state.previewOptions.useColloquial;
+        state.weekly.enableBlur = state.previewOptions.enableBlur;
+        state.lastPreviewWarnings = [];
+        state.lastProcessedEntries = [];
+        state.isDirty = false;
+        ensureKeywordIndexForCurrentDate({ skipLibrary: true });
+        populateHistoryOptions();
+        populateSampleDataSelect();
+        refreshWeeklyDateList();
+        preloadKeywordIndexes(today);
+        setCurrentTime();
+        bindEvents();
+        refreshUI();
+        updateFormStatus("默认保存到当前日期草稿");
+        rebuildKeywordLibrary();
+        startAutosave();
       }
 
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
+      function bindEvents() {
+        datePicker.addEventListener("change", handleDateChange);
+        historySelect.addEventListener("change", handleHistorySelect);
+        sampleDataSelect.addEventListener("change", handleSampleSelect);
+        saveBtn.addEventListener("click", () => saveDoc());
+        clearBtn.addEventListener("click", handleClear);
+        form.addEventListener("submit", handleSubmit);
+        cancelEditBtn.addEventListener("click", () => {
+          resetForm();
+          updateFormStatus("已取消编辑");
+        });
+        entriesBody.addEventListener("click", handleTableActions);
+        filterCategory.addEventListener("change", updateEntryTable);
+        filterPublishable.addEventListener("change", updateEntryTable);
+        sortOrder.addEventListener("change", updateEntryTable);
+        filterKeyword.addEventListener("input", () => {
+          state.activeTagFilter = filterKeyword.value.trim().toLowerCase();
+          updateEntryTable();
+        });
+        copyMarkdownBtn.addEventListener("click", () => handleCopy("markdown"));
+        copyHTMLBtn.addEventListener("click", () => handleCopy("html"));
+        copyPreviewBtn.addEventListener("click", () => handleCopy("preview"));
+        downloadMarkdownBtn.addEventListener("click", () => handleDownload("markdown"));
+        downloadHTMLBtn.addEventListener("click", () => handleDownload("html"));
+        openWeeklyBtn.addEventListener("click", openWeeklyDialog);
+        closeWeeklyBtn.addEventListener("click", closeWeeklyDialog);
+        weeklyOverlay.addEventListener("click", (event) => {
+          if (event.target === weeklyOverlay) {
+            closeWeeklyDialog();
           }
-          ctx.fill();
-          ctx.stroke();
         });
-      }
-
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
-
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
+        weeklyDateList.addEventListener("change", handleWeeklyDateChange);
+        weeklyGenerateBtn.addEventListener("click", generateWeeklyReportPreview);
+        weeklyToggleColloquial.addEventListener("change", handleWeeklyToggleColloquial);
+        weeklyToggleBlur.addEventListener("change", handleWeeklyToggleBlur);
+        weeklyCopyMarkdownBtn.addEventListener("click", () =>
+          handleWeeklyCopy("markdown")
         );
-
-        food = newFood;
-      }
-
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
+        weeklyCopyHTMLBtn.addEventListener("click", () => handleWeeklyCopy("html"));
+        weeklyDownloadMarkdownBtn.addEventListener("click", () =>
+          handleWeeklyDownload("markdown")
         );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
+        weeklyDownloadHTMLBtn.addEventListener("click", () =>
+          handleWeeklyDownload("html")
+        );
+        weeklyClearSelectionBtn.addEventListener("click", clearWeeklySelection);
+        toggleColloquial.addEventListener("change", handleColloquialToggle);
+        toggleBlur.addEventListener("change", handleBlurToggle);
+        batchColloquialBtn.addEventListener("click", handleBatchColloquial);
+        settingsBtn.addEventListener("click", showSettings);
+        closeSettingsBtn.addEventListener("click", hideSettings);
+        settingsOverlay.addEventListener("click", (event) => {
+          if (event.target === settingsOverlay) {
+            hideSettings();
+          }
+        });
+        document.addEventListener("keydown", handleGlobalKeydown);
+        templateRadios.forEach((radio) =>
+          radio.addEventListener("change", handleTemplateChange)
+        );
+        templateOptionCards.forEach((card) => {
+          card.addEventListener("click", () => {
+            const radio = card.querySelector('input[name="templateOption"]');
+            if (radio) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event("change", { bubbles: true }));
             }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
+          });
         });
-      });
+        keywordsInput.addEventListener("input", handleKeywordInput);
+        keywordsInput.addEventListener("focus", () => {
+          if (suggestionHideTimer) clearTimeout(suggestionHideTimer);
+          handleKeywordInput();
+        });
+        keywordsInput.addEventListener("blur", () => {
+          suggestionHideTimer = setTimeout(() => hideKeywordSuggestions(), 120);
+        });
+        keywordsInput.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            hideKeywordSuggestions();
+          }
+        });
+        keywordSuggestions.addEventListener("mousedown", (event) => event.preventDefault());
+        keywordSuggestions.addEventListener("click", handleSuggestionClick);
+        window.addEventListener("beforeunload", handleBeforeUnload);
+      }
 
-      initGame();
+      function loadTemplateConfig() {
+        const stored = StorageService.readTemplateConfig();
+        if (stored && stored.selected && TEMPLATE_PRESETS[stored.selected]) {
+          state.templateId = stored.selected;
+        }
+      }
+
+      function saveTemplateConfig() {
+        StorageService.writeTemplateConfig({ selected: state.templateId });
+      }
+
+      function refreshTemplateUI() {
+        templateRadios.forEach((radio) => {
+          radio.checked = radio.value === state.templateId;
+        });
+        templateOptionCards.forEach((card) => {
+          card.classList.toggle(
+            "active",
+            card.dataset.template === state.templateId
+          );
+        });
+      }
+
+      function handleTemplateChange(event) {
+        const nextId = event.target.value;
+        if (!TEMPLATE_PRESETS[nextId]) return;
+        state.templateId = nextId;
+        saveTemplateConfig();
+        refreshTemplateUI();
+        refreshUI();
+        showStatus(`模板已切换为「${TEMPLATE_PRESETS[nextId].name}」`, "info");
+      }
+
+      function showSettings() {
+        settingsOverlay.hidden = false;
+      }
+
+      function hideSettings() {
+        settingsOverlay.hidden = true;
+      }
+
+      function handleGlobalKeydown(event) {
+        if (event.key === "Escape") {
+          if (!settingsOverlay.hidden) {
+            hideSettings();
+          }
+          if (!weeklyOverlay.hidden) {
+            closeWeeklyDialog();
+          }
+        }
+      }
+
+      function handleKeywordInput() {
+        if (suggestionHideTimer) clearTimeout(suggestionHideTimer);
+        const query = getCurrentKeywordQuery();
+        currentSuggestionQuery = query ?? "";
+        if (query === null) {
+          hideKeywordSuggestions();
+          return;
+        }
+        renderKeywordSuggestions(query);
+      }
+
+      function getCurrentKeywordQuery() {
+        const cursor = keywordsInput.selectionStart ?? keywordsInput.value.length;
+        const textBefore = keywordsInput.value.slice(0, cursor);
+        const match = textBefore.match(/#([^\s,，]*)$/);
+        if (!match) return null;
+        return match[1].toLowerCase();
+      }
+
+      function renderKeywordSuggestions(query) {
+        if (!state.keywordLibrary || state.keywordLibrary.size === 0) {
+          hideKeywordSuggestions();
+          return;
+        }
+        const normalized = (query || "").toLowerCase();
+        const candidates = Array.from(state.keywordLibrary.entries())
+          .filter(([kw]) => !normalized || kw.includes(normalized))
+          .sort((a, b) => {
+            if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+            return b[1] - a[1];
+          })
+          .slice(0, 8);
+        if (!candidates.length) {
+          hideKeywordSuggestions();
+          return;
+        }
+        keywordSuggestions.innerHTML = candidates
+          .map(([kw, count]) => {
+            const encoded = encodeURIComponent(kw);
+            return `<button type="button" data-keyword="${encoded}">#${escapeHtml(kw)} · ${count}</button>`;
+          })
+          .join("");
+        keywordSuggestions.hidden = false;
+      }
+
+      function hideKeywordSuggestions() {
+        keywordSuggestions.hidden = true;
+        keywordSuggestions.innerHTML = "";
+      }
+
+      function handleSuggestionClick(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const keyword = target.dataset.keyword;
+        if (!keyword) return;
+        insertKeywordSuggestion(keyword);
+      }
+
+      function insertKeywordSuggestion(keyword) {
+        const cursor = keywordsInput.selectionStart ?? keywordsInput.value.length;
+        const value = keywordsInput.value;
+        const before = value.slice(0, cursor);
+        const after = value.slice(cursor);
+        const replaced = before.replace(/#([^\s,，]*)$/, keyword);
+        let joiner = "";
+        if (!after || !/^[\s,，]/.test(after)) {
+          joiner = replaced && !/[\s,，]$/.test(replaced) ? ", " : " ";
+        }
+        const newBefore = replaced + joiner;
+        keywordsInput.value = newBefore + after;
+        const newCursor = newBefore.length;
+        keywordsInput.focus();
+        keywordsInput.setSelectionRange(newCursor, newCursor);
+        hideKeywordSuggestions();
+        currentSuggestionQuery = "";
+      }
+
+      function updateKeywordSuggestions() {
+        if (!keywordSuggestions.hidden) {
+          renderKeywordSuggestions(currentSuggestionQuery);
+        }
+      }
+
+      function persistColloquialForCurrentDate() {
+        const { date } = state.currentDoc;
+        if (!date) return;
+        StorageService.writeColloquial(date, state.colloquialTexts);
+      }
+
+      function clearColloquialForDate(date) {
+        StorageService.removeColloquial(date);
+      }
+
+      function populateHistoryOptions() {
+        const dates = StorageService.listDocDates();
+        historySelect.innerHTML = '<option value="">选择历史日期…</option>';
+        dates.forEach((date) => {
+          const option = document.createElement("option");
+          option.value = date;
+          option.textContent = date;
+          historySelect.appendChild(option);
+        });
+        refreshWeeklyDateList();
+      }
+
+      /**
+       * 渲染示例数据下拉选项。
+       */
+      function populateSampleDataSelect() {
+        if (!sampleDataSelect) return;
+        sampleDataSelect.innerHTML = '<option value="">加载示例数据…</option>';
+        SAMPLE_DATASETS.forEach((dataset) => {
+          const option = document.createElement("option");
+          option.value = dataset.id;
+          option.textContent = dataset.label;
+          sampleDataSelect.appendChild(option);
+        });
+      }
+
+      function handleHistorySelect(event) {
+        const selected = event.target.value;
+        if (!selected) return;
+        datePicker.value = selected;
+        handleDateChange();
+        historySelect.value = "";
+      }
+
+      /**
+       * 载入指定示例数据。
+       * @param {Event} event
+       */
+      function handleSampleSelect(event) {
+        const datasetId = event.target.value;
+        if (!datasetId) return;
+        const dataset = SAMPLE_DATASETS.find((item) => item.id === datasetId);
+        if (!dataset) return;
+        const cloned = deepClone(dataset.entries).map((entry) => ({
+          ...entry,
+          keywords: Array.isArray(entry.keywords)
+            ? Array.from(new Set(entry.keywords.map((kw) => kw.trim().toLowerCase())))
+            : [],
+        }));
+        state.currentDoc.entries = cloned;
+        state.isDirty = true;
+        state.colloquialTexts = new Map();
+        state.previewOptions.useColloquial = false;
+        state.previewOptions.enableBlur = false;
+        state.lastPreviewWarnings = [];
+        state.lastProcessedEntries = [];
+        resetForm();
+        refreshUI();
+        ensureKeywordIndexForCurrentDate();
+        updateFormStatus(`已载入示例数据：${dataset.label}`);
+        showStatus(`已载入示例数据：${dataset.label}`, "info");
+        sampleDataSelect.value = "";
+      }
+
+      function handleDateChange() {
+        const date = datePicker.value;
+        if (!date || date === state.currentDoc.date) return;
+        if (state.isDirty) {
+          const confirmed = confirm("当前草稿尚未保存，切换日期会丢失修改，是否继续？");
+          if (!confirmed) {
+            datePicker.value = state.currentDoc.date;
+            return;
+          }
+        }
+        const stored = StorageService.readDoc(date);
+        state.currentDoc = {
+          date,
+          entries: stored ? stored.entries : [],
+        };
+        state.colloquialTexts = StorageService.readColloquial(date);
+        state.previewOptions.useColloquial = state.colloquialTexts.size > 0;
+        state.previewOptions.enableBlur = false;
+        state.weekly.useColloquial = state.previewOptions.useColloquial;
+        state.weekly.enableBlur = state.previewOptions.enableBlur;
+        state.lastPreviewWarnings = [];
+        state.lastProcessedEntries = [];
+        state.isDirty = false;
+        ensureKeywordIndexForCurrentDate({ skipLibrary: true });
+        resetForm();
+        refreshUI();
+        updateFormStatus("已切换至新日期，记得保存草稿");
+        rebuildKeywordLibrary();
+        showStatus(`已切换到 ${date} 的草稿`, "info");
+      }
+
+      function ensureKeywordIndexForCurrentDate({ skipLibrary = false } = {}) {
+        const { date, entries } = state.currentDoc;
+        if (!date) return;
+        if (entries.length) {
+          const index = KeywordUtils.buildIndex(entries);
+          StorageService.writeKeywordIndex(date, index);
+          state.keywordIndexCache.set(date, index);
+        } else {
+          StorageService.removeKeywordIndex(date);
+          state.keywordIndexCache.delete(date);
+        }
+        if (!skipLibrary) {
+          rebuildKeywordLibrary();
+        }
+      }
+
+      function preloadKeywordIndexes(currentDate) {
+        const dates = StorageService.listDocDates();
+        dates.forEach((date) => {
+          if (date === currentDate) return;
+          loadKeywordIndex(date);
+        });
+      }
+
+      function loadKeywordIndex(date) {
+        const cached = StorageService.readKeywordIndex(date);
+        if (cached) {
+          state.keywordIndexCache.set(date, cached);
+          return;
+        }
+        const stored = StorageService.readDoc(date);
+        const entries = stored ? stored.entries : [];
+        if (!entries.length) {
+          StorageService.removeKeywordIndex(date);
+          state.keywordIndexCache.delete(date);
+          return;
+        }
+        const index = KeywordUtils.buildIndex(entries);
+        StorageService.writeKeywordIndex(date, index);
+        state.keywordIndexCache.set(date, index);
+      }
+
+      function rebuildKeywordLibrary() {
+        state.keywordLibrary = KeywordUtils.mergeCache(state.keywordIndexCache);
+        updateKeywordSuggestions();
+      }
+
+      function updateKeywordCachesForCurrentDate() {
+        ensureKeywordIndexForCurrentDate();
+      }
+
+      function startAutosave() {
+        if (state.autosaveTimer) clearInterval(state.autosaveTimer);
+        state.autosaveTimer = setInterval(() => {
+          if (state.isDirty) {
+            saveDoc({ auto: true });
+          }
+        }, AUTOSAVE_INTERVAL);
+      }
+
+      function saveDoc({ auto = false } = {}) {
+        if (!state.currentDoc.date) return;
+        StorageService.writeDoc(state.currentDoc.date, state.currentDoc.entries);
+        persistColloquialForCurrentDate();
+        populateHistoryOptions();
+        ensureKeywordIndexForCurrentDate();
+        state.isDirty = false;
+        updateFormStatus(auto ? "已自动保存草稿" : "草稿已保存");
+        showStatus(auto ? "已自动保存草稿" : "已保存到本地草稿", auto ? "info" : "success");
+      }
+
+      function handleClear() {
+        if (!state.currentDoc.entries.length) {
+          showStatus("当前没有内容可以清空", "warning");
+          return;
+        }
+        if (!confirm("确定清空当天所有记录吗？")) return;
+        state.currentDoc.entries = [];
+        StorageService.removeDoc(state.currentDoc.date);
+        clearColloquialForDate(state.currentDoc.date);
+        state.colloquialTexts = new Map();
+        state.previewOptions.useColloquial = false;
+        state.previewOptions.enableBlur = false;
+        state.lastPreviewWarnings = [];
+        state.lastProcessedEntries = [];
+        state.isDirty = false;
+        resetForm();
+        refreshUI();
+        ensureKeywordIndexForCurrentDate();
+        populateHistoryOptions();
+        updateFormStatus("当天内容已清空");
+        showStatus("已清空当天草稿", "success");
+      }
+
+      // ==== 周报合并 ====
+      function openWeeklyDialog() {
+        if (!state.weekly.selectedDates.size && state.currentDoc.date) {
+          state.weekly.selectedDates.add(state.currentDoc.date);
+        }
+        if (!state.weekly.preview) {
+          state.weekly.useColloquial =
+            state.previewOptions.useColloquial && state.colloquialTexts.size > 0;
+          state.weekly.enableBlur = state.previewOptions.enableBlur;
+        }
+        refreshWeeklyDateList();
+        updateWeeklySelectionState();
+        weeklyToggleColloquial.checked = state.weekly.useColloquial;
+        weeklyToggleBlur.checked = state.weekly.enableBlur;
+        weeklyOverlay.hidden = false;
+        if (!state.weekly.preview) {
+          resetWeeklyPreview();
+        }
+      }
+
+      function closeWeeklyDialog() {
+        weeklyOverlay.hidden = true;
+      }
+
+      function getWeeklyCandidateDates() {
+        const dates = new Set(StorageService.listDocDates());
+        if (state.currentDoc.date) {
+          dates.add(state.currentDoc.date);
+        }
+        return Array.from(dates).sort((a, b) => b.localeCompare(a));
+      }
+
+      function refreshWeeklyDateList() {
+        if (!weeklyDateList) return;
+        const candidates = getWeeklyCandidateDates();
+        weeklyDateList.innerHTML = "";
+        const candidateSet = new Set(candidates);
+        let pruned = false;
+        Array.from(state.weekly.selectedDates).forEach((date) => {
+          if (!candidateSet.has(date)) {
+            state.weekly.selectedDates.delete(date);
+            pruned = true;
+          }
+        });
+        if (pruned) {
+          state.weekly.preview = null;
+          resetWeeklyPreview();
+        }
+        if (!candidates.length) {
+          const placeholder = document.createElement("div");
+          placeholder.className = "empty-tip";
+          placeholder.textContent = "暂无历史草稿，请先保存每日内容。";
+          weeklyDateList.appendChild(placeholder);
+          updateWeeklySelectionState();
+          return;
+        }
+        candidates.forEach((date) => {
+          const label = document.createElement("label");
+          label.className = "weekly-date-item";
+          label.dataset.date = date;
+          if (state.weekly.selectedDates.has(date)) {
+            label.classList.add("active");
+          }
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.value = date;
+          checkbox.checked = state.weekly.selectedDates.has(date);
+          const info = document.createElement("span");
+          info.textContent = getWeeklyDateInfo(date);
+          const title = document.createElement("strong");
+          const labelText = DateUtils.toTitle(date);
+          title.textContent =
+            date === state.currentDoc.date ? `${labelText}（当前）` : labelText;
+          label.appendChild(checkbox);
+          label.appendChild(title);
+          label.appendChild(info);
+          weeklyDateList.appendChild(label);
+        });
+        updateWeeklySelectionState();
+      }
+
+      function getWeeklyDateInfo(date) {
+        const isCurrent = date === state.currentDoc.date;
+        const doc = isCurrent ? state.currentDoc : StorageService.readDoc(date);
+        const entries = doc && Array.isArray(doc.entries) ? doc.entries : [];
+        const total = entries.length;
+        if (!total) return "暂无记录";
+        const publishable = entries.filter((entry) => entry.publishable).length;
+        if (!publishable) {
+          return `${total} 条记录（无可发）`;
+        }
+        return `${publishable}/${total} 条可发`;
+      }
+
+      function updateWeeklySelectionState() {
+        if (!weeklySelectedCount) return;
+        const count = state.weekly.selectedDates.size;
+        weeklySelectedCount.textContent = `已选 ${count} 天`;
+        if (weeklyGenerateBtn) {
+          weeklyGenerateBtn.disabled = count < 2;
+          weeklyGenerateBtn.title = count < 2 ? "请选择至少两个日期" : "";
+        }
+        if (weeklyClearSelectionBtn) {
+          weeklyClearSelectionBtn.disabled = count === 0;
+        }
+        if (weeklyDateList) {
+          Array.from(weeklyDateList.children).forEach((node) => {
+            if (!(node instanceof HTMLElement)) return;
+            const date = node.dataset.date;
+            if (!date) return;
+            node.classList.toggle("active", state.weekly.selectedDates.has(date));
+            const checkbox = node.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+              checkbox.checked = state.weekly.selectedDates.has(date);
+            }
+          });
+        }
+      }
+
+      function handleWeeklyDateChange(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        const date = target.value;
+        if (!date) return;
+        if (target.checked) {
+          state.weekly.selectedDates.add(date);
+        } else {
+          state.weekly.selectedDates.delete(date);
+        }
+        state.weekly.preview = null;
+        resetWeeklyPreview();
+        updateWeeklySelectionState();
+      }
+
+      function clearWeeklySelection() {
+        state.weekly.selectedDates.clear();
+        state.weekly.preview = null;
+        refreshWeeklyDateList();
+        resetWeeklyPreview();
+      }
+
+      function resetWeeklyPreview() {
+        if (weeklyPreviewSurface) {
+          weeklyPreviewSurface.innerHTML =
+            '<div class="preview-placeholder">请选择日期并生成周报预览。</div>';
+        }
+        if (weeklyPreviewSection) {
+          weeklyPreviewSection.hidden = true;
+        }
+        if (weeklyWarningBanner) {
+          weeklyWarningBanner.hidden = true;
+          weeklyWarningBanner.textContent = "";
+        }
+      }
+
+      /**
+       * 生成周报预览与导出结果。
+       * @param {{silent?: boolean}} [options]
+       */
+      function generateWeeklyReportPreview({ silent = false } = {}) {
+        const selected = Array.from(state.weekly.selectedDates).sort((a, b) =>
+          a.localeCompare(b)
+        );
+        if (selected.length < 2) {
+          if (!silent) {
+            showStatus("请至少选择两个日期生成周报", "warning");
+          }
+          return;
+        }
+        const { entries, warnings } = collectWeeklyEntries(selected, {
+          useColloquial: state.weekly.useColloquial,
+          enableBlur: state.weekly.enableBlur,
+        });
+        if (!entries.length) {
+          state.weekly.preview = null;
+          if (weeklyPreviewSurface) {
+            weeklyPreviewSurface.innerHTML =
+              '<div class="preview-placeholder">所选日期暂无可发记录。</div>';
+          }
+          if (weeklyPreviewSection) {
+            weeklyPreviewSection.hidden = false;
+          }
+          updateWeeklyWarningBanner(warnings);
+          if (!silent) {
+            showStatus("所选日期暂无可发内容", "warning");
+          }
+          return;
+        }
+        const context = WeeklyRenderer.buildContext(entries, selected);
+        const htmlPreview = WeeklyRenderer.buildHTML(context, { forPreview: true });
+        const htmlExport = WeeklyRenderer.buildHTML(context, { forPreview: false });
+        const markdown = WeeklyRenderer.buildMarkdown(context);
+        state.weekly.preview = {
+          context,
+          htmlPreview,
+          htmlExport,
+          markdown,
+          warnings,
+        };
+        weeklyToggleColloquial.checked = state.weekly.useColloquial;
+        weeklyToggleBlur.checked = state.weekly.enableBlur;
+        if (weeklyPreviewSurface) {
+          weeklyPreviewSurface.innerHTML = htmlPreview;
+        }
+        if (weeklyPreviewSection) {
+          weeklyPreviewSection.hidden = false;
+        }
+        updateWeeklyWarningBanner(warnings);
+        if (!silent) {
+          showStatus("已生成周报预览", "success");
+        }
+      }
+
+      /**
+       * 汇总选中日期的可发记录。
+       * @param {string[]} dates
+       * @param {{useColloquial: boolean, enableBlur: boolean}} options
+       * @returns {{entries: Entry[], warnings: {date:string,id:string,flags:string[],category:string,time:string}[]}}
+       */
+      function collectWeeklyEntries(dates, { useColloquial, enableBlur }) {
+        const entries = [];
+        const warnings = [];
+        dates.forEach((date) => {
+          const isCurrent = date === state.currentDoc.date;
+          const doc = isCurrent ? state.currentDoc : StorageService.readDoc(date);
+          const docEntries = doc && Array.isArray(doc.entries) ? doc.entries : [];
+          const colloquialMap = isCurrent
+            ? state.colloquialTexts
+            : StorageService.readColloquial(date);
+          docEntries
+            .filter((entry) => entry.publishable)
+            .forEach((entry) => {
+              const baseContent =
+                useColloquial && colloquialMap && colloquialMap.has(entry.id)
+                  ? colloquialMap.get(entry.id) || ""
+                  : entry.content || "";
+              const detection = SafetyService.detect(baseContent);
+              const finalContent = enableBlur
+                ? SafetyService.applyFuzzing(baseContent)
+                : baseContent;
+              const processed = {
+                ...entry,
+                keywords: Array.isArray(entry.keywords)
+                  ? [...entry.keywords]
+                  : [],
+                content: finalContent,
+                originalContent: entry.content,
+                baseContent,
+                detectionFlags: detection.flags,
+                date,
+              };
+              entries.push(processed);
+              if (detection.flags && detection.flags.length) {
+                warnings.push({
+                  date,
+                  id: entry.id,
+                  flags: detection.flags,
+                  category: entry.category,
+                  time: entry.time,
+                });
+              }
+            });
+        });
+        return { entries, warnings };
+      }
+
+
+      function handleWeeklyToggleColloquial() {
+        state.weekly.useColloquial = weeklyToggleColloquial.checked;
+        if (state.weekly.preview) {
+          generateWeeklyReportPreview({ silent: true });
+        }
+      }
+
+      function handleWeeklyToggleBlur() {
+        state.weekly.enableBlur = weeklyToggleBlur.checked;
+        if (state.weekly.preview) {
+          generateWeeklyReportPreview({ silent: true });
+        }
+      }
+
+      function handleWeeklyCopy(type) {
+        if (!state.weekly.preview) {
+          showStatus("请先生成周报预览", "warning");
+          return;
+        }
+        if (!confirmWeeklyExport(state.weekly.preview.warnings)) return;
+        if (type === "markdown") {
+          copyToClipboard(state.weekly.preview.markdown);
+        } else if (type === "html") {
+          copyToClipboard(state.weekly.preview.htmlExport);
+        }
+      }
+
+      function handleWeeklyDownload(type) {
+        if (!state.weekly.preview) {
+          showStatus("请先生成周报预览", "warning");
+          return;
+        }
+        if (!confirmWeeklyExport(state.weekly.preview.warnings)) return;
+        const { period } = state.weekly.preview.context;
+        const baseName = `${period.start}_to_${period.end}-weekly`;
+        if (type === "markdown") {
+          downloadFile(
+            state.weekly.preview.markdown,
+            `${baseName}.md`,
+            "text/markdown;charset=utf-8"
+          );
+        } else {
+          downloadFile(
+            state.weekly.preview.htmlExport,
+            `${baseName}.html`,
+            "text/html;charset=utf-8"
+          );
+        }
+      }
+
+      function confirmWeeklyExport(warnings) {
+        if (!warnings || !warnings.length) return true;
+        const detail = warnings
+          .map(
+            (item) =>
+              `${item.date} ${item.time} ${item.category}（${item.flags.join("、")}）`
+          )
+          .join("\n");
+        const message = `检测到 ${warnings.length} 条可能敏感信息：\n${detail}\n继续导出吗？`;
+        return confirm(message);
+      }
+
+      function updateWeeklyWarningBanner(warnings) {
+        if (!weeklyWarningBanner) return;
+        if (warnings && warnings.length) {
+          weeklyWarningBanner.hidden = false;
+          weeklyWarningBanner.textContent = `⚠️ 检测到 ${warnings.length} 条可能敏感信息，请人工复核后再导出。`;
+        } else {
+          weeklyWarningBanner.hidden = true;
+          weeklyWarningBanner.textContent = "";
+        }
+      }
+
+      function handleBeforeUnload(event) {
+        if (!state.isDirty) return;
+        event.preventDefault();
+        event.returnValue = "";
+      }
+
+      function markDirty() {
+        state.isDirty = true;
+        updateFormStatus("有未保存的修改，将在 10 秒内自动保存");
+      }
+
+      function updateFormStatus(text) {
+        formStatus.textContent = text;
+      }
+
+      /**
+       * 处理表单提交并创建或更新记录。
+       * @param {SubmitEvent} event
+       */
+      function handleSubmit(event) {
+        event.preventDefault();
+        const keywords = KeywordUtils.parse(keywordsInput.value);
+        const entry = {
+          id:
+            state.editingId || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          time: timeInput.value || "00:00",
+          category: categoryInput.value,
+          keywords,
+          content: contentInput.value.trim(),
+          importance: Number(importanceInput.value),
+          publishable: publishableInput.checked,
+        };
+        if (!entry.content) {
+          showStatus("内容不能为空", "danger");
+          return;
+        }
+        state.colloquialTexts.delete(entry.id);
+        if (state.editingId) {
+          const idx = state.currentDoc.entries.findIndex((item) => item.id === state.editingId);
+          if (idx !== -1) {
+            state.currentDoc.entries[idx] = entry;
+            showStatus("已更新记录", "success");
+          }
+        } else {
+          state.currentDoc.entries.push(entry);
+          showStatus("已添加记录", "success");
+        }
+        resetForm();
+        refreshUI();
+        updateKeywordCachesForCurrentDate();
+        markDirty();
+      }
+
+      function handleTableActions(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.classList.contains("tag")) {
+          const raw = target.dataset.tag
+            ? decodeURIComponent(target.dataset.tag)
+            : target.textContent || "";
+          const keyword = raw.trim().toLowerCase();
+          if (state.activeTagFilter === keyword) {
+            state.activeTagFilter = "";
+            filterKeyword.value = "";
+          } else {
+            state.activeTagFilter = keyword;
+            filterKeyword.value = keyword;
+          }
+          updateEntryTable();
+          return;
+        }
+        const action = target.getAttribute("data-action");
+        if (action === "edit") {
+          startEdit(target.getAttribute("data-id"));
+        } else if (action === "delete") {
+          deleteEntry(target.getAttribute("data-id"));
+        } else if (action === "colloquial") {
+          applyColloquialToEntry(target.getAttribute("data-id"));
+        }
+      }
+
+      function startEdit(id) {
+        if (!id) return;
+        const entry = state.currentDoc.entries.find((item) => item.id === id);
+        if (!entry) return;
+        state.editingId = id;
+        timeInput.value = entry.time;
+        categoryInput.value = entry.category;
+        importanceInput.value = String(entry.importance);
+        keywordsInput.value = entry.keywords.join(", ");
+        contentInput.value = entry.content;
+        publishableInput.checked = entry.publishable;
+        submitBtn.textContent = "💾 保存修改";
+        cancelEditBtn.hidden = false;
+      }
+
+      function deleteEntry(id) {
+        if (!id) return;
+        const idx = state.currentDoc.entries.findIndex((item) => item.id === id);
+        if (idx === -1) return;
+        if (!confirm("确定删除该条记录吗？")) return;
+        state.currentDoc.entries.splice(idx, 1);
+        state.colloquialTexts.delete(id);
+        refreshUI();
+        updateKeywordCachesForCurrentDate();
+        markDirty();
+        showStatus("已删除记录", "success");
+        if (state.editingId === id) {
+          resetForm();
+        }
+      }
+
+      function resetForm() {
+        form.reset();
+        setCurrentTime();
+        categoryInput.value = "AI";
+        importanceInput.value = "5";
+        publishableInput.checked = true;
+        state.editingId = null;
+        submitBtn.textContent = "➕ 添加记录";
+        cancelEditBtn.hidden = true;
+        hideKeywordSuggestions();
+      }
+
+      function refreshUI() {
+        updateEntryTable();
+        updatePreview();
+      }
+
+      function updateEntryTable() {
+        const keywordFilter = state.activeTagFilter || filterKeyword.value.trim().toLowerCase();
+        const filtered = state.currentDoc.entries.filter((entry) => {
+          if (filterCategory.value && entry.category !== filterCategory.value) {
+            return false;
+          }
+          if (filterPublishable.checked && !entry.publishable) {
+            return false;
+          }
+          if (keywordFilter) {
+            return entry.keywords.some((kw) => kw.includes(keywordFilter));
+          }
+          return true;
+        });
+        const sorted = sortEntries(filtered, sortOrder.value);
+        entriesBody.innerHTML = "";
+        if (!sorted.length) {
+          const emptyRow = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 7;
+          cell.style.textAlign = "center";
+          cell.style.color = "var(--muted)";
+          cell.textContent = "暂无符合条件的记录";
+          emptyRow.appendChild(cell);
+          entriesBody.appendChild(emptyRow);
+          return;
+        }
+        sorted.forEach((entry) => {
+          const row = document.createElement("tr");
+          const tags = entry.keywords
+            .map((kw) => {
+              const encoded = encodeURIComponent(kw);
+              const active = state.activeTagFilter && state.activeTagFilter === kw;
+              return `<span class="tag${active ? " active-tag" : ""}" data-tag="${encoded}">${escapeHtml(kw)}</span>`;
+            })
+            .join(" ");
+          const summary = entry.content.length > 42 ? `${entry.content.slice(0, 42)}…` : entry.content;
+          const hasColloquial = state.colloquialTexts.has(entry.id);
+          const appliedClass = hasColloquial ? ' class="applied"' : "";
+          row.innerHTML = `
+            <td>${entry.time}</td>
+            <td><span class="pill">${escapeHtml(entry.category)}</span></td>
+            <td>${tags || "-"}</td>
+            <td class="importance">${"★".repeat(entry.importance)}</td>
+            <td>${entry.publishable ? "✅" : "🚫"}</td>
+            <td>${escapeHtml(summary)}</td>
+            <td>
+              <div class="actions">
+                <button
+                  data-action="colloquial"
+                  data-id="${entry.id}"
+                  aria-label="${hasColloquial ? "查看人话化内容" : "对该记录进行人话化"}"
+                  ${appliedClass.trim()}
+                >${hasColloquial ? "已人话化" : "人话化"}</button>
+                <button
+                  data-action="edit"
+                  data-id="${entry.id}"
+                  aria-label="编辑这条记录"
+                >编辑</button>
+                <button
+                  data-action="delete"
+                  data-id="${entry.id}"
+                  aria-label="删除这条记录"
+                >删除</button>
+              </div>
+            </td>
+          `;
+          entriesBody.appendChild(row);
+        });
+      }
+
+      function sortEntries(entries, order) {
+        const clone = [...entries];
+        clone.sort((a, b) => {
+          if (order === "time-asc") {
+            return a.time.localeCompare(b.time);
+          }
+          if (order === "time-desc") {
+            return b.time.localeCompare(a.time);
+          }
+          if (order === "importance-asc") {
+            return a.importance - b.importance || a.time.localeCompare(b.time);
+          }
+          return b.importance - a.importance || a.time.localeCompare(b.time);
+        });
+        return clone;
+      }
+
+      /**
+       * 按当前设置生成用于预览/导出的记录。
+       * @returns {Entry[]}
+       */
+      function getProcessedPublishableEntries() {
+        const publishable = getPublishableEntries();
+        if (!publishable.length) {
+          state.lastPreviewWarnings = [];
+          state.lastProcessedEntries = [];
+          return [];
+        }
+        const processed = publishable.map((entry) => {
+          const baseContent =
+            state.previewOptions.useColloquial && state.colloquialTexts.has(entry.id)
+              ? state.colloquialTexts.get(entry.id) || ""
+              : entry.content || "";
+          const detection = SafetyService.detect(baseContent);
+          const finalContent = state.previewOptions.enableBlur
+            ? SafetyService.applyFuzzing(baseContent)
+            : baseContent;
+          return {
+            ...entry,
+            content: finalContent,
+            originalContent: entry.content,
+            baseContent,
+            detectionFlags: detection.flags,
+          };
+        });
+        state.lastPreviewWarnings = processed
+          .filter((entry) => entry.detectionFlags && entry.detectionFlags.length)
+          .map((entry) => ({
+            id: entry.id,
+            flags: entry.detectionFlags,
+            category: entry.category,
+            time: entry.time,
+          }));
+        state.lastProcessedEntries = processed;
+        return processed;
+      }
+
+      function updatePreviewControls() {
+        const hasColloquial = state.colloquialTexts.size > 0;
+        if (!hasColloquial && state.previewOptions.useColloquial) {
+          state.previewOptions.useColloquial = false;
+        }
+        if (toggleColloquial) {
+          toggleColloquial.checked = hasColloquial && state.previewOptions.useColloquial;
+          toggleColloquial.disabled = !hasColloquial;
+          if (colloquialToggleWrapper) {
+            colloquialToggleWrapper.classList.toggle("disabled", toggleColloquial.disabled);
+            colloquialToggleWrapper.title = hasColloquial
+              ? `已准备 ${state.colloquialTexts.size} 条人话化内容，可切换预览`
+              : "暂无人话化内容";
+          }
+        }
+        if (toggleBlur) {
+          toggleBlur.checked = state.previewOptions.enableBlur;
+        }
+        if (batchColloquialBtn) {
+          const canBatch = getPublishableEntries().length > 0;
+          batchColloquialBtn.disabled = !canBatch;
+          batchColloquialBtn.title = canBatch
+            ? "对所有可发记录一键人话化"
+            : "暂无可发记录可处理";
+        }
+      }
+
+      function applyColloquialToEntry(id) {
+        if (!id) return;
+        const entry = state.currentDoc.entries.find((item) => item.id === id);
+        if (!entry) return;
+        const transformed = SafetyService.transform(entry.content || "").trim();
+        if (!transformed) {
+          showStatus("内容偏空，无法人话化", "warning");
+          return;
+        }
+        state.colloquialTexts.set(id, transformed);
+        state.previewOptions.useColloquial = true;
+        markDirty();
+        showStatus("已生成口语化版本", "success");
+        updateEntryTable();
+        updatePreview();
+      }
+
+      function applyColloquialToPublishable() {
+        const publishable = getPublishableEntries();
+        if (!publishable.length) {
+          showStatus("暂无可发记录可处理", "warning");
+          return;
+        }
+        let count = 0;
+        publishable.forEach((entry) => {
+          const transformed = SafetyService.transform(entry.content || "").trim();
+          if (transformed) {
+            state.colloquialTexts.set(entry.id, transformed);
+            count += 1;
+          }
+        });
+        if (!count) {
+          showStatus("原内容过短，未能人话化", "warning");
+          return;
+        }
+        state.previewOptions.useColloquial = true;
+        markDirty();
+        showStatus(`已人话化 ${count} 条可发记录`, "success");
+        updateEntryTable();
+        updatePreview();
+      }
+
+      function handleColloquialToggle() {
+        if (toggleColloquial.disabled) return;
+        state.previewOptions.useColloquial = toggleColloquial.checked && state.colloquialTexts.size > 0;
+        updatePreview();
+      }
+
+      function handleBlurToggle() {
+        state.previewOptions.enableBlur = toggleBlur.checked;
+        updatePreview();
+      }
+
+      function handleBatchColloquial() {
+        applyColloquialToPublishable();
+      }
+
+      function confirmExportIfSensitive() {
+        if (!state.lastPreviewWarnings.length) return true;
+        const detail = state.lastPreviewWarnings
+          .map((item) => `${item.time} ${item.category}（${item.flags.join("、")}）`)
+          .join("\n");
+        const message = `检测到 ${state.lastPreviewWarnings.length} 条可能敏感信息：\n${detail}\n继续导出吗？`;
+        return confirm(message);
+      }
+
+      /**
+       * 根据当前状态刷新右侧预览。
+       */
+      function updatePreview() {
+        const processed = getProcessedPublishableEntries();
+        updatePreviewControls();
+        if (!processed.length) {
+          previewSurface.innerHTML =
+            '<div class="preview-placeholder">暂无可对外发布内容，先去左侧添加吧。</div>';
+          return;
+        }
+        previewSurface.innerHTML = DailyRenderer.buildHTML(true, processed);
+      }
+
+      function hasPublishableEntries() {
+        return state.currentDoc.entries.some((entry) => entry.publishable);
+      }
+
+      /**
+       * 复制不同格式的导出内容。
+       * @param {"markdown"|"html"|"preview"} type
+       */
+      function handleCopy(type) {
+        if (!hasPublishableEntries()) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        const processed = getProcessedPublishableEntries();
+        if (!processed.length) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        if (!confirmExportIfSensitive()) return;
+        if (type === "markdown") {
+          copyToClipboard(DailyRenderer.buildMarkdown(processed));
+        } else if (type === "html") {
+          copyToClipboard(DailyRenderer.buildHTML(false, processed));
+        } else {
+          copyToClipboard(previewSurface.innerText.trim());
+        }
+      }
+
+      /**
+       * 下载 Markdown 或 HTML 文件。
+       * @param {"markdown"|"html"} type
+       */
+      function handleDownload(type) {
+        if (!hasPublishableEntries()) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        const processed = getProcessedPublishableEntries();
+        if (!processed.length) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        if (!confirmExportIfSensitive()) return;
+        const date = state.currentDoc.date || DateUtils.toISODate(new Date());
+        if (type === "markdown") {
+          downloadFile(
+            DailyRenderer.buildMarkdown(processed),
+            `${date}.md`,
+            "text/markdown;charset=utf-8"
+          );
+        } else {
+          downloadFile(
+            DailyRenderer.buildHTML(false, processed),
+            `${date}.html`,
+            "text/html;charset=utf-8"
+          );
+        }
+      }
+
+      function getPublishableEntries() {
+        return state.currentDoc.entries.filter((entry) => entry.publishable);
+      }
+
+      const TemplateHelpers = {
+        sortEntries(entries) {
+          return [...entries].sort((a, b) => {
+            const categoryDiff =
+              CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
+            if (categoryDiff !== 0) return categoryDiff;
+            if (b.importance !== a.importance) {
+              return b.importance - a.importance;
+            }
+            return a.time.localeCompare(b.time);
+          });
+        },
+        formatTagLine(keywords) {
+          if (!keywords.length) return "-";
+          return keywords.map((kw) => `#${kw}`).join(" ");
+        },
+        parseBlocks(content) {
+          return parseContentBlocks(formatContentForMarkdown(content));
+        },
+        toBulletBlocks(content) {
+          const blocks = TemplateHelpers.parseBlocks(content);
+          const result = [];
+          let currentList = [];
+          blocks.forEach((block) => {
+            if (block.type === "code") {
+              if (currentList.length) {
+                result.push({ type: "list", items: currentList });
+                currentList = [];
+              }
+              result.push(block);
+            } else {
+              const segments = block.text
+                .split(/[。！？!?.]/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+              if (!segments.length) return;
+              currentList.push(...segments);
+            }
+          });
+          if (currentList.length) {
+            result.push({ type: "list", items: currentList });
+          }
+          return result.length ? result : blocks;
+        },
+        groupByCategory(entries, { titleBuilder } = {}) {
+          const grouped = [];
+          const sorted = TemplateHelpers.sortEntries(entries);
+          CATEGORIES.forEach((category) => {
+            const list = sorted.filter((entry) => entry.category === category);
+            if (list.length) {
+              grouped.push({
+                title: titleBuilder ? titleBuilder(category) : category,
+                entries: list,
+              });
+            }
+          });
+          return grouped;
+        },
+        groupByImportance(entries) {
+          const sorted = TemplateHelpers.sortEntries(entries);
+          const buckets = [
+            { title: "高阶洞察卡", filter: (entry) => entry.importance >= 4 },
+            { title: "实践方法卡", filter: (entry) => entry.importance === 3 },
+            { title: "灵感速记卡", filter: (entry) => entry.importance <= 2 },
+          ];
+          const result = [];
+          buckets.forEach(({ title, filter }) => {
+            const items = sorted.filter(filter);
+            if (items.length) {
+              result.push({ title, entries: items });
+            }
+          });
+          if (!result.length) {
+            result.push({ title: "学习记录", entries: sorted });
+          }
+          return result;
+        },
+        getTopKeywords(entries, limit = 6) {
+          const stats = new Map();
+          entries.forEach((entry) => {
+            entry.keywords.forEach((kw) => {
+              stats.set(kw, (stats.get(kw) || 0) + 1);
+            });
+          });
+          return Array.from(stats.entries())
+            .sort((a, b) => {
+              if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+              return b[1] - a[1];
+            })
+            .slice(0, limit)
+            .map(([keyword, count]) => ({ keyword, count }));
+        },
+        getHighlightSentences(
+          entries,
+          { limit = 2, maxLength = 60, importance = 4, prefixCategory = false } = {}
+        ) {
+          return [...entries]
+            .filter((entry) => entry.importance >= importance)
+            .sort((a, b) => b.importance - a.importance || a.time.localeCompare(b.time))
+            .slice(0, limit)
+            .map((entry) => {
+              const text = truncateText(cleanText(entry.content), maxLength);
+              return prefixCategory ? `${entry.category}：${text}` : text;
+            });
+        },
+        getCategoryConclusions(entries, categories, maxLength = 60) {
+          return entries
+            .filter((entry) => !categories || categories.includes(entry.category))
+            .map((entry) => `• ${truncateText(getFirstSentence(entry.content), maxLength)}`);
+        },
+        getCategoryHeatmap(entries) {
+          const stats = new Map();
+          entries.forEach((entry) => {
+            stats.set(entry.category, (stats.get(entry.category) || 0) + 1);
+          });
+          return CATEGORIES.filter((category) => stats.has(category))
+            .map((category) => ({ category, count: stats.get(category) }))
+            .sort((a, b) => {
+              if (b.count === a.count) {
+                return CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
+              }
+              return b.count - a.count;
+            })
+            .map(({ category, count }) => `${category}×${count}`);
+        },
+        getActionLines(entries, limit = 2, maxLength = 60) {
+          return [...entries]
+            .filter((entry) => entry.publishable)
+            .sort((a, b) => b.importance - a.importance || a.time.localeCompare(b.time))
+            .slice(0, limit)
+            .map((entry) => truncateText(cleanText(entry.content), maxLength));
+        },
+        extractFirstSentence(text, maxLength = 60) {
+          return truncateText(getFirstSentence(text), maxLength);
+        },
+      };
+
+      const DailyRenderer = {
+        /**
+         * 渲染日常模板为 Markdown 或 HTML。
+         * @param {"markdown"|"html"} format
+         * @param {{forPreview?: boolean, entries?: Entry[]}} [options]
+         * @returns {string}
+         */
+        render(format, { forPreview = false, entries: providedEntries } = {}) {
+          const entries = providedEntries || getProcessedPublishableEntries();
+          if (!entries.length) return "";
+          const template = TEMPLATE_PRESETS[state.templateId] || TEMPLATE_PRESETS.minimal;
+          const ctx = this.createContext(entries);
+          const summaryLines = template.buildSummary(ctx, TemplateHelpers);
+          const groups = template.groupEntries(ctx, TemplateHelpers);
+          const title = template.getTitle(ctx);
+          const subtitle = template.getSubtitle(ctx);
+          const cta = template.getCTA ? template.getCTA(ctx) : "";
+
+          if (format === "markdown") {
+            const lines = [];
+            lines.push(`# ${title}`);
+            if (subtitle) {
+              const prefix = template.markdownSubtitlePrefix || "";
+              lines.push(prefix ? `${prefix}${subtitle}` : subtitle);
+            }
+            lines.push("");
+            summaryLines.forEach((line) => lines.push(line));
+            lines.push("");
+            groups.forEach((group) => {
+              lines.push(`## ${group.title}`);
+              lines.push("");
+              group.entries.forEach((entry) => {
+                const rendered = template.renderEntry(ctx, entry, TemplateHelpers);
+                lines.push(rendered.meta.trim());
+                lines.push("");
+                rendered.blocks.forEach((block) => {
+                  if (block.type === "code") {
+                    lines.push("```");
+                    lines.push(block.text);
+                    lines.push("```");
+                    lines.push("");
+                  } else if (block.type === "list") {
+                    block.items.forEach((item) => lines.push(`- ${item}`));
+                    lines.push("");
+                  } else {
+                    lines.push(block.text);
+                    lines.push("");
+                  }
+                });
+              });
+            });
+            if (cta) {
+              lines.push(cta);
+            }
+            return lines.join("\n").trim();
+          }
+
+          const parts = [];
+          const titleTag = template.titleTag || "h1";
+          parts.push(`<${titleTag}>${escapeHtml(title)}</${titleTag}>`);
+          if (subtitle) {
+            const subtitleTag = template.subtitleTag || "p";
+            const subtitleContent = escapeHtml(subtitle);
+            if (template.subtitleStrong) {
+              parts.push(`<${subtitleTag}><strong>${subtitleContent}</strong></${subtitleTag}>`);
+            } else {
+              parts.push(`<${subtitleTag}>${subtitleContent}</${subtitleTag}>`);
+            }
+          }
+          summaryLines.forEach((line) => {
+            if (state.templateId === "minimal" && line.startsWith("可复用结论：")) {
+              const content = line.replace("可复用结论：", "").trim();
+              if (!content || content === "-") {
+                parts.push(`<p>可复用结论：-</p>`);
+              } else {
+                const bullets = content.split("；").filter(Boolean);
+                parts.push(`<p>可复用结论：</p>`);
+                parts.push(
+                  "<ul>" +
+                    bullets
+                      .map((item) => `<li>${escapeHtml(item.replace(/^•\s*/, ""))}</li>`)
+                      .join("") +
+                    "</ul>"
+                );
+              }
+            } else {
+              parts.push(`<p>${escapeHtml(line)}</p>`);
+            }
+          });
+          groups.forEach((group) => {
+            parts.push(`<h2>${escapeHtml(group.title)}</h2>`);
+            group.entries.forEach((entry) => {
+              const rendered = template.renderEntry(ctx, entry, TemplateHelpers);
+              if (forPreview) {
+                const flags = entry.detectionFlags || [];
+                const flagTip = flags.length ? escapeHtml(flags.join("、")) : "";
+                const classes = flags.length
+                  ? "preview-entry has-warning"
+                  : "preview-entry";
+                parts.push(`<div class="${classes}">`);
+                if (flags.length) {
+                  const warningText = escapeHtml(SENSITIVE_WARNING_TEXT);
+                  const titleAttr = flagTip ? ` title="可能命中：${flagTip}"` : "";
+                  parts.push(
+                    `<div class="preview-entry-warning"${titleAttr}>⚠️ ${warningText}</div>`
+                  );
+                }
+                parts.push(`<p><strong>${escapeHtml(rendered.meta)}</strong></p>`);
+                rendered.blocks.forEach((block) => {
+                  if (block.type === "code") {
+                    parts.push(`<pre><code>${escapeHtml(block.text)}</code></pre>`);
+                  } else if (block.type === "list") {
+                    parts.push(
+                      "<ul>" +
+                        block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                        "</ul>"
+                    );
+                  } else {
+                    parts.push(`<p>${escapeHtml(block.text)}</p>`);
+                  }
+                });
+                parts.push(`</div>`);
+              } else {
+                parts.push(`<p><strong>${escapeHtml(rendered.meta)}</strong></p>`);
+                rendered.blocks.forEach((block) => {
+                  if (block.type === "code") {
+                    parts.push(`<pre><code>${escapeHtml(block.text)}</code></pre>`);
+                  } else if (block.type === "list") {
+                    parts.push(
+                      "<ul>" +
+                        block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                        "</ul>"
+                    );
+                  } else {
+                    parts.push(`<p>${escapeHtml(block.text)}</p>`);
+                  }
+                });
+              }
+            });
+          });
+          if (cta) {
+            parts.push(`<p>${escapeHtml(cta)}</p>`);
+          }
+          const html = parts.join("\n");
+          return forPreview ? html : html.trim();
+        },
+        /**
+         * 构建 Markdown 输出。
+         * @param {Entry[]} entries
+         * @returns {string}
+         */
+        buildMarkdown(entries) {
+          return this.render("markdown", { entries });
+        },
+        /**
+         * 构建 HTML 输出。
+         * @param {boolean} forPreview
+         * @param {Entry[]} entries
+         * @returns {string}
+         */
+        buildHTML(forPreview = false, entries) {
+          return this.render("html", { forPreview, entries });
+        },
+        /**
+         * 构建模板渲染上下文。
+         * @param {Entry[]} entries
+         * @returns {{dateTitle: string, entries: Entry[]}}
+         */
+        createContext(entries) {
+          return {
+            dateTitle: DateUtils.toTitle(
+              state.currentDoc.date || DateUtils.toISODate(new Date())
+            ),
+            entries: TemplateHelpers.sortEntries(entries),
+          };
+        },
+      };
+
+      const WeeklyRenderer = {
+        /**
+         * 构建周报上下文。
+         * @param {Entry[]} entries
+         * @param {string[]} sortedDates
+         * @returns {{title: string, subtitle: string, summaryLines: string[], groups: any[], toc: any[], period: {start: string, end: string}, entries: Entry[]}}
+         */
+        buildContext(entries, sortedDates) {
+          if (!sortedDates.length) {
+            return {
+              title: "我的学习周报",
+              subtitle: "AI+财税+运营｜跨天复盘笔记",
+              summaryLines: this.buildSummaryLines(entries),
+              groups: [],
+              toc: [],
+              period: { start: "", end: "" },
+              entries,
+            };
+          }
+          const start = sortedDates[0];
+          const end = sortedDates[sortedDates.length - 1];
+          const title = `我的学习周报｜${DateUtils.toTitle(start)}-${DateUtils.toTitle(end)}`;
+          const subtitle = "AI+财税+运营｜跨天复盘笔记";
+          const summaryLines = this.buildSummaryLines(entries);
+          const groups = [];
+          sortedDates.forEach((date) => {
+            const dayEntries = entries.filter((entry) => entry.date === date);
+            if (!dayEntries.length) return;
+            const categories = [];
+            CATEGORIES.forEach((category) => {
+              const list = dayEntries
+                .filter((entry) => entry.category === category)
+                .sort(
+                  (a, b) =>
+                    b.importance - a.importance || a.time.localeCompare(b.time)
+                );
+              if (!list.length) return;
+              categories.push({
+                name: category,
+                entries: list.map((entry) => ({
+                  ...entry,
+                  meta: `【${entry.category}】（${entry.time}） 关键词 ${TemplateHelpers.formatTagLine(entry.keywords)}`,
+                  blocks: TemplateHelpers.parseBlocks(entry.content),
+                })),
+              });
+            });
+            if (!categories.length) return;
+            groups.push({
+              date,
+              label: DateUtils.toTitle(date),
+              anchor: `date-${date}`,
+              categories,
+            });
+          });
+          const toc = groups.map((group) => ({ label: group.label, anchor: group.anchor }));
+          return { title, subtitle, summaryLines, groups, toc, period: { start, end }, entries };
+        },
+        /**
+         * 构建周报摘要三行。
+         * @param {Entry[]} entries
+         * @returns {string[]}
+         */
+        buildSummaryLines(entries) {
+          if (!entries.length) {
+            return [
+              "关键词Top10：-",
+              "重要亮点Top5：-",
+              "结论要点Top5：-",
+            ];
+          }
+          const keywords = TemplateHelpers.getTopKeywords(entries, 10).map((item) => item.keyword);
+          const highlights = this.getHighlights(entries, 5);
+          const conclusions = this.getConclusions(entries, 5);
+          return [
+            `关键词Top10：${keywords.length ? keywords.join("、") : "-"}`,
+            `重要亮点Top5：${highlights.length ? highlights.join("；") : "-"}`,
+            `结论要点Top5：${conclusions.length ? conclusions.join("；") : "-"}`,
+          ];
+        },
+        /**
+         * 选取高亮语句。
+         * @param {Entry[]} entries
+         * @param {number} limit
+         * @returns {string[]}
+         */
+        getHighlights(entries, limit) {
+          const seen = new Set();
+          const result = [];
+          const sorted = [...entries].sort(
+            (a, b) =>
+              b.importance - a.importance ||
+              a.date.localeCompare(b.date) ||
+              a.time.localeCompare(b.time)
+          );
+          for (const entry of sorted) {
+            if (result.length >= limit) break;
+            const text = truncateText(
+              cleanText(entry.baseContent || entry.content || ""),
+              60
+            );
+            if (!text) continue;
+            if (seen.has(text)) continue;
+            seen.add(text);
+            result.push(`${entry.category}：${text}`);
+          }
+          return result.slice(0, limit);
+        },
+        /**
+         * 选取结论要点。
+         * @param {Entry[]} entries
+         * @param {number} limit
+         * @returns {string[]}
+         */
+        getConclusions(entries, limit) {
+          const seen = new Set();
+          const result = [];
+          entries
+            .filter((entry) => SUMMARY_PRIMARY_CATEGORIES.includes(entry.category))
+            .sort(
+              (a, b) =>
+                b.importance - a.importance ||
+                a.date.localeCompare(b.date) ||
+                a.time.localeCompare(b.time)
+            )
+            .forEach((entry) => {
+              if (result.length >= limit) return;
+              const sentence = truncateText(
+                getFirstSentence(entry.baseContent || entry.content || ""),
+                60
+              );
+              if (!sentence || seen.has(sentence)) return;
+              seen.add(sentence);
+              result.push(`• ${sentence}`);
+            });
+          return result.slice(0, limit);
+        },
+        /**
+         * 生成周报 Markdown。
+         * @param {ReturnType<WeeklyRenderer["buildContext"]>} ctx
+         * @returns {string}
+         */
+        buildMarkdown(ctx) {
+          const lines = [];
+          lines.push(`# ${ctx.title}`);
+          if (ctx.subtitle) {
+            lines.push(`## ${ctx.subtitle}`);
+          }
+          lines.push("");
+          ctx.summaryLines.forEach((line) => {
+            lines.push(line);
+          });
+          lines.push("");
+          if (ctx.toc.length) {
+            lines.push("## 小目录");
+            lines.push("");
+            ctx.toc.forEach((item) => {
+              lines.push(`- [${item.label}](#${item.anchor})`);
+            });
+            lines.push("");
+          }
+          ctx.groups.forEach((group) => {
+            lines.push(`## ${group.label}`);
+            lines.push("");
+            group.categories.forEach((category) => {
+              lines.push(`### ${category.name}`);
+              lines.push("");
+              category.entries.forEach((entry) => {
+                lines.push(`**${entry.meta.trim()}**`);
+                lines.push("");
+                entry.blocks.forEach((block) => {
+                  if (block.type === "code") {
+                    lines.push("```");
+                    lines.push(block.text);
+                    lines.push("```");
+                    lines.push("");
+                  } else if (block.type === "list") {
+                    block.items.forEach((item) => lines.push(`- ${item}`));
+                    lines.push("");
+                  } else {
+                    lines.push(block.text);
+                    lines.push("");
+                  }
+                });
+              });
+            });
+          });
+          lines.push("如果这份『AI×财税×运营』学习周报对你有用，欢迎收藏与转发～");
+          return lines.join("\n").trim();
+        },
+        /**
+         * 生成周报 HTML。
+         * @param {ReturnType<WeeklyRenderer["buildContext"]>} ctx
+         * @param {{forPreview?: boolean}} [options]
+         * @returns {string}
+         */
+        buildHTML(ctx, { forPreview = false } = {}) {
+          const parts = [];
+          parts.push(`<h1>${escapeHtml(ctx.title)}</h1>`);
+          if (ctx.subtitle) {
+            parts.push(`<h2>${escapeHtml(ctx.subtitle)}</h2>`);
+          }
+          ctx.summaryLines.forEach((line) => {
+            if (line.startsWith("结论要点Top5：")) {
+              const content = line.replace("结论要点Top5：", "").trim();
+              if (!content || content === "-") {
+                parts.push(`<p>结论要点Top5：-</p>`);
+              } else {
+                const items = content
+                  .split("；")
+                  .map((item) => item.replace(/^•\s*/, "").trim())
+                  .filter(Boolean);
+                parts.push(`<p>结论要点Top5：</p>`);
+                parts.push(
+                  "<ul>" +
+                    items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                    "</ul>"
+                );
+              }
+            } else {
+              parts.push(`<p>${escapeHtml(line)}</p>`);
+            }
+          });
+          if (ctx.toc.length) {
+            const tocHtml = ctx.toc
+              .map((item) => `<li><a href="#${item.anchor}">${escapeHtml(item.label)}</a></li>`)
+              .join("");
+            parts.push(
+              `<nav class="weekly-toc"><strong>小目录</strong><ul>${tocHtml}</ul></nav>`
+            );
+          }
+          ctx.groups.forEach((group) => {
+            parts.push(`<h2 id="${group.anchor}">${escapeHtml(group.label)}</h2>`);
+            group.categories.forEach((category) => {
+              parts.push(`<h3>${escapeHtml(category.name)}</h3>`);
+              category.entries.forEach((entry) => {
+                if (forPreview) {
+                  const flags = entry.detectionFlags || [];
+                  const classes = flags.length
+                    ? "preview-entry has-warning"
+                    : "preview-entry";
+                  parts.push(`<div class="${classes}">`);
+                  if (flags.length) {
+                    const titleAttr = ` title="可能命中：${escapeHtml(flags.join("、"))}"`;
+                    parts.push(
+                      `<div class="preview-entry-warning"${titleAttr}>⚠️ ${escapeHtml(
+                        SENSITIVE_WARNING_TEXT
+                      )}</div>`
+                    );
+                  }
+                  parts.push(`<p><strong>${escapeHtml(entry.meta)}</strong></p>`);
+                  entry.blocks.forEach((block) => {
+                    if (block.type === "code") {
+                      parts.push(`<pre><code>${escapeHtml(block.text)}</code></pre>`);
+                    } else if (block.type === "list") {
+                      parts.push(
+                        "<ul>" +
+                          block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                          "</ul>"
+                      );
+                    } else {
+                      parts.push(`<p>${escapeHtml(block.text)}</p>`);
+                    }
+                  });
+                  parts.push(`</div>`);
+                } else {
+                  parts.push(`<p><strong>${escapeHtml(entry.meta)}</strong></p>`);
+                  entry.blocks.forEach((block) => {
+                    if (block.type === "code") {
+                      parts.push(`<pre><code>${escapeHtml(block.text)}</code></pre>`);
+                    } else if (block.type === "list") {
+                      parts.push(
+                        "<ul>" +
+                          block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                          "</ul>"
+                      );
+                    } else {
+                      parts.push(`<p>${escapeHtml(block.text)}</p>`);
+                    }
+                  });
+                }
+              });
+            });
+          });
+          parts.push(
+            `<p>${escapeHtml("如果这份『AI×财税×运营』学习周报对你有用，欢迎收藏与转发～")}</p>`
+          );
+          const html = parts.join("\n");
+          return forPreview ? html : html.trim();
+        },
+      };
+
+      const SafetyService = {
+        /**
+         * 将内容转为口语化表达。
+         * @param {string} text
+         * @returns {string}
+         */
+        transform(text) {
+          if (!text) return "";
+          const normalized = cleanText(String(text))
+            .replace(/[\r\n]+/g, "。")
+            .replace(/[；;]/g, "，");
+          if (!normalized) return "";
+          const connectors = ["先是", "然后", "所以", "接着", "另外", "最后", "但"];
+          let connectorIndex = 0;
+          const pieces = [];
+
+          const addConnector = (snippet) => {
+            const needsConnector = !/^(先是|然后|所以|接着|另外|最后|但|不过|因此|于是)/.test(snippet);
+            if (!needsConnector) return snippet;
+            const connector = connectors[connectorIndex % connectors.length];
+            connectorIndex += 1;
+            return `${connector}${snippet}`;
+          };
+
+          const splitByLength = (value, maxLength) => {
+            const chars = Array.from(value);
+            if (!chars.length) return [];
+            const result = [];
+            for (let i = 0; i < chars.length; i += maxLength) {
+              result.push(chars.slice(i, i + maxLength).join(""));
+            }
+            return result;
+          };
+
+          const softenPhrase = (phrase) => {
+            return phrase
+              .replace(/([\u4e00-\u9fa5]{2,})(流程|策略|方案|系统|模型|指标|计划|工具)/g, "$1的$2")
+              .replace(/(客户|供应链|业务)(增长|拉新|分析|管理)/g, "$1的$2");
+          };
+
+          const sentences = normalized
+            .split(/[。!?！？]/)
+            .map((segment) => segment.trim())
+            .filter(Boolean);
+
+          sentences.forEach((sentence) => {
+            const fragments = sentence
+              .split(/[，,]/)
+              .map((fragment) => fragment.trim())
+              .filter(Boolean);
+            fragments.forEach((fragment) => {
+              const softened = softenPhrase(fragment).replace(/、/g, "，");
+              splitByLength(softened, 20).forEach((part) => {
+                const trimmed = part.trim();
+                if (!trimmed) return;
+                pieces.push(addConnector(trimmed));
+              });
+            });
+          });
+
+          const output = pieces.join("。");
+          if (!output) return "";
+          return /[。!?！？]$/.test(output) ? output : `${output}。`;
+        },
+        /**
+         * 检测可能的敏感信息。
+         * @param {string} text
+         * @returns {{flags: string[]}}
+         */
+        detect(text) {
+          if (!text) return { flags: [] };
+          const source = String(text);
+          const flags = new Set();
+          if (/(订单号|合同号|流水号|客户号|发票号)[^\n\r]{0,16}[A-Za-z0-9-]{4,}/i.test(source)) {
+            flags.add("编号");
+          }
+          if (/[\w.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(source)) {
+            flags.add("邮箱");
+          }
+          if (/\b1[3-9]\d{9}\b/.test(source) || /\b\d{3,4}-\d{7,8}\b/.test(source)) {
+            flags.add("电话");
+          }
+          if (
+            /(客户[\u4e00-\u9fa5]{2,4})/.test(source) ||
+            /[\u4e00-\u9fa5]{2,}(集团|股份有限公司|有限责任公司|有限公司|科技|信息|银行|大学|研究院|中心|医院|传媒|物流|供应链|咨询|设计|平台|研究所|学院|公司)/.test(
+              source
+            )
+          ) {
+            flags.add("客户");
+          }
+          const amountPattern = /(￥|\$|人民币|rmb|usd|美元)?\s*\d{4,}(?:,\d{3})*(?:\.\d+)?\s*(元|块|人民币|rmb|usd|美元|万|亿|万元|亿元)?/i;
+          const unitAmountPattern = /\d+(?:\.\d+)?\s*(万|亿)(元|人民币|usd|美元)?/i;
+          if (amountPattern.test(source) || unitAmountPattern.test(source)) {
+            flags.add("金额");
+          }
+          return { flags: Array.from(flags) };
+        },
+        /**
+         * 模糊化文本中的金额与客户信息。
+         * @param {string} text
+         * @returns {string}
+         */
+        applyFuzzing(text) {
+          if (!text) return "";
+          let result = String(text);
+          const amountRegex = /(￥|\$|人民币|rmb|usd|美元)?\s*(\d{5,}(?:,\d{3})*(?:\.\d+)?)(元|块|人民币|rmb|usd|美元|万元|亿元|万|亿)?/gi;
+          result = result.replace(amountRegex, (match, _symbol, numberPart, unitPart = "") => {
+            const replacement = SafetyService.formatApproximateAmount(numberPart, unitPart);
+            return replacement || match;
+          });
+          result = result.replace(/(\d+(?:\.\d+)?)(万|亿)(元|人民币|usd|美元)?/gi, (match, numberPart, unitPart) => {
+            const replacement = SafetyService.formatApproximateAmount(numberPart, unitPart);
+            return replacement || match;
+          });
+          const companyRegex = /([\u4e00-\u9fa5])([\u4e00-\u9fa5]{1,6})(集团|股份有限公司|有限责任公司|有限公司|科技|信息|银行|大学|研究院|中心|医院|传媒|物流|供应链|咨询|设计|平台|研究所|学院|公司)/g;
+          result = result.replace(companyRegex, (match, first, _rest, suffix) => `${first}**${suffix}`);
+          result = result.replace(/客户([\u4e00-\u9fa5])([\u4e00-\u9fa5]{1,3})(?=[\s，,。.；;]|$)/g, (match, first) => `客户${first}**`);
+          return result;
+        },
+        formatApproximateAmount(numberPart, unitPart = "") {
+          const sanitized = numberPart.replace(/,/g, "");
+          if (!sanitized) return null;
+          if (/^1\d{10}$/.test(sanitized)) return null;
+          const numeric = Number(sanitized);
+          if (!Number.isFinite(numeric) || numeric <= 0) return null;
+          const digits = sanitized.replace(/\D/g, "");
+          const unit = unitPart ? unitPart.toLowerCase() : "";
+          if (!unit && digits.length < 5) {
+            return null;
+          }
+          if (unit.includes("亿")) {
+            const approx = Math.max(1, Math.round(numeric));
+            return `约${approx}亿+`;
+          }
+          if (unit.includes("万")) {
+            const approx = Math.max(1, Math.round(numeric));
+            return `约${approx}万+`;
+          }
+          if (unit && /元|人民币|rmb|usd|美元|块/.test(unit)) {
+            if (numeric >= 1e8) {
+              return `约${Math.round(numeric / 1e8)}亿+`;
+            }
+            if (numeric >= 1e4) {
+              return `约${Math.round(numeric / 1e4)}万+`;
+            }
+            if (numeric >= 1e3) {
+              return `约${Math.round(numeric / 1e3)}千+`;
+            }
+            if (numeric >= 100) {
+              return `约${Math.round(numeric)}+`;
+            }
+            return null;
+          }
+          if (numeric >= 1e8) {
+            return `约${Math.round(numeric / 1e8)}亿+`;
+          }
+          if (numeric >= 1e4) {
+            return `约${Math.round(numeric / 1e4)}万+`;
+          }
+          if (numeric >= 1e3) {
+            return `约${Math.round(numeric / 1e3)}千+`;
+          }
+          return null;
+        },
+      };
+
+      function setCurrentTime() {
+        timeInput.value = DateUtils.currentTimeValue();
+      }
+
+      function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function formatContentForMarkdown(content) {
+        const normalized = content.replace(/\r\n?/g, "\n");
+        const lines = normalized.split("\n");
+        const result = [];
+        let blankStreak = 0;
+        let inCode = false;
+        for (const rawLine of lines) {
+          const trimmedRight = rawLine.replace(/\s+$/g, "");
+          const isBlank = trimmedRight.trim() === "";
+          const isCodeLine =
+            /^\s{4,}/.test(rawLine) ||
+            (!/[\u4e00-\u9fa5]/.test(trimmedRight) && /[;{}=<>]/.test(trimmedRight));
+
+          if (isBlank) {
+            blankStreak += 1;
+            if (blankStreak <= 1 && !inCode) {
+              result.push("");
+            }
+            continue;
+          } else {
+            blankStreak = 0;
+          }
+
+          if (isCodeLine && !inCode) {
+            result.push("```");
+            inCode = true;
+          }
+          if (!isCodeLine && inCode) {
+            result.push("```");
+            inCode = false;
+          }
+
+          result.push(inCode ? trimmedRight : trimmedRight.trim());
+        }
+        if (inCode) {
+          result.push("```");
+        }
+        const cleaned = [];
+        let previousEmpty = false;
+        for (const line of result) {
+          if (line === "") {
+            if (!previousEmpty) {
+              cleaned.push(line);
+            }
+            previousEmpty = true;
+          } else {
+            cleaned.push(line);
+            previousEmpty = false;
+          }
+        }
+        return cleaned.join("\n").trim();
+      }
+
+      function parseContentBlocks(processedContent) {
+        const lines = processedContent.split("\n");
+        const blocks = [];
+        let inCode = false;
+        let buffer = [];
+        for (const line of lines) {
+          if (line.trim() === "```") {
+            if (inCode) {
+              blocks.push({ type: "code", text: buffer.join("\n") });
+              buffer = [];
+              inCode = false;
+            } else {
+              if (buffer.length) {
+                blocks.push({ type: "paragraph", text: buffer.join(" ").trim() });
+                buffer = [];
+              }
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            buffer.push(line);
+          } else if (line.trim() === "") {
+            if (buffer.length) {
+              blocks.push({ type: "paragraph", text: buffer.join(" ").trim() });
+              buffer = [];
+            }
+          } else {
+            buffer.push(line.trim());
+          }
+        }
+        if (buffer.length) {
+          blocks.push({ type: inCode ? "code" : "paragraph", text: buffer.join(inCode ? "\n" : " ").trim() });
+        }
+        return blocks;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function cleanText(text) {
+        return text.replace(/\s+/g, " ").trim();
+      }
+
+      function truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.slice(0, maxLength) + "…";
+      }
+
+      function getFirstSentence(text) {
+        const normalized = cleanText(text);
+        const match = normalized.match(/([^。！？!?.]+[。！？!?.]?)/);
+        return match ? match[1] : normalized;
+      }
+
+
+
+
+
+      function showStatus(message, type = "info") {
+        if (state.statusTimer) {
+          clearTimeout(state.statusTimer);
+        }
+        statusMessage.textContent = message;
+        const colors = {
+          success: "var(--success)",
+          warning: "var(--warning)",
+          danger: "var(--danger)",
+          info: "var(--muted)",
+        };
+        statusMessage.style.color = colors[type] || "var(--muted)";
+        state.statusTimer = setTimeout(() => {
+          statusMessage.textContent = "";
+          statusMessage.style.color = "var(--muted)";
+        }, 3200);
+      }
+
+      function copyToClipboard(text) {
+        if (!text) {
+          showStatus("暂无可复制的内容", "warning");
+          return;
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => showStatus("已复制到剪贴板", "success"))
+            .catch(() => fallbackCopy(text));
+        } else {
+          fallbackCopy(text);
+        }
+      }
+
+      function fallbackCopy(text) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          showStatus("已复制到剪贴板", "success");
+        } catch (error) {
+          showStatus("复制失败，请手动复制", "danger");
+        }
+        document.body.removeChild(textarea);
+      }
+
+      function downloadFile(content, filename, mime = "text/plain") {
+        if (!content) {
+          showStatus("暂无可导出的内容", "warning");
+          return;
+        }
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showStatus(`已导出 ${filename}`, "success");
+      }
     </script>
+
   </body>
 </html>
