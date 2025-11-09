@@ -1,531 +1,2085 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
   <head>
+    <!--
+      架构注释图：
+      ┌────────────────┐
+      │   UI 控制层    │ 负责表单、列表、预览等交互事件绑定
+      └──────┬─────────┘
+             │
+      ┌──────▼─────────┐      ┌──────────────────┐
+      │ 状态管理与存储 │◀────▶│ 关键词索引 & 词库 │
+      └──────┬─────────┘      └────────┬─────────┘
+             │                           │
+      ┌──────▼─────────┐      ┌─────────▼────────┐
+      │  模板渲染引擎  │──────▶│ 导出/复制 服务   │
+      └────────────────┘      └──────────────────┘
+    -->
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>公众号文章日报生成器</title>
     <style>
       :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
+        color-scheme: light;
+        --bg: #f8fafc;
+        --panel: #ffffff;
+        --border: #e2e8f0;
+        --text: #1e293b;
+        --muted: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --success: #16a34a;
+        --warning: #ca8a04;
+        --danger: #dc2626;
+        --radius: 14px;
+        --shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        font-family: "SF Pro Display", "PingFang SC", "Microsoft YaHei",
+          "Segoe UI", system-ui, sans-serif;
       }
 
-      * {
+      *,
+      *::before,
+      *::after {
         box-sizing: border-box;
       }
 
       body {
         margin: 0;
         min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
-        padding: 16px;
-      }
-
-      .page-wrapper {
-        width: min(100%, 480px);
+        background: var(--bg);
+        color: var(--text);
+        padding: 24px clamp(16px, 4vw, 40px);
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 24px;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4,
+      h5,
+      h6,
+      p,
+      ul,
+      ol {
+        margin: 0;
+      }
+
+      button {
+        font-family: inherit;
+      }
+
+      .app-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1280px;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      header.top-bar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        padding: 16px 20px;
+        border-radius: var(--radius);
+      }
+
+      .top-bar-left,
+      .top-bar-right {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      label.field-label {
+        font-size: 0.92rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      input[type="date"],
+      select,
+      input[type="text"],
+      textarea,
+      input[type="time"],
+      input[type="number"] {
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 0.95rem;
+        background: #fff;
+        color: var(--text);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      input:focus,
+      select:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+
+      button.primary {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s ease, transform 0.15s ease,
+          box-shadow 0.2s ease;
+      }
+
+      button.primary:hover {
+        background: var(--primary-hover);
+        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+        transform: translateY(-1px);
+      }
+
+      button.secondary {
+        background: #fff;
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 10px 18px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background 0.2s ease, transform 0.15s ease,
+          box-shadow 0.2s ease;
+      }
+
+      button.secondary:hover {
+        background: #f1f5f9;
+        transform: translateY(-1px);
+      }
+
+      button.danger {
+        background: #fff5f5;
+        color: var(--danger);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+      }
+
+      button.danger:hover {
+        background: #fee2e2;
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        border-radius: var(--radius);
+        padding: clamp(16px, 3vw, 24px);
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-height: 0;
+      }
+
+      .section-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      form#entryForm {
+        display: grid;
+        gap: 14px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+      }
+
+      .field label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .toggle input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+      }
+
+      .form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
         align-items: center;
       }
 
-      .scoreboard {
+      .form-actions span {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .filters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+        background: #f8fafc;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+      }
+
+      table {
         width: 100%;
+        border-collapse: collapse;
+      }
+
+      thead {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        z-index: 1;
+      }
+
+      th,
+      td {
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--border);
+        text-align: left;
+        font-size: 0.92rem;
+        vertical-align: top;
+      }
+
+      tbody tr:hover {
+        background: rgba(226, 232, 240, 0.3);
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 0.75rem;
+        line-height: 1.8;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary);
+        margin-right: 4px;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .tag:hover,
+      .tag.active-tag {
+        background: rgba(37, 99, 235, 0.15);
+        color: var(--primary-hover);
+      }
+
+      .importance {
+        font-weight: 600;
+        color: var(--warning);
+      }
+
+      .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .actions button {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #fff;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .actions button:hover {
+        background: #e2e8f0;
+      }
+
+      .preview-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
+        gap: 12px;
+      }
+
+      .preview-header .buttons {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .preview-surface {
+        border: 1px solid var(--border);
         border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
+        padding: clamp(16px, 3vw, 24px);
+        background: #fff;
+        max-height: 70vh;
+        overflow: auto;
+        line-height: 1.7;
+        font-size: 0.98rem;
       }
 
-      .score-item {
+      .preview-surface h1 {
+        font-size: 1.6rem;
+        margin-bottom: 12px;
+      }
+
+      .preview-surface h2 {
+        font-size: 1.18rem;
+        margin-top: 22px;
+        margin-bottom: 12px;
+      }
+
+      .preview-surface p {
+        margin-bottom: 10px;
+      }
+
+      .preview-surface ul {
+        padding-left: 20px;
+        margin-bottom: 14px;
+      }
+
+      .preview-placeholder {
+        color: var(--muted);
+        text-align: center;
+        padding: 60px 0;
+      }
+
+      .status-message {
+        font-size: 0.9rem;
+        color: var(--muted);
+        min-height: 1.2rem;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #e0e7ff;
+        color: var(--primary);
         font-weight: 600;
-        letter-spacing: 0.02em;
+        font-size: 0.75rem;
       }
 
-      .game-wrapper {
+      .history-select {
         position: relative;
-        width: 400px;
-        max-width: 100%;
       }
 
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
+      .keyword-suggestions {
         position: absolute;
+        left: 0;
+        right: 0;
+        top: 100%;
+        margin-top: 4px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px;
+        z-index: 10;
+      }
+
+      .keyword-suggestions button {
+        border: none;
+        background: rgba(37, 99, 235, 0.08);
+        color: var(--primary);
+        border-radius: 999px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: background 0.2s ease, transform 0.15s ease;
+      }
+
+      .keyword-suggestions button:hover {
+        background: rgba(37, 99, 235, 0.16);
+        transform: translateY(-1px);
+      }
+
+      .settings-overlay {
+        position: fixed;
         inset: 0;
+        background: rgba(15, 23, 42, 0.35);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 60px 16px 24px;
+        z-index: 999;
+      }
+
+      .settings-dialog {
+        width: min(520px, 100%);
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.2);
+        padding: 24px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        gap: 20px;
+      }
+
+      .settings-header {
+        display: flex;
+        justify-content: space-between;
         align-items: center;
         gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
-        text-align: center;
       }
 
-      .hidden {
-        display: none;
+      .settings-section h3 {
+        margin-bottom: 8px;
       }
 
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      .settings-tip {
+        font-size: 0.85rem;
+        color: var(--muted);
+        margin-bottom: 12px;
       }
 
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
-      }
-
-      .control-btn:active {
-        transform: translateY(1px);
-      }
-
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
+      .template-options {
         display: flex;
+        flex-direction: column;
         gap: 12px;
       }
 
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
+      .template-option {
+        display: flex;
+        gap: 12px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
         cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
+      .template-option input {
+        margin-top: 4px;
       }
 
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
+      .template-option strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .template-option p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+
+      .template-option.active {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+      }
+
+      @media (max-width: 1080px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .preview-surface {
+          max-height: none;
         }
       }
 
-      @media (max-width: 480px) {
-        .scoreboard {
+      @media (max-width: 640px) {
+        header.top-bar {
           flex-direction: column;
-          gap: 8px;
+          align-items: flex-start;
         }
 
-        .direction-btn {
-          width: 56px;
-          height: 56px;
+        .top-bar-right {
+          width: 100%;
+          justify-content: flex-start;
+        }
+
+        .form-actions {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .preview-header {
+          flex-direction: column;
+          align-items: flex-start;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
+    <div class="app-shell">
+      <header class="top-bar">
+        <div class="top-bar-left">
+          <label class="field-label" for="datePicker">
+            📅 日期
+            <input type="date" id="datePicker" />
+          </label>
+          <label class="field-label history-select" for="historySelect">
+            🗂️ 历史记录
+            <select id="historySelect">
+              <option value="">选择历史日期…</option>
+            </select>
+          </label>
+        </div>
+        <div class="top-bar-right">
+          <button id="settingsBtn" class="secondary">⚙️ 设置</button>
+          <button id="saveBtn" class="primary">💾 保存</button>
+          <button id="clearBtn" class="secondary danger">🧹 清空当天</button>
+        </div>
       </header>
 
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
-        </div>
-      </main>
+      <div class="layout">
+        <div class="panel" id="leftPanel">
+          <div class="section-title">新增学习记录</div>
+          <form id="entryForm">
+            <div class="field-grid">
+              <div class="field">
+                <label for="timeInput">时间</label>
+                <input type="time" id="timeInput" required />
+              </div>
+              <div class="field">
+                <label for="categoryInput">分类</label>
+                <select id="categoryInput" required>
+                  <option value="AI">AI</option>
+                  <option value="财税">财税</option>
+                  <option value="供应链">供应链</option>
+                  <option value="运营">运营</option>
+                  <option value="阅读">阅读</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="importanceInput">重要程度</label>
+                <select id="importanceInput" required>
+                  <option value="5">5 - 必须记录</option>
+                  <option value="4">4 - 很重要</option>
+                  <option value="3">3 - 有参考</option>
+                  <option value="2">2 - 一般</option>
+                  <option value="1">1 - 备忘</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="keywordsInput">关键词（逗号、空格分隔）</label>
+              <input
+                type="text"
+                id="keywordsInput"
+                placeholder="如：AIGC，prompt，财税" />
+              <div id="keywordSuggestions" class="keyword-suggestions" hidden></div>
+            </div>
+            <div class="field">
+              <label for="contentInput">内容</label>
+              <textarea
+                id="contentInput"
+                placeholder="记录今天学到的知识点、案例或复盘…"
+                required
+              ></textarea>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="publishableInput" checked /> 可对外发布
+            </label>
+            <div class="form-actions">
+              <button type="submit" class="primary" id="submitBtn">
+                ➕ 添加记录
+              </button>
+              <button type="button" class="secondary" id="cancelEditBtn" hidden>
+                取消编辑
+              </button>
+              <span id="formStatus">默认保存到当前日期草稿</span>
+            </div>
+          </form>
 
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
-          </button>
+          <div class="section-title">当日记录列表</div>
+          <div class="filters">
+            <label class="field">
+              <span>按分类筛选</span>
+              <select id="filterCategory">
+                <option value="">全部分类</option>
+                <option value="AI">AI</option>
+                <option value="财税">财税</option>
+                <option value="供应链">供应链</option>
+                <option value="运营">运营</option>
+                <option value="阅读">阅读</option>
+                <option value="其他">其他</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>关键词包含</span>
+              <input
+                type="text"
+                id="filterKeyword"
+                placeholder="输入关键词" />
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="filterPublishable" /> 仅看可发
+            </label>
+            <label class="field">
+              <span>排序</span>
+              <select id="sortOrder">
+                <option value="importance-desc">重要程度（高→低）</option>
+                <option value="importance-asc">重要程度（低→高）</option>
+                <option value="time-asc">时间（早→晚）</option>
+                <option value="time-desc">时间（晚→早）</option>
+              </select>
+            </label>
+          </div>
+          <div class="table-wrapper" style="overflow: auto; max-height: 360px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 88px;">时间</th>
+                  <th style="width: 86px;">分类</th>
+                  <th>关键词</th>
+                  <th style="width: 90px;">重要度</th>
+                  <th style="width: 84px;">可发</th>
+                  <th>内容摘要</th>
+                  <th style="width: 140px;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="entriesBody"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
-          </button>
+
+        <div class="panel" id="previewPanel">
+          <div class="preview-header">
+            <div>
+              <div class="section-title">公众号文案预览</div>
+              <div class="status-message" id="statusMessage"></div>
+            </div>
+            <div class="buttons">
+              <button id="downloadMarkdown" class="secondary">⬇️ 导出 .md</button>
+              <button id="downloadHTML" class="secondary">⬇️ 导出 .html</button>
+              <button id="copyMarkdown" class="secondary">📄 复制 Markdown</button>
+              <button id="copyHTML" class="secondary">🌐 复制 HTML</button>
+              <button id="copyPreview" class="secondary">📋 复制预览</button>
+            </div>
+          </div>
+          <div id="previewSurface" class="preview-surface">
+            <div class="preview-placeholder">暂无可对外发布内容，先去左侧添加吧。</div>
+          </div>
         </div>
-      </section>
+      </div>
+      <div id="settingsOverlay" class="settings-overlay" hidden>
+        <div class="settings-dialog">
+          <div class="settings-header">
+            <h2>设置</h2>
+            <button id="closeSettings" class="secondary">关闭</button>
+          </div>
+          <div class="settings-section">
+            <h3>公众号模板</h3>
+            <p class="settings-tip">切换模板可调整标题样式、摘要算法与正文排版。</p>
+            <div class="template-options">
+              <label class="template-option" data-template="minimal">
+                <input type="radio" name="templateOption" value="minimal" />
+                <div>
+                  <strong>极简模板</strong>
+                  <p>突出今日关键词、亮点摘要与可复用结论，结构紧凑。</p>
+                </div>
+              </label>
+              <label class="template-option" data-template="insight">
+                <input type="radio" name="templateOption" value="insight" />
+                <div>
+                  <strong>行业洞察</strong>
+                  <p>聚焦赛道热度与洞察要点，正文按分类导读 + 洞察陈述。</p>
+                </div>
+              </label>
+              <label class="template-option" data-template="learning">
+                <input type="radio" name="templateOption" value="learning" />
+                <div>
+                  <strong>学习卡片</strong>
+                  <p>以卡片化方式呈现概念/方法/行动三段式，强调实践步骤。</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
+        <script>
+      // ==== 常量 & 模板定义 ====
+      const STORAGE_PREFIX = "wx-daily:";
+      const TEMPLATE_CONFIG_KEY = STORAGE_PREFIX + "templates";
+      const KEYWORD_INDEX_PREFIX = STORAGE_PREFIX + "index:";
+      const AUTOSAVE_INTERVAL = 10000;
+      const CATEGORIES = ["AI", "财税", "供应链", "运营", "阅读", "其他"];
+      const SUMMARY_PRIMARY_CATEGORIES = ["AI", "财税", "供应链"];
+
+      const sampleEntries = [
+        {
+          id: "sample-1",
+          time: "09:20",
+          category: "AI",
+          keywords: ["aigc", "prompt", "流程自动化"],
+          content:
+            "梳理了晨会上提到的最新 Prompt 优化套路：先用 role 描述专家身份，再给出上下文，然后明确步骤目标，最后补一段约束条款，整体命中率提升 35%。顺便用 n8n 串起来做了一个自动草稿生成器。",
+          importance: 5,
+          publishable: true,
+        },
+        {
+          id: "sample-2",
+          time: "13:45",
+          category: "财税",
+          keywords: ["增值税", "进项抵扣"],
+          content:
+            "学习国家税务总局关于小规模纳税人增值税申报的最新口径，核心变化是简化附表填列，允许线上上传扫描件。实践中要提醒同事留存电子版发票，缺件会导致进项无法抵扣。",
+          importance: 4,
+          publishable: true,
+        },
+        {
+          id: "sample-3",
+          time: "20:10",
+          category: "运营",
+          keywords: ["拉新", "转化", "a/b"],
+          content:
+            "复盘朋友圈拉新活动：版本 A 采用短视频切入，点击率 6.1%；版本 B 强调限时福利，点击率 4.8%，但转化率高 12%。后续计划把视频和福利文案组合做三段式触达。",
+          importance: 3,
+          publishable: true,
+        },
+      ];
+
+      const TEMPLATE_PRESETS = {
+        minimal: {
+          id: "minimal",
+          name: "极简模板",
+          titleTag: "h1",
+          subtitleTag: "p",
+          subtitleStrong: true,
+          markdownSubtitlePrefix: "",
+          getTitle: (ctx) => `我的学习日报｜${ctx.dateTitle}`,
+          getSubtitle: () => "AI+财税+运营｜真实可复用的学习笔记",
+          buildSummary(ctx, h) {
+            const keywords = h.getTopKeywords(ctx.entries, 6).map((item) => item.keyword);
+            const highlights = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 60,
+            });
+            const conclusions = h
+              .getCategoryConclusions(ctx.entries, SUMMARY_PRIMARY_CATEGORIES, 60)
+              .map((item) => item);
+            return [
+              `今日关键词：${keywords.length ? keywords.join("、") : "-"}`,
+              `今日亮点：${highlights.length ? highlights.join("；") : "-"}`,
+              `可复用结论：${conclusions.length ? conclusions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByCategory(ctx.entries);
+          },
+          renderEntry(ctx, entry, h) {
+            return {
+              meta: `【${entry.category}】（${entry.time}） 关键词 ${h.formatTagLine(entry.keywords)}`,
+              blocks: h.parseBlocks(entry.content),
+            };
+          },
+          getCTA: () => "如果这份『AI×财税×运营』学习日报对你有用，欢迎收藏与转发～",
+        },
+        insight: {
+          id: "insight",
+          name: "行业洞察",
+          titleTag: "h1",
+          subtitleTag: "h2",
+          subtitleStrong: false,
+          markdownSubtitlePrefix: "## ",
+          getTitle: (ctx) => `行业洞察日报｜${ctx.dateTitle}`,
+          getSubtitle: () => "AI × 财税 × 供应链：今日经营观察",
+          buildSummary(ctx, h) {
+            const heatmap = h.getCategoryHeatmap(ctx.entries);
+            const highlights = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 60,
+              prefixCategory: true,
+            });
+            const decisions = h
+              .getCategoryConclusions(ctx.entries, SUMMARY_PRIMARY_CATEGORIES, 52)
+              .map((line) => line.replace(/^•\s*/, ""));
+            return [
+              `重点赛道：${heatmap.length ? heatmap.join("、") : "-"}`,
+              `关键结论：${highlights.length ? highlights.join("；") : "-"}`,
+              `决策提示：${decisions.length ? decisions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByCategory(ctx.entries, {
+              titleBuilder: (category) => `行业 · ${category}`,
+            });
+          },
+          renderEntry(ctx, entry, h) {
+            const blocks = h.parseBlocks(entry.content);
+            const insight = h.extractFirstSentence(entry.content, 80);
+            blocks.unshift({ type: "paragraph", text: `洞察：${insight}` });
+            return {
+              meta: `【${entry.time}】${entry.category} ｜ ${h.formatTagLine(entry.keywords)}`,
+              blocks,
+            };
+          },
+          getCTA: () => "持续跟踪产业风向，欢迎分享给更多同路人。",
+        },
+        learning: {
+          id: "learning",
+          name: "学习卡片",
+          titleTag: "h1",
+          subtitleTag: "h2",
+          subtitleStrong: false,
+          markdownSubtitlePrefix: "## ",
+          getTitle: (ctx) => `学习卡片｜${ctx.dateTitle}`,
+          getSubtitle: () => "一日一更的跨学科学习记录",
+          buildSummary(ctx, h) {
+            const keywords = h.getTopKeywords(ctx.entries, 5).map((item) => item.keyword);
+            const concepts = h.getHighlightSentences(ctx.entries, {
+              limit: 2,
+              maxLength: 50,
+              importance: 3,
+            });
+            const actions = h.getActionLines(ctx.entries, 2, 50);
+            return [
+              `关键词卡：${keywords.length ? keywords.join("、") : "-"}`,
+              `概念卡：${concepts.length ? concepts.join("；") : "-"}`,
+              `行动卡：${actions.length ? actions.join("；") : "-"}`,
+            ];
+          },
+          groupEntries(ctx, h) {
+            return h.groupByImportance(ctx.entries);
+          },
+          renderEntry(ctx, entry, h) {
+            return {
+              meta: `#${entry.category}｜${entry.time}｜${h.formatTagLine(entry.keywords)}`,
+              blocks: h.toBulletBlocks(entry.content),
+            };
+          },
+          getCTA: () => "坚持输出学习卡片，欢迎留言互换心得。",
+        },
       };
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+      // ==== DOM 引用 ====
+      const datePicker = document.getElementById("datePicker");
+      const historySelect = document.getElementById("historySelect");
+      const saveBtn = document.getElementById("saveBtn");
+      const clearBtn = document.getElementById("clearBtn");
+      const settingsBtn = document.getElementById("settingsBtn");
+      const settingsOverlay = document.getElementById("settingsOverlay");
+      const closeSettingsBtn = document.getElementById("closeSettings");
+      const form = document.getElementById("entryForm");
+      const timeInput = document.getElementById("timeInput");
+      const categoryInput = document.getElementById("categoryInput");
+      const keywordsInput = document.getElementById("keywordsInput");
+      const keywordSuggestions = document.getElementById("keywordSuggestions");
+      const contentInput = document.getElementById("contentInput");
+      const importanceInput = document.getElementById("importanceInput");
+      const publishableInput = document.getElementById("publishableInput");
+      const submitBtn = document.getElementById("submitBtn");
+      const cancelEditBtn = document.getElementById("cancelEditBtn");
+      const formStatus = document.getElementById("formStatus");
+      const entriesBody = document.getElementById("entriesBody");
+      const filterCategory = document.getElementById("filterCategory");
+      const filterKeyword = document.getElementById("filterKeyword");
+      const filterPublishable = document.getElementById("filterPublishable");
+      const sortOrder = document.getElementById("sortOrder");
+      const statusMessage = document.getElementById("statusMessage");
+      const previewSurface = document.getElementById("previewSurface");
+      const copyMarkdownBtn = document.getElementById("copyMarkdown");
+      const copyHTMLBtn = document.getElementById("copyHTML");
+      const copyPreviewBtn = document.getElementById("copyPreview");
+      const downloadMarkdownBtn = document.getElementById("downloadMarkdown");
+      const downloadHTMLBtn = document.getElementById("downloadHTML");
+      const templateRadios = Array.from(
+        document.querySelectorAll('input[name="templateOption"]')
+      );
+      const templateOptionCards = Array.from(
+        document.querySelectorAll(".template-option")
+      );
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+      // ==== 状态 ====
+      const state = {
+        currentDoc: { date: "", entries: [] },
+        editingId: null,
+        statusTimer: null,
+        templateId: "minimal",
+        isDirty: false,
+        autosaveTimer: null,
+        keywordIndexCache: new Map(),
+        keywordLibrary: new Map(),
+        activeTagFilter: "",
+      };
+      let suggestionHideTimer = null;
+      let currentSuggestionQuery = "";
 
-      highScoreEl.textContent = highScore.toString();
+      // ==== 初始化 ====
+      document.addEventListener("DOMContentLoaded", init);
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
-
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
-
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
-
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
-
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
-
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
-
-        requestAnimationFrame(gameLoop);
-
-        if (paused) {
-          return;
-        }
-
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
-      }
-
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
+      function init() {
+        loadTemplateConfig();
+        refreshTemplateUI();
+        const today = formatDate(new Date());
+        datePicker.value = today;
+        const stored = readDocFromStorage(today);
+        state.currentDoc = {
+          date: today,
+          entries: stored ? stored.entries : deepClone(sampleEntries),
         };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
+        state.isDirty = false;
+        ensureKeywordIndexForCurrentDate({ skipLibrary: true });
+        populateHistoryOptions();
+        preloadKeywordIndexes(today);
+        setCurrentTime();
+        bindEvents();
+        refreshUI();
+        updateFormStatus("默认保存到当前日期草稿");
+        rebuildKeywordLibrary();
+        startAutosave();
       }
 
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
+      function bindEvents() {
+        datePicker.addEventListener("change", handleDateChange);
+        historySelect.addEventListener("change", handleHistorySelect);
+        saveBtn.addEventListener("click", () => saveDoc());
+        clearBtn.addEventListener("click", handleClear);
+        form.addEventListener("submit", handleSubmit);
+        cancelEditBtn.addEventListener("click", () => {
+          resetForm();
+          updateFormStatus("已取消编辑");
+        });
+        entriesBody.addEventListener("click", handleTableActions);
+        filterCategory.addEventListener("change", updateEntryTable);
+        filterPublishable.addEventListener("change", updateEntryTable);
+        sortOrder.addEventListener("change", updateEntryTable);
+        filterKeyword.addEventListener("input", () => {
+          state.activeTagFilter = filterKeyword.value.trim().toLowerCase();
+          updateEntryTable();
+        });
+        copyMarkdownBtn.addEventListener("click", () => handleCopy("markdown"));
+        copyHTMLBtn.addEventListener("click", () => handleCopy("html"));
+        copyPreviewBtn.addEventListener("click", () => handleCopy("preview"));
+        downloadMarkdownBtn.addEventListener("click", () => handleDownload("markdown"));
+        downloadHTMLBtn.addEventListener("click", () => handleDownload("html"));
+        settingsBtn.addEventListener("click", showSettings);
+        closeSettingsBtn.addEventListener("click", hideSettings);
+        settingsOverlay.addEventListener("click", (event) => {
+          if (event.target === settingsOverlay) {
+            hideSettings();
           }
-          ctx.fill();
-          ctx.stroke();
         });
-      }
-
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
-
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
+        document.addEventListener("keydown", handleGlobalKeydown);
+        templateRadios.forEach((radio) =>
+          radio.addEventListener("change", handleTemplateChange)
         );
-
-        food = newFood;
-      }
-
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
+        templateOptionCards.forEach((card) => {
+          card.addEventListener("click", () => {
+            const radio = card.querySelector('input[name="templateOption"]');
+            if (radio) {
+              radio.checked = true;
+              radio.dispatchEvent(new Event("change", { bubbles: true }));
             }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
+          });
         });
-      });
+        keywordsInput.addEventListener("input", handleKeywordInput);
+        keywordsInput.addEventListener("focus", () => {
+          if (suggestionHideTimer) clearTimeout(suggestionHideTimer);
+          handleKeywordInput();
+        });
+        keywordsInput.addEventListener("blur", () => {
+          suggestionHideTimer = setTimeout(() => hideKeywordSuggestions(), 120);
+        });
+        keywordsInput.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") {
+            hideKeywordSuggestions();
+          }
+        });
+        keywordSuggestions.addEventListener("mousedown", (event) => event.preventDefault());
+        keywordSuggestions.addEventListener("click", handleSuggestionClick);
+        window.addEventListener("beforeunload", handleBeforeUnload);
+      }
 
-      initGame();
+      function loadTemplateConfig() {
+        try {
+          const stored = localStorage.getItem(TEMPLATE_CONFIG_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed && parsed.selected && TEMPLATE_PRESETS[parsed.selected]) {
+              state.templateId = parsed.selected;
+            }
+          }
+        } catch (error) {
+          console.warn("模板配置读取失败", error);
+        }
+      }
+
+      function saveTemplateConfig() {
+        const payload = { selected: state.templateId };
+        localStorage.setItem(TEMPLATE_CONFIG_KEY, JSON.stringify(payload));
+      }
+
+      function refreshTemplateUI() {
+        templateRadios.forEach((radio) => {
+          radio.checked = radio.value === state.templateId;
+        });
+        templateOptionCards.forEach((card) => {
+          card.classList.toggle(
+            "active",
+            card.dataset.template === state.templateId
+          );
+        });
+      }
+
+      function handleTemplateChange(event) {
+        const nextId = event.target.value;
+        if (!TEMPLATE_PRESETS[nextId]) return;
+        state.templateId = nextId;
+        saveTemplateConfig();
+        refreshTemplateUI();
+        refreshUI();
+        showStatus(`模板已切换为「${TEMPLATE_PRESETS[nextId].name}」`, "info");
+      }
+
+      function showSettings() {
+        settingsOverlay.hidden = false;
+      }
+
+      function hideSettings() {
+        settingsOverlay.hidden = true;
+      }
+
+      function handleGlobalKeydown(event) {
+        if (event.key === "Escape" && !settingsOverlay.hidden) {
+          hideSettings();
+        }
+      }
+
+      function handleKeywordInput() {
+        if (suggestionHideTimer) clearTimeout(suggestionHideTimer);
+        const query = getCurrentKeywordQuery();
+        currentSuggestionQuery = query ?? "";
+        if (query === null) {
+          hideKeywordSuggestions();
+          return;
+        }
+        renderKeywordSuggestions(query);
+      }
+
+      function getCurrentKeywordQuery() {
+        const cursor = keywordsInput.selectionStart ?? keywordsInput.value.length;
+        const textBefore = keywordsInput.value.slice(0, cursor);
+        const match = textBefore.match(/#([^\s,，]*)$/);
+        if (!match) return null;
+        return match[1].toLowerCase();
+      }
+
+      function renderKeywordSuggestions(query) {
+        if (!state.keywordLibrary || state.keywordLibrary.size === 0) {
+          hideKeywordSuggestions();
+          return;
+        }
+        const normalized = (query || "").toLowerCase();
+        const candidates = Array.from(state.keywordLibrary.entries())
+          .filter(([kw]) => !normalized || kw.includes(normalized))
+          .sort((a, b) => {
+            if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+            return b[1] - a[1];
+          })
+          .slice(0, 8);
+        if (!candidates.length) {
+          hideKeywordSuggestions();
+          return;
+        }
+        keywordSuggestions.innerHTML = candidates
+          .map(([kw, count]) => {
+            const encoded = encodeURIComponent(kw);
+            return `<button type="button" data-keyword="${encoded}">#${escapeHtml(kw)} · ${count}</button>`;
+          })
+          .join("");
+        keywordSuggestions.hidden = false;
+      }
+
+      function hideKeywordSuggestions() {
+        keywordSuggestions.hidden = true;
+        keywordSuggestions.innerHTML = "";
+      }
+
+      function handleSuggestionClick(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        const keyword = target.dataset.keyword;
+        if (!keyword) return;
+        insertKeywordSuggestion(keyword);
+      }
+
+      function insertKeywordSuggestion(keyword) {
+        const cursor = keywordsInput.selectionStart ?? keywordsInput.value.length;
+        const value = keywordsInput.value;
+        const before = value.slice(0, cursor);
+        const after = value.slice(cursor);
+        const replaced = before.replace(/#([^\s,，]*)$/, keyword);
+        let joiner = "";
+        if (!after || !/^[\s,，]/.test(after)) {
+          joiner = replaced && !/[\s,，]$/.test(replaced) ? ", " : " ";
+        }
+        const newBefore = replaced + joiner;
+        keywordsInput.value = newBefore + after;
+        const newCursor = newBefore.length;
+        keywordsInput.focus();
+        keywordsInput.setSelectionRange(newCursor, newCursor);
+        hideKeywordSuggestions();
+        currentSuggestionQuery = "";
+      }
+
+      function updateKeywordSuggestions() {
+        if (!keywordSuggestions.hidden) {
+          renderKeywordSuggestions(currentSuggestionQuery);
+        }
+      }
+
+      function readDocFromStorage(date) {
+        const stored = localStorage.getItem(STORAGE_PREFIX + date);
+        if (!stored) return null;
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed && Array.isArray(parsed.entries)) {
+            return parsed;
+          }
+        } catch (error) {
+          console.warn("草稿读取失败", error);
+        }
+        return null;
+      }
+
+      function populateHistoryOptions() {
+        const dates = getStoredDocDates();
+        historySelect.innerHTML = '<option value="">选择历史日期…</option>';
+        dates.forEach((date) => {
+          const option = document.createElement("option");
+          option.value = date;
+          option.textContent = date;
+          historySelect.appendChild(option);
+        });
+      }
+
+      function handleHistorySelect(event) {
+        const selected = event.target.value;
+        if (!selected) return;
+        datePicker.value = selected;
+        handleDateChange();
+        historySelect.value = "";
+      }
+
+      function handleDateChange() {
+        const date = datePicker.value;
+        if (!date || date === state.currentDoc.date) return;
+        if (state.isDirty) {
+          const confirmed = confirm("当前草稿尚未保存，切换日期会丢失修改，是否继续？");
+          if (!confirmed) {
+            datePicker.value = state.currentDoc.date;
+            return;
+          }
+        }
+        const stored = readDocFromStorage(date);
+        state.currentDoc = {
+          date,
+          entries: stored ? stored.entries : [],
+        };
+        state.isDirty = false;
+        ensureKeywordIndexForCurrentDate({ skipLibrary: true });
+        resetForm();
+        refreshUI();
+        updateFormStatus("已切换至新日期，记得保存草稿");
+        rebuildKeywordLibrary();
+        showStatus(`已切换到 ${date} 的草稿`, "info");
+      }
+
+      function ensureKeywordIndexForCurrentDate({ skipLibrary = false } = {}) {
+        const { date, entries } = state.currentDoc;
+        if (!date) return;
+        const key = KEYWORD_INDEX_PREFIX + date;
+        if (entries.length) {
+          const index = buildKeywordIndex(entries);
+          localStorage.setItem(key, JSON.stringify(index));
+          state.keywordIndexCache.set(date, index);
+        } else {
+          localStorage.removeItem(key);
+          state.keywordIndexCache.delete(date);
+        }
+        if (!skipLibrary) {
+          rebuildKeywordLibrary();
+        }
+      }
+
+      function preloadKeywordIndexes(currentDate) {
+        const dates = getStoredDocDates();
+        dates.forEach((date) => {
+          if (date === currentDate) return;
+          loadKeywordIndex(date);
+        });
+      }
+
+      function loadKeywordIndex(date) {
+        const key = KEYWORD_INDEX_PREFIX + date;
+        const cached = localStorage.getItem(key);
+        if (cached) {
+          try {
+            state.keywordIndexCache.set(date, JSON.parse(cached));
+            return;
+          } catch (error) {
+            console.warn("关键词索引解析失败", error);
+          }
+        }
+        const stored = readDocFromStorage(date);
+        const entries = stored ? stored.entries : [];
+        if (!entries.length) {
+          localStorage.removeItem(key);
+          state.keywordIndexCache.delete(date);
+          return;
+        }
+        const index = buildKeywordIndex(entries);
+        localStorage.setItem(key, JSON.stringify(index));
+        state.keywordIndexCache.set(date, index);
+      }
+
+      function rebuildKeywordLibrary() {
+        const aggregate = new Map();
+        state.keywordIndexCache.forEach((index) => {
+          Object.entries(index || {}).forEach(([kw, count]) => {
+            aggregate.set(kw, (aggregate.get(kw) || 0) + count);
+          });
+        });
+        state.keywordLibrary = aggregate;
+        updateKeywordSuggestions();
+      }
+
+      function updateKeywordCachesForCurrentDate() {
+        ensureKeywordIndexForCurrentDate();
+      }
+
+      function buildKeywordIndex(entries) {
+        const stats = {};
+        entries.forEach((entry) => {
+          entry.keywords.forEach((kw) => {
+            stats[kw] = (stats[kw] || 0) + 1;
+          });
+        });
+        return stats;
+      }
+
+      function getStoredDocDates() {
+        const dates = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (!key) continue;
+          if (key === TEMPLATE_CONFIG_KEY) continue;
+          if (key.startsWith(KEYWORD_INDEX_PREFIX)) continue;
+          if (key.startsWith(STORAGE_PREFIX)) {
+            const date = key.replace(STORAGE_PREFIX, "");
+            if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+              dates.push(date);
+            }
+          }
+        }
+        return dates.sort((a, b) => b.localeCompare(a));
+      }
+
+      function startAutosave() {
+        if (state.autosaveTimer) clearInterval(state.autosaveTimer);
+        state.autosaveTimer = setInterval(() => {
+          if (state.isDirty) {
+            saveDoc({ auto: true });
+          }
+        }, AUTOSAVE_INTERVAL);
+      }
+
+      function saveDoc({ auto = false } = {}) {
+        if (!state.currentDoc.date) return;
+        const payload = {
+          date: state.currentDoc.date,
+          entries: state.currentDoc.entries,
+        };
+        localStorage.setItem(STORAGE_PREFIX + state.currentDoc.date, JSON.stringify(payload));
+        populateHistoryOptions();
+        ensureKeywordIndexForCurrentDate();
+        state.isDirty = false;
+        updateFormStatus(auto ? "已自动保存草稿" : "草稿已保存");
+        showStatus(auto ? "已自动保存草稿" : "已保存到本地草稿", auto ? "info" : "success");
+      }
+
+      function handleClear() {
+        if (!state.currentDoc.entries.length) {
+          showStatus("当前没有内容可以清空", "warning");
+          return;
+        }
+        if (!confirm("确定清空当天所有记录吗？")) return;
+        state.currentDoc.entries = [];
+        localStorage.removeItem(STORAGE_PREFIX + state.currentDoc.date);
+        state.isDirty = false;
+        resetForm();
+        refreshUI();
+        ensureKeywordIndexForCurrentDate();
+        populateHistoryOptions();
+        updateFormStatus("当天内容已清空");
+        showStatus("已清空当天草稿", "success");
+      }
+
+      function handleBeforeUnload(event) {
+        if (!state.isDirty) return;
+        event.preventDefault();
+        event.returnValue = "";
+      }
+
+      function markDirty() {
+        state.isDirty = true;
+        updateFormStatus("有未保存的修改，将在 10 秒内自动保存");
+      }
+
+      function updateFormStatus(text) {
+        formStatus.textContent = text;
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        const keywords = parseKeywords(keywordsInput.value);
+        const entry = {
+          id:
+            state.editingId || `id-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          time: timeInput.value || "00:00",
+          category: categoryInput.value,
+          keywords,
+          content: contentInput.value.trim(),
+          importance: Number(importanceInput.value),
+          publishable: publishableInput.checked,
+        };
+        if (!entry.content) {
+          showStatus("内容不能为空", "danger");
+          return;
+        }
+        if (state.editingId) {
+          const idx = state.currentDoc.entries.findIndex((item) => item.id === state.editingId);
+          if (idx !== -1) {
+            state.currentDoc.entries[idx] = entry;
+            showStatus("已更新记录", "success");
+          }
+        } else {
+          state.currentDoc.entries.push(entry);
+          showStatus("已添加记录", "success");
+        }
+        resetForm();
+        refreshUI();
+        updateKeywordCachesForCurrentDate();
+        markDirty();
+      }
+
+      function handleTableActions(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (target.classList.contains("tag")) {
+          const raw = target.dataset.tag
+            ? decodeURIComponent(target.dataset.tag)
+            : target.textContent || "";
+          const keyword = raw.trim().toLowerCase();
+          if (state.activeTagFilter === keyword) {
+            state.activeTagFilter = "";
+            filterKeyword.value = "";
+          } else {
+            state.activeTagFilter = keyword;
+            filterKeyword.value = keyword;
+          }
+          updateEntryTable();
+          return;
+        }
+        const action = target.getAttribute("data-action");
+        if (action === "edit") {
+          startEdit(target.getAttribute("data-id"));
+        } else if (action === "delete") {
+          deleteEntry(target.getAttribute("data-id"));
+        }
+      }
+
+      function startEdit(id) {
+        if (!id) return;
+        const entry = state.currentDoc.entries.find((item) => item.id === id);
+        if (!entry) return;
+        state.editingId = id;
+        timeInput.value = entry.time;
+        categoryInput.value = entry.category;
+        importanceInput.value = String(entry.importance);
+        keywordsInput.value = entry.keywords.join(", ");
+        contentInput.value = entry.content;
+        publishableInput.checked = entry.publishable;
+        submitBtn.textContent = "💾 保存修改";
+        cancelEditBtn.hidden = false;
+      }
+
+      function deleteEntry(id) {
+        if (!id) return;
+        const idx = state.currentDoc.entries.findIndex((item) => item.id === id);
+        if (idx === -1) return;
+        if (!confirm("确定删除该条记录吗？")) return;
+        state.currentDoc.entries.splice(idx, 1);
+        refreshUI();
+        updateKeywordCachesForCurrentDate();
+        markDirty();
+        showStatus("已删除记录", "success");
+        if (state.editingId === id) {
+          resetForm();
+        }
+      }
+
+      function resetForm() {
+        form.reset();
+        setCurrentTime();
+        categoryInput.value = "AI";
+        importanceInput.value = "5";
+        publishableInput.checked = true;
+        state.editingId = null;
+        submitBtn.textContent = "➕ 添加记录";
+        cancelEditBtn.hidden = true;
+        hideKeywordSuggestions();
+      }
+
+      function refreshUI() {
+        updateEntryTable();
+        updatePreview();
+      }
+
+      function updateEntryTable() {
+        const keywordFilter = state.activeTagFilter || filterKeyword.value.trim().toLowerCase();
+        const filtered = state.currentDoc.entries.filter((entry) => {
+          if (filterCategory.value && entry.category !== filterCategory.value) {
+            return false;
+          }
+          if (filterPublishable.checked && !entry.publishable) {
+            return false;
+          }
+          if (keywordFilter) {
+            return entry.keywords.some((kw) => kw.includes(keywordFilter));
+          }
+          return true;
+        });
+        const sorted = sortEntries(filtered, sortOrder.value);
+        entriesBody.innerHTML = "";
+        if (!sorted.length) {
+          const emptyRow = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 7;
+          cell.style.textAlign = "center";
+          cell.style.color = "var(--muted)";
+          cell.textContent = "暂无符合条件的记录";
+          emptyRow.appendChild(cell);
+          entriesBody.appendChild(emptyRow);
+          return;
+        }
+        sorted.forEach((entry) => {
+          const row = document.createElement("tr");
+          const tags = entry.keywords
+            .map((kw) => {
+              const encoded = encodeURIComponent(kw);
+              const active = state.activeTagFilter && state.activeTagFilter === kw;
+              return `<span class="tag${active ? " active-tag" : ""}" data-tag="${encoded}">${escapeHtml(kw)}</span>`;
+            })
+            .join(" ");
+          const summary = entry.content.length > 42 ? `${entry.content.slice(0, 42)}…` : entry.content;
+          row.innerHTML = `
+            <td>${entry.time}</td>
+            <td><span class="pill">${escapeHtml(entry.category)}</span></td>
+            <td>${tags || "-"}</td>
+            <td class="importance">${"★".repeat(entry.importance)}</td>
+            <td>${entry.publishable ? "✅" : "🚫"}</td>
+            <td>${escapeHtml(summary)}</td>
+            <td>
+              <div class="actions">
+                <button data-action="edit" data-id="${entry.id}">编辑</button>
+                <button data-action="delete" data-id="${entry.id}">删除</button>
+              </div>
+            </td>
+          `;
+          entriesBody.appendChild(row);
+        });
+      }
+
+      function sortEntries(entries, order) {
+        const clone = [...entries];
+        clone.sort((a, b) => {
+          if (order === "time-asc") {
+            return a.time.localeCompare(b.time);
+          }
+          if (order === "time-desc") {
+            return b.time.localeCompare(a.time);
+          }
+          if (order === "importance-asc") {
+            return a.importance - b.importance || a.time.localeCompare(b.time);
+          }
+          return b.importance - a.importance || a.time.localeCompare(b.time);
+        });
+        return clone;
+      }
+
+      function updatePreview() {
+        const html = buildHTML(true);
+        if (!html) {
+          previewSurface.innerHTML = '<div class="preview-placeholder">暂无可对外发布内容，先去左侧添加吧。</div>';
+          return;
+        }
+        previewSurface.innerHTML = html;
+      }
+
+      function hasPublishableEntries() {
+        return state.currentDoc.entries.some((entry) => entry.publishable);
+      }
+
+      function handleCopy(type) {
+        if (!hasPublishableEntries()) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        if (type === "markdown") {
+          copyToClipboard(buildMarkdown());
+        } else if (type === "html") {
+          copyToClipboard(buildHTML());
+        } else {
+          copyToClipboard(previewSurface.innerText.trim());
+        }
+      }
+
+      function handleDownload(type) {
+        if (!hasPublishableEntries()) {
+          showStatus("暂无可对外发布的记录", "warning");
+          return;
+        }
+        const date = state.currentDoc.date || formatDate(new Date());
+        if (type === "markdown") {
+          downloadFile(buildMarkdown(), `${date}.md`, "text/markdown;charset=utf-8");
+        } else {
+          downloadFile(buildHTML(), `${date}.html`, "text/html;charset=utf-8");
+        }
+      }
+
+      function buildMarkdown() {
+        return renderTemplate("markdown");
+      }
+
+      function buildHTML(forPreview = false) {
+        return renderTemplate("html", { forPreview });
+      }
+
+      function renderTemplate(format, { forPreview = false } = {}) {
+        const publishable = getPublishableEntries();
+        if (!publishable.length) return "";
+        const template = TEMPLATE_PRESETS[state.templateId] || TEMPLATE_PRESETS.minimal;
+        const ctx = createRenderContext(publishable);
+        const summaryLines = template.buildSummary(ctx, TemplateHelpers);
+        const groups = template.groupEntries(ctx, TemplateHelpers);
+        const title = template.getTitle(ctx);
+        const subtitle = template.getSubtitle(ctx);
+        const cta = template.getCTA ? template.getCTA(ctx) : "";
+
+        if (format === "markdown") {
+          const lines = [];
+          lines.push(`# ${title}`);
+          if (subtitle) {
+            const prefix = template.markdownSubtitlePrefix || "";
+            lines.push(prefix ? `${prefix}${subtitle}` : subtitle);
+          }
+          lines.push("");
+          summaryLines.forEach((line) => lines.push(line));
+          lines.push("");
+          groups.forEach((group) => {
+            lines.push(`## ${group.title}`);
+            lines.push("");
+            group.entries.forEach((entry) => {
+              const rendered = template.renderEntry(ctx, entry, TemplateHelpers);
+              lines.push(rendered.meta.trim());
+              lines.push("");
+              rendered.blocks.forEach((block) => {
+                if (block.type === "code") {
+                  lines.push("```");
+                  lines.push(block.text);
+                  lines.push("```");
+                  lines.push("");
+                } else if (block.type === "list") {
+                  block.items.forEach((item) => lines.push(`- ${item}`));
+                  lines.push("");
+                } else {
+                  lines.push(block.text);
+                  lines.push("");
+                }
+              });
+            });
+          });
+          if (cta) {
+            lines.push(cta);
+          }
+          return lines.join("\n").trim();
+        }
+
+        const parts = [];
+        const titleTag = template.titleTag || "h1";
+        parts.push(`<${titleTag}>${escapeHtml(title)}</${titleTag}>`);
+        if (subtitle) {
+          const subtitleTag = template.subtitleTag || "p";
+          const subtitleContent = escapeHtml(subtitle);
+          if (template.subtitleStrong) {
+            parts.push(`<${subtitleTag}><strong>${subtitleContent}</strong></${subtitleTag}>`);
+          } else {
+            parts.push(`<${subtitleTag}>${subtitleContent}</${subtitleTag}>`);
+          }
+        }
+        summaryLines.forEach((line) => {
+          if (
+            state.templateId === "minimal" &&
+            line.startsWith("可复用结论：")
+          ) {
+            const content = line.replace("可复用结论：", "").trim();
+            if (!content || content === "-") {
+              parts.push(`<p>可复用结论：-</p>`);
+            } else {
+              const bullets = content.split("；").filter(Boolean);
+              parts.push(`<p>可复用结论：</p>`);
+              parts.push(
+                "<ul>" +
+                  bullets
+                    .map((item) => `<li>${escapeHtml(item.replace(/^•\s*/, ""))}</li>`)
+                    .join("") +
+                  "</ul>"
+              );
+            }
+          } else {
+            parts.push(`<p>${escapeHtml(line)}</p>`);
+          }
+        });
+        groups.forEach((group) => {
+          parts.push(`<h2>${escapeHtml(group.title)}</h2>`);
+          group.entries.forEach((entry) => {
+            const rendered = template.renderEntry(ctx, entry, TemplateHelpers);
+            parts.push(`<p><strong>${escapeHtml(rendered.meta)}</strong></p>`);
+            rendered.blocks.forEach((block) => {
+              if (block.type === "code") {
+                parts.push(`<pre><code>${escapeHtml(block.text)}</code></pre>`);
+              } else if (block.type === "list") {
+                parts.push(
+                  "<ul>" +
+                    block.items.map((item) => `<li>${escapeHtml(item)}</li>`).join("") +
+                    "</ul>"
+                );
+              } else {
+                parts.push(`<p>${escapeHtml(block.text)}</p>`);
+              }
+            });
+          });
+        });
+        if (cta) {
+          parts.push(`<p>${escapeHtml(cta)}</p>`);
+        }
+        const html = parts.join("\n");
+        return forPreview ? html : html.trim();
+      }
+
+      function getPublishableEntries() {
+        return state.currentDoc.entries.filter((entry) => entry.publishable);
+      }
+
+      function createRenderContext(entries) {
+        return {
+          dateTitle: formatDateTitle(state.currentDoc.date || formatDate(new Date())),
+          entries: TemplateHelpers.sortEntries(entries),
+        };
+      }
+
+      const TemplateHelpers = {
+        sortEntries(entries) {
+          return [...entries].sort((a, b) => {
+            const categoryDiff =
+              CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
+            if (categoryDiff !== 0) return categoryDiff;
+            if (b.importance !== a.importance) {
+              return b.importance - a.importance;
+            }
+            return a.time.localeCompare(b.time);
+          });
+        },
+        formatTagLine(keywords) {
+          if (!keywords.length) return "-";
+          return keywords.map((kw) => `#${kw}`).join(" ");
+        },
+        parseBlocks(content) {
+          return parseContentBlocks(formatContentForMarkdown(content));
+        },
+        toBulletBlocks(content) {
+          const blocks = TemplateHelpers.parseBlocks(content);
+          const result = [];
+          let currentList = [];
+          blocks.forEach((block) => {
+            if (block.type === "code") {
+              if (currentList.length) {
+                result.push({ type: "list", items: currentList });
+                currentList = [];
+              }
+              result.push(block);
+            } else {
+              const segments = block.text
+                .split(/[。！？!?.]/)
+                .map((item) => item.trim())
+                .filter(Boolean);
+              if (!segments.length) return;
+              currentList.push(...segments);
+            }
+          });
+          if (currentList.length) {
+            result.push({ type: "list", items: currentList });
+          }
+          return result.length ? result : blocks;
+        },
+        groupByCategory(entries, { titleBuilder } = {}) {
+          const grouped = [];
+          const sorted = TemplateHelpers.sortEntries(entries);
+          CATEGORIES.forEach((category) => {
+            const list = sorted.filter((entry) => entry.category === category);
+            if (list.length) {
+              grouped.push({
+                title: titleBuilder ? titleBuilder(category) : category,
+                entries: list,
+              });
+            }
+          });
+          return grouped;
+        },
+        groupByImportance(entries) {
+          const sorted = TemplateHelpers.sortEntries(entries);
+          const buckets = [
+            { title: "高阶洞察卡", filter: (entry) => entry.importance >= 4 },
+            { title: "实践方法卡", filter: (entry) => entry.importance === 3 },
+            { title: "灵感速记卡", filter: (entry) => entry.importance <= 2 },
+          ];
+          const result = [];
+          buckets.forEach(({ title, filter }) => {
+            const items = sorted.filter(filter);
+            if (items.length) {
+              result.push({ title, entries: items });
+            }
+          });
+          if (!result.length) {
+            result.push({ title: "学习记录", entries: sorted });
+          }
+          return result;
+        },
+        getTopKeywords(entries, limit = 6) {
+          const stats = new Map();
+          entries.forEach((entry) => {
+            entry.keywords.forEach((kw) => {
+              stats.set(kw, (stats.get(kw) || 0) + 1);
+            });
+          });
+          return Array.from(stats.entries())
+            .sort((a, b) => {
+              if (b[1] === a[1]) return a[0].localeCompare(b[0]);
+              return b[1] - a[1];
+            })
+            .slice(0, limit)
+            .map(([keyword, count]) => ({ keyword, count }));
+        },
+        getHighlightSentences(
+          entries,
+          { limit = 2, maxLength = 60, importance = 4, prefixCategory = false } = {}
+        ) {
+          return [...entries]
+            .filter((entry) => entry.importance >= importance)
+            .sort((a, b) => b.importance - a.importance || a.time.localeCompare(b.time))
+            .slice(0, limit)
+            .map((entry) => {
+              const text = truncateText(cleanText(entry.content), maxLength);
+              return prefixCategory ? `${entry.category}：${text}` : text;
+            });
+        },
+        getCategoryConclusions(entries, categories, maxLength = 60) {
+          return entries
+            .filter((entry) => !categories || categories.includes(entry.category))
+            .map((entry) => `• ${truncateText(getFirstSentence(entry.content), maxLength)}`);
+        },
+        getCategoryHeatmap(entries) {
+          const stats = new Map();
+          entries.forEach((entry) => {
+            stats.set(entry.category, (stats.get(entry.category) || 0) + 1);
+          });
+          return CATEGORIES.filter((category) => stats.has(category))
+            .map((category) => ({ category, count: stats.get(category) }))
+            .sort((a, b) => {
+              if (b.count === a.count) {
+                return CATEGORIES.indexOf(a.category) - CATEGORIES.indexOf(b.category);
+              }
+              return b.count - a.count;
+            })
+            .map(({ category, count }) => `${category}×${count}`);
+        },
+        getActionLines(entries, limit = 2, maxLength = 60) {
+          return [...entries]
+            .filter((entry) => entry.publishable)
+            .sort((a, b) => b.importance - a.importance || a.time.localeCompare(b.time))
+            .slice(0, limit)
+            .map((entry) => truncateText(cleanText(entry.content), maxLength));
+        },
+        extractFirstSentence(text, maxLength = 60) {
+          return truncateText(getFirstSentence(text), maxLength);
+        },
+      };
+
+      function formatDate(date) {
+        return date.toISOString().slice(0, 10);
+      }
+
+      function formatDateTitle(dateStr) {
+        return (dateStr || "").replace(/-/g, ".");
+      }
+
+      function setCurrentTime() {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, "0");
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        timeInput.value = `${hours}:${minutes}`;
+      }
+
+      function parseKeywords(value) {
+        if (!value) return [];
+        const parts = value
+          .split(/[\s,，]+/)
+          .map((part) => part.trim().toLowerCase())
+          .filter(Boolean);
+        return Array.from(new Set(parts));
+      }
+
+      function deepClone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+      }
+
+      function formatContentForMarkdown(content) {
+        const normalized = content.replace(/\r\n?/g, "\n");
+        const lines = normalized.split("\n");
+        const result = [];
+        let blankStreak = 0;
+        let inCode = false;
+        for (const rawLine of lines) {
+          const trimmedRight = rawLine.replace(/\s+$/g, "");
+          const isBlank = trimmedRight.trim() === "";
+          const isCodeLine =
+            /^\s{4,}/.test(rawLine) ||
+            (!/[\u4e00-\u9fa5]/.test(trimmedRight) && /[;{}=<>]/.test(trimmedRight));
+
+          if (isBlank) {
+            blankStreak += 1;
+            if (blankStreak <= 1 && !inCode) {
+              result.push("");
+            }
+            continue;
+          } else {
+            blankStreak = 0;
+          }
+
+          if (isCodeLine && !inCode) {
+            result.push("```");
+            inCode = true;
+          }
+          if (!isCodeLine && inCode) {
+            result.push("```");
+            inCode = false;
+          }
+
+          result.push(inCode ? trimmedRight : trimmedRight.trim());
+        }
+        if (inCode) {
+          result.push("```");
+        }
+        const cleaned = [];
+        let previousEmpty = false;
+        for (const line of result) {
+          if (line === "") {
+            if (!previousEmpty) {
+              cleaned.push(line);
+            }
+            previousEmpty = true;
+          } else {
+            cleaned.push(line);
+            previousEmpty = false;
+          }
+        }
+        return cleaned.join("\n").trim();
+      }
+
+      function parseContentBlocks(processedContent) {
+        const lines = processedContent.split("\n");
+        const blocks = [];
+        let inCode = false;
+        let buffer = [];
+        for (const line of lines) {
+          if (line.trim() === "```") {
+            if (inCode) {
+              blocks.push({ type: "code", text: buffer.join("\n") });
+              buffer = [];
+              inCode = false;
+            } else {
+              if (buffer.length) {
+                blocks.push({ type: "paragraph", text: buffer.join(" ").trim() });
+                buffer = [];
+              }
+              inCode = true;
+            }
+            continue;
+          }
+
+          if (inCode) {
+            buffer.push(line);
+          } else if (line.trim() === "") {
+            if (buffer.length) {
+              blocks.push({ type: "paragraph", text: buffer.join(" ").trim() });
+              buffer = [];
+            }
+          } else {
+            buffer.push(line.trim());
+          }
+        }
+        if (buffer.length) {
+          blocks.push({ type: inCode ? "code" : "paragraph", text: buffer.join(inCode ? "\n" : " ").trim() });
+        }
+        return blocks;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function cleanText(text) {
+        return text.replace(/\s+/g, " ").trim();
+      }
+
+      function truncateText(text, maxLength) {
+        if (text.length <= maxLength) return text;
+        return text.slice(0, maxLength) + "…";
+      }
+
+      function getFirstSentence(text) {
+        const normalized = cleanText(text);
+        const match = normalized.match(/([^。！？!?.]+[。！？!?.]?)/);
+        return match ? match[1] : normalized;
+      }
+
+      function showStatus(message, type = "info") {
+        if (state.statusTimer) {
+          clearTimeout(state.statusTimer);
+        }
+        statusMessage.textContent = message;
+        const colors = {
+          success: "var(--success)",
+          warning: "var(--warning)",
+          danger: "var(--danger)",
+          info: "var(--muted)",
+        };
+        statusMessage.style.color = colors[type] || "var(--muted)";
+        state.statusTimer = setTimeout(() => {
+          statusMessage.textContent = "";
+          statusMessage.style.color = "var(--muted)";
+        }, 3200);
+      }
+
+      function copyToClipboard(text) {
+        if (!text) {
+          showStatus("暂无可复制的内容", "warning");
+          return;
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard
+            .writeText(text)
+            .then(() => showStatus("已复制到剪贴板", "success"))
+            .catch(() => fallbackCopy(text));
+        } else {
+          fallbackCopy(text);
+        }
+      }
+
+      function fallbackCopy(text) {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          showStatus("已复制到剪贴板", "success");
+        } catch (error) {
+          showStatus("复制失败，请手动复制", "danger");
+        }
+        document.body.removeChild(textarea);
+      }
+
+      function downloadFile(content, filename, mime = "text/plain") {
+        if (!content) {
+          showStatus("暂无可导出的内容", "warning");
+          return;
+        }
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        showStatus(`已导出 ${filename}`, "success");
+      }
     </script>
+
   </body>
 </html>
