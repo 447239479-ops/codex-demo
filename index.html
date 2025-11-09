@@ -1079,13 +1079,15 @@
         </div>
       </div>
       <div id="weeklyOverlay" class="settings-overlay" hidden>
-        <div class="settings-dialog weekly-dialog">
+        <div id="weeklyModal" class="settings-dialog weekly-dialog">
           <div class="settings-header">
             <h2>合并为周报</h2>
             <button
               id="closeWeekly"
               class="secondary"
               aria-label="关闭周报面板"
+              type="button"
+              data-action="weekly-close"
             >
               关闭
             </button>
@@ -1102,6 +1104,8 @@
                   id="weeklyClearSelection"
                   class="secondary"
                   aria-label="清空已选择的日期"
+                  type="button"
+                  data-action="weekly-clear"
                 >
                   清空选择
                 </button>
@@ -1110,6 +1114,8 @@
                   class="primary"
                   aria-label="生成周报预览"
                   disabled
+                  type="button"
+                  data-action="weekly-gen"
                 >
                   生成预览
                 </button>
@@ -1130,6 +1136,8 @@
                   id="weeklyDownloadMarkdown"
                   class="secondary"
                   aria-label="下载周报 Markdown 文件"
+                  type="button"
+                  data-action="weekly-export-md"
                 >
                   ⬇️ 导出 .md
                 </button>
@@ -1137,6 +1145,8 @@
                   id="weeklyDownloadHTML"
                   class="secondary"
                   aria-label="下载周报 HTML 文件"
+                  type="button"
+                  data-action="weekly-export-html"
                 >
                   ⬇️ 导出 .html
                 </button>
@@ -1144,6 +1154,8 @@
                   id="weeklyCopyMarkdown"
                   class="secondary"
                   aria-label="复制周报 Markdown"
+                  type="button"
+                  data-action="weekly-copy-md"
                 >
                   📄 复制 Markdown
                 </button>
@@ -1151,13 +1163,18 @@
                   id="weeklyCopyHTML"
                   class="secondary"
                   aria-label="复制周报 HTML"
+                  type="button"
+                  data-action="weekly-copy-html"
                 >
                   🌐 复制 HTML
                 </button>
                 </div>
               </div>
               <div id="weeklyWarningBanner" class="preview-warning" hidden></div>
-              <div id="weeklyPreviewSurface" class="preview-surface weekly-preview-surface">
+              <div
+                id="weeklyPreview"
+                class="preview-surface weekly-preview-surface"
+              >
                 <div class="preview-placeholder">请选择日期并生成周报预览。</div>
               </div>
             </div>
@@ -1176,6 +1193,29 @@
       const CATEGORIES = ["AI", "财税", "供应链", "运营", "阅读", "其他"];
       const SUMMARY_PRIMARY_CATEGORIES = ["AI", "财税", "供应链"];
       const SENSITIVE_WARNING_TEXT = "含可能敏感信息，请人工复核";
+
+      // —— 工具函数 ——
+      function qs(sel, root = document) {
+        return root.querySelector(sel);
+      }
+
+      function qsa(sel, root = document) {
+        return Array.from(root.querySelectorAll(sel));
+      }
+
+      function toast(message, level = "info") {
+        if (typeof showStatus === "function") {
+          const mapping = {
+            success: "success",
+            warning: "warning",
+            danger: "danger",
+            info: "info",
+          };
+          showStatus(message, mapping[level] || "info");
+        } else {
+          console.log("[toast]", message);
+        }
+      }
 
       const sampleEntries = [
         {
@@ -1805,7 +1845,6 @@
       const settingsOverlay = document.getElementById("settingsOverlay");
       const closeSettingsBtn = document.getElementById("closeSettings");
       const weeklyOverlay = document.getElementById("weeklyOverlay");
-      const closeWeeklyBtn = document.getElementById("closeWeekly");
       const weeklyDateList = document.getElementById("weeklyDateList");
       const weeklyGenerateBtn = document.getElementById("weeklyGenerate");
       const form = document.getElementById("entryForm");
@@ -1832,14 +1871,10 @@
       const downloadMarkdownBtn = document.getElementById("downloadMarkdown");
       const downloadHTMLBtn = document.getElementById("downloadHTML");
       const weeklyPreviewSection = document.getElementById("weeklyPreviewSection");
-      const weeklyPreviewSurface = document.getElementById("weeklyPreviewSurface");
+      const weeklyPreviewSurface = document.getElementById("weeklyPreview");
       const weeklyToggleColloquial = document.getElementById("weeklyToggleColloquial");
       const weeklyToggleBlur = document.getElementById("weeklyToggleBlur");
       const weeklyWarningBanner = document.getElementById("weeklyWarningBanner");
-      const weeklyCopyMarkdownBtn = document.getElementById("weeklyCopyMarkdown");
-      const weeklyCopyHTMLBtn = document.getElementById("weeklyCopyHTML");
-      const weeklyDownloadMarkdownBtn = document.getElementById("weeklyDownloadMarkdown");
-      const weeklyDownloadHTMLBtn = document.getElementById("weeklyDownloadHTML");
       const weeklySelectedCount = document.getElementById("weeklySelectedCount");
       const weeklyClearSelectionBtn = document.getElementById("weeklyClearSelection");
       const toggleColloquial = document.getElementById("toggleColloquial");
@@ -1940,27 +1975,14 @@
         downloadMarkdownBtn.addEventListener("click", () => handleDownload("markdown"));
         downloadHTMLBtn.addEventListener("click", () => handleDownload("html"));
         openWeeklyBtn.addEventListener("click", openWeeklyDialog);
-        closeWeeklyBtn.addEventListener("click", closeWeeklyDialog);
         weeklyOverlay.addEventListener("click", (event) => {
           if (event.target === weeklyOverlay) {
             closeWeeklyDialog();
           }
         });
         weeklyDateList.addEventListener("change", handleWeeklyDateChange);
-        weeklyGenerateBtn.addEventListener("click", generateWeeklyReportPreview);
         weeklyToggleColloquial.addEventListener("change", handleWeeklyToggleColloquial);
         weeklyToggleBlur.addEventListener("change", handleWeeklyToggleBlur);
-        weeklyCopyMarkdownBtn.addEventListener("click", () =>
-          handleWeeklyCopy("markdown")
-        );
-        weeklyCopyHTMLBtn.addEventListener("click", () => handleWeeklyCopy("html"));
-        weeklyDownloadMarkdownBtn.addEventListener("click", () =>
-          handleWeeklyDownload("markdown")
-        );
-        weeklyDownloadHTMLBtn.addEventListener("click", () =>
-          handleWeeklyDownload("html")
-        );
-        weeklyClearSelectionBtn.addEventListener("click", clearWeeklySelection);
         toggleColloquial.addEventListener("change", handleColloquialToggle);
         toggleBlur.addEventListener("change", handleBlurToggle);
         batchColloquialBtn.addEventListener("click", handleBatchColloquial);
@@ -2402,6 +2424,7 @@
           const checkbox = document.createElement("input");
           checkbox.type = "checkbox";
           checkbox.value = date;
+          checkbox.dataset.date = date;
           checkbox.checked = state.weekly.selectedDates.has(date);
           const info = document.createElement("span");
           info.textContent = getWeeklyDateInfo(date);
@@ -2435,8 +2458,8 @@
         const count = state.weekly.selectedDates.size;
         weeklySelectedCount.textContent = `已选 ${count} 天`;
         if (weeklyGenerateBtn) {
-          weeklyGenerateBtn.disabled = count < 2;
-          weeklyGenerateBtn.title = count < 2 ? "请选择至少两个日期" : "";
+          weeklyGenerateBtn.disabled = count === 0;
+          weeklyGenerateBtn.title = count === 0 ? "请先选择至少 1 天" : "";
         }
         if (weeklyClearSelectionBtn) {
           weeklyClearSelectionBtn.disabled = count === 0;
@@ -2496,57 +2519,8 @@
        * @param {{silent?: boolean}} [options]
        */
       function generateWeeklyReportPreview({ silent = false } = {}) {
-        const selected = Array.from(state.weekly.selectedDates).sort((a, b) =>
-          a.localeCompare(b)
-        );
-        if (selected.length < 2) {
-          if (!silent) {
-            showStatus("请至少选择两个日期生成周报", "warning");
-          }
-          return;
-        }
-        const { entries, warnings } = collectWeeklyEntries(selected, {
-          useColloquial: state.weekly.useColloquial,
-          enableBlur: state.weekly.enableBlur,
-        });
-        if (!entries.length) {
-          state.weekly.preview = null;
-          if (weeklyPreviewSurface) {
-            weeklyPreviewSurface.innerHTML =
-              '<div class="preview-placeholder">所选日期暂无可发记录。</div>';
-          }
-          if (weeklyPreviewSection) {
-            weeklyPreviewSection.hidden = false;
-          }
-          updateWeeklyWarningBanner(warnings);
-          if (!silent) {
-            showStatus("所选日期暂无可发内容", "warning");
-          }
-          return;
-        }
-        const context = WeeklyRenderer.buildContext(entries, selected);
-        const htmlPreview = WeeklyRenderer.buildHTML(context, { forPreview: true });
-        const htmlExport = WeeklyRenderer.buildHTML(context, { forPreview: false });
-        const markdown = WeeklyRenderer.buildMarkdown(context);
-        state.weekly.preview = {
-          context,
-          htmlPreview,
-          htmlExport,
-          markdown,
-          warnings,
-        };
-        weeklyToggleColloquial.checked = state.weekly.useColloquial;
-        weeklyToggleBlur.checked = state.weekly.enableBlur;
-        if (weeklyPreviewSurface) {
-          weeklyPreviewSurface.innerHTML = htmlPreview;
-        }
-        if (weeklyPreviewSection) {
-          weeklyPreviewSection.hidden = false;
-        }
-        updateWeeklyWarningBanner(warnings);
-        if (!silent) {
-          showStatus("已生成周报预览", "success");
-        }
+        const selected = Array.from(state.weekly.selectedDates);
+        return ensureWeeklyPreviewGenerated(selected, { silent });
       }
 
       /**
@@ -2602,6 +2576,239 @@
         return { entries, warnings };
       }
 
+      function getSelectedDatesFromWeeklyModal() {
+        const modal = qs("#weeklyModal");
+        if (!modal) return [];
+        return qsa('input[type="checkbox"][data-date]:checked', modal)
+          .map((el) => el.getAttribute("data-date"))
+          .filter(Boolean);
+      }
+
+      function buildWeeklyDoc(dates) {
+        const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+        const { entries, warnings } = collectWeeklyEntries(sortedDates, {
+          useColloquial: state.weekly.useColloquial,
+          enableBlur: state.weekly.enableBlur,
+        });
+        const context = WeeklyRenderer.buildContext(entries, sortedDates);
+        const htmlPreview = WeeklyRenderer.buildHTML(context, { forPreview: true });
+        const htmlExport = WeeklyRenderer.buildHTML(context, { forPreview: false });
+        const markdown = WeeklyRenderer.buildMarkdown(context);
+        return {
+          title: context.title,
+          start: context.period.start,
+          end: context.period.end,
+          md: markdown,
+          html: htmlExport,
+          previewHtml: htmlPreview,
+          warnings,
+          entries,
+          context,
+        };
+      }
+
+      function downloadAs(text, filename, mime) {
+        downloadFile(text, filename, mime);
+      }
+
+      async function copyText(text) {
+        if (!text) {
+          toast("暂无可复制的内容", "warning");
+          return;
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          try {
+            await navigator.clipboard.writeText(text);
+            toast("已复制到剪贴板", "success");
+            return;
+          } catch (error) {
+            console.warn("clipboard-write failed, fallback to execCommand", error);
+          }
+        }
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          toast("已复制到剪贴板", "success");
+        } catch (error) {
+          toast("复制失败，请手动复制", "danger");
+        }
+        document.body.removeChild(textarea);
+      }
+
+      function applyWeeklyDocToState(doc, dates, { silent = false } = {}) {
+        if (!doc) return;
+        const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+        state.weekly.preview = {
+          context: doc.context,
+          htmlPreview: doc.previewHtml,
+          htmlExport: doc.html,
+          markdown: doc.md,
+          warnings: doc.warnings || [],
+          entries: doc.entries || [],
+          meta: {
+            key: sortedDates.join("|"),
+            useColloquial: state.weekly.useColloquial,
+            enableBlur: state.weekly.enableBlur,
+          },
+        };
+        if (weeklyToggleColloquial) {
+          weeklyToggleColloquial.checked = state.weekly.useColloquial;
+        }
+        if (weeklyToggleBlur) {
+          weeklyToggleBlur.checked = state.weekly.enableBlur;
+        }
+        if (weeklyPreviewSurface) {
+          weeklyPreviewSurface.innerHTML = doc.previewHtml;
+        }
+        if (weeklyPreviewSection) {
+          weeklyPreviewSection.hidden = false;
+        }
+        updateWeeklyWarningBanner(doc.warnings || []);
+        if (!silent) {
+          toast("已生成周报预览", "success");
+        }
+      }
+
+      function ensureWeeklyPreviewGenerated(dates, { silent = false } = {}) {
+        const sortedDates = [...dates].sort((a, b) => a.localeCompare(b));
+        if (!sortedDates.length) {
+          if (!silent) {
+            toast("请先选择至少 1 天", "warning");
+          }
+          return null;
+        }
+        const key = sortedDates.join("|");
+        const preview = state.weekly.preview;
+        if (
+          preview &&
+          preview.meta &&
+          preview.meta.key === key &&
+          preview.meta.useColloquial === state.weekly.useColloquial &&
+          preview.meta.enableBlur === state.weekly.enableBlur
+        ) {
+          return {
+            title: preview.context?.title || "我的学习周报",
+            start:
+              preview.context?.period?.start ||
+              (sortedDates.length ? sortedDates[0] : ""),
+            end:
+              preview.context?.period?.end ||
+              (sortedDates.length ? sortedDates[sortedDates.length - 1] : ""),
+            md: preview.markdown,
+            html: preview.htmlExport,
+            previewHtml: preview.htmlPreview,
+            warnings: preview.warnings || [],
+            entries: preview.entries || [],
+            context: preview.context,
+          };
+        }
+        const doc = buildWeeklyDoc(sortedDates);
+        if (!doc.entries || !doc.entries.length) {
+          state.weekly.preview = null;
+          if (weeklyPreviewSurface) {
+            weeklyPreviewSurface.innerHTML =
+              '<div class="preview-placeholder">所选日期暂无可发记录。</div>';
+          }
+          if (weeklyPreviewSection) {
+            weeklyPreviewSection.hidden = false;
+          }
+          updateWeeklyWarningBanner(doc.warnings || []);
+          if (!silent) {
+            toast("所选日期暂无可发内容", "warning");
+          }
+          return null;
+        }
+        applyWeeklyDocToState(doc, sortedDates, { silent });
+        return doc;
+      }
+
+      document.body.addEventListener("click", async (event) => {
+        const btn = event.target.closest("[data-action]");
+        if (!btn) return;
+        const act = btn.dataset.action || "";
+        if (!act.startsWith("weekly-")) return;
+        event.preventDefault();
+        const dates = getSelectedDatesFromWeeklyModal();
+        const needsSelection = [
+          "weekly-gen",
+          "weekly-export-md",
+          "weekly-export-html",
+          "weekly-copy-md",
+          "weekly-copy-html",
+        ];
+        if (needsSelection.includes(act) && !dates.length) {
+          toast("请先选择至少 1 天", "warning");
+          return;
+        }
+        switch (act) {
+          case "weekly-gen": {
+            ensureWeeklyPreviewGenerated(dates, { silent: false });
+            break;
+          }
+          case "weekly-export-md":
+          case "weekly-export-html": {
+            const doc = ensureWeeklyPreviewGenerated(dates, { silent: true });
+            if (!doc) {
+              toast("所选日期暂无可发内容", "warning");
+              return;
+            }
+            if (!confirmWeeklyExport(doc.warnings)) return;
+            const sorted = [...dates].sort((a, b) => a.localeCompare(b));
+            const start = doc.start || (sorted[0] || "");
+            const end = doc.end || (sorted[sorted.length - 1] || start);
+            const fileBase =
+              sorted.length <= 1 || start === end
+                ? start
+                : `${start}_${end}`;
+            if (act === "weekly-export-md") {
+              downloadAs(
+                doc.md,
+                `学习周报_${fileBase || DateUtils.toISODate(new Date())}.md`,
+                "text/markdown;charset=utf-8"
+              );
+            } else {
+              downloadAs(
+                doc.html,
+                `学习周报_${fileBase || DateUtils.toISODate(new Date())}.html`,
+                "text/html;charset=utf-8"
+              );
+            }
+            break;
+          }
+          case "weekly-copy-md":
+          case "weekly-copy-html": {
+            const doc = ensureWeeklyPreviewGenerated(dates, { silent: true });
+            if (!doc) {
+              toast("所选日期暂无可发内容", "warning");
+              return;
+            }
+            if (!confirmWeeklyExport(doc.warnings)) return;
+            if (act === "weekly-copy-md") {
+              await copyText(doc.md);
+            } else {
+              await copyText(doc.html);
+            }
+            break;
+          }
+          case "weekly-clear": {
+            clearWeeklySelection();
+            toast("已清空选择", "info");
+            break;
+          }
+          case "weekly-close": {
+            closeWeeklyDialog();
+            break;
+          }
+          default:
+            break;
+        }
+      });
+
 
       function handleWeeklyToggleColloquial() {
         state.weekly.useColloquial = weeklyToggleColloquial.checked;
@@ -2614,42 +2821,6 @@
         state.weekly.enableBlur = weeklyToggleBlur.checked;
         if (state.weekly.preview) {
           generateWeeklyReportPreview({ silent: true });
-        }
-      }
-
-      function handleWeeklyCopy(type) {
-        if (!state.weekly.preview) {
-          showStatus("请先生成周报预览", "warning");
-          return;
-        }
-        if (!confirmWeeklyExport(state.weekly.preview.warnings)) return;
-        if (type === "markdown") {
-          copyToClipboard(state.weekly.preview.markdown);
-        } else if (type === "html") {
-          copyToClipboard(state.weekly.preview.htmlExport);
-        }
-      }
-
-      function handleWeeklyDownload(type) {
-        if (!state.weekly.preview) {
-          showStatus("请先生成周报预览", "warning");
-          return;
-        }
-        if (!confirmWeeklyExport(state.weekly.preview.warnings)) return;
-        const { period } = state.weekly.preview.context;
-        const baseName = `${period.start}_to_${period.end}-weekly`;
-        if (type === "markdown") {
-          downloadFile(
-            state.weekly.preview.markdown,
-            `${baseName}.md`,
-            "text/markdown;charset=utf-8"
-          );
-        } else {
-          downloadFile(
-            state.weekly.preview.htmlExport,
-            `${baseName}.html`,
-            "text/html;charset=utf-8"
-          );
         }
       }
 
