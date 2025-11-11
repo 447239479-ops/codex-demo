@@ -187,6 +187,43 @@
     }
   };
 
+  manager.upsertVideo = async function upsertVideo({
+    id,
+    title,
+    stream_id,
+    poster,
+    level,
+    topic,
+    requires_pro
+  } = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!id || !title) {
+      return { error: new Error('invalid_payload') };
+    }
+    try {
+      const payload = {
+        id,
+        title,
+        stream_id: stream_id || null,
+        poster: poster || null,
+        level: level || null,
+        topic: topic || null,
+        requires_pro: Boolean(requires_pro)
+      };
+      const { error } = await client.from('videos').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('写入 Supabase 视频失败', error);
+      return { error };
+    }
+  };
+
   manager.fetchSubtitles = async function fetchSubtitles(videoId) {
     const client = ensureClient();
     if (!client || !videoId) {
@@ -226,6 +263,53 @@
     } catch (error) {
       console.warn('加载 Supabase 精读卡失败', error);
       return { data: [], error };
+    }
+  };
+
+  manager.uploadSubtitleFile = async function uploadSubtitleFile(path, file, contentType = 'text/vtt') {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!path || !file) {
+      return { error: new Error('invalid_payload') };
+    }
+    try {
+      const bucket = client.storage.from('subtitles');
+      const { error } = await bucket.upload(path, file, {
+        upsert: true,
+        cacheControl: '3600',
+        contentType: contentType || 'text/vtt'
+      });
+      if (error) {
+        throw error;
+      }
+      const { data } = bucket.getPublicUrl(path);
+      return { data: { path, publicUrl: data?.publicUrl || data?.public_url || null } };
+    } catch (error) {
+      console.warn('上传 Supabase 字幕失败', error);
+      return { error };
+    }
+  };
+
+  manager.upsertSubtitleRecord = async function upsertSubtitleRecord({ id, video_id, lang, vtt_url } = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!id || !video_id || !lang || !vtt_url) {
+      return { error: new Error('invalid_payload') };
+    }
+    try {
+      const payload = { id, video_id, lang, vtt_url };
+      const { error } = await client.from('subtitles').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('写入 Supabase 字幕记录失败', error);
+      return { error };
     }
   };
 
@@ -397,6 +481,23 @@
       return { success: true };
     } catch (error) {
       console.warn('写入 Supabase 词卡失败', error);
+      return { error };
+    }
+  };
+
+  manager.requestDirectUploadViaFunction = async function requestDirectUploadViaFunction(body = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    try {
+      const { data, error } = await client.functions.invoke('cf_direct_upload', { body });
+      if (error) {
+        throw error;
+      }
+      return { data: data || null };
+    } catch (error) {
+      console.warn('调用 cf_direct_upload 函数失败', error);
       return { error };
     }
   };
