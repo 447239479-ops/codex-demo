@@ -8,7 +8,8 @@
  *   stream_id text,
  *   poster text,
  *   level text,
- *   topic text
+ *   topic text,
+ *   requires_pro bool default false
  * );
  *
  * create table if not exists public.subtitles (
@@ -48,6 +49,26 @@
  *   used_by uuid,
  *   used_at timestamptz
  * );
+ *
+ * -- RLS 建议（仅供参考，需结合实际需求调整）
+ * -- enable row level security on all tables
+ * alter table public.videos enable row level security;
+ * alter table public.subtitles enable row level security;
+ * alter table public.cards enable row level security;
+ * alter table public.video_cards enable row level security;
+ * alter table public.user_progress enable row level security;
+ * alter table public.activations enable row level security;
+ * -- 允许登录用户访问自身数据，匿名用户可根据 deviceId 写入进度
+ * create policy "progress_owner" on public.user_progress
+ *   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+ * create policy "device_progress" on public.user_progress
+ *   for insert with check (auth.role() = 'anon');
+ * create policy "cards_owner" on public.cards
+ *   for all using (auth.uid() is not null) with check (auth.uid() is not null);
+ * create policy "videos_public" on public.videos for select using (true);
+ * create policy "subtitles_public" on public.subtitles for select using (true);
+ * -- 激活码仅能通过 RPC 访问
+ * revoke all on table public.activations from anon, authenticated;
  * ```
  */
 (function (global) {
@@ -112,7 +133,8 @@
     pageSize = 6,
     topic = '',
     level = '',
-    search = ''
+    search = '',
+    includePro = true
   } = {}) {
     const client = ensureClient();
     if (!client) {
@@ -123,7 +145,7 @@
       const to = from + pageSize - 1;
       let query = client
         .from('videos')
-        .select('id,title,stream_id,poster,level,topic', { count: 'exact' })
+        .select('id,title,stream_id,poster,level,topic,requires_pro', { count: 'exact' })
         .order('title', { ascending: true })
         .range(from, to);
       if (topic && topic !== 'all') {
@@ -134,6 +156,9 @@
       }
       if (search) {
         query = query.ilike('title', `%${search}%`);
+      }
+      if (!includePro) {
+        query = query.eq('requires_pro', false);
       }
       const { data, error, count } = await query;
       if (error) {
@@ -164,6 +189,104 @@
     } catch (error) {
       console.warn('加载 Supabase 字幕失败', error);
       return { data: [], error };
+    }
+  };
+
+  manager.signInWithOtp = async function signInWithOtp(email, options = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!email) {
+      return { error: new Error('invalid_email') };
+    }
+    try {
+      const payload = {
+        email,
+        options: {}
+      };
+      if (options.emailRedirectTo) {
+        payload.options.emailRedirectTo = options.emailRedirectTo;
+      }
+      const { data, error } = await client.auth.signInWithOtp(payload);
+      if (error) {
+        throw error;
+      }
+      return { data: data || null };
+    } catch (error) {
+      console.warn('发送 Supabase 登录邮件失败', error);
+      return { error };
+    }
+  };
+
+  manager.getUser = async function getUser() {
+    const client = ensureClient();
+    if (!client) {
+      return { data: null, error: new Error('unconfigured') };
+    }
+    try {
+      return await client.auth.getUser();
+    } catch (error) {
+      console.warn('获取 Supabase 用户失败', error);
+      return { data: null, error };
+    }
+  };
+
+  manager.onAuthStateChange = function onAuthStateChange(callback) {
+    const client = ensureClient();
+    if (!client || typeof callback !== 'function') {
+      return () => {};
+    }
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      try {
+        callback(event, session);
+      } catch (error) {
+        console.warn('处理 Supabase Auth 事件失败', error);
+      }
+    });
+    return () => {
+      try {
+        data?.subscription?.unsubscribe?.();
+      } catch (error) {
+        console.warn('取消 Supabase 订阅失败', error);
+      }
+    };
+  };
+
+  manager.updateUserMetadata = async function updateUserMetadata(metadata = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    try {
+      const { data, error } = await client.auth.updateUser({ data: metadata });
+      if (error) {
+        throw error;
+      }
+      return { data: data || null };
+    } catch (error) {
+      console.warn('更新用户元数据失败', error);
+      return { error };
+    }
+  };
+
+  manager.redeemActivation = async function redeemActivation(code) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!code) {
+      return { error: new Error('invalid_code') };
+    }
+    try {
+      const { data, error } = await client.rpc('redeem_activation', { code });
+      if (error) {
+        throw error;
+      }
+      return { data: data || null };
+    } catch (error) {
+      console.warn('兑换激活码失败', error);
+      return { error };
     }
   };
 

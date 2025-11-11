@@ -80,6 +80,31 @@
         position: relative;
       }
 
+      .user-indicator {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(255, 107, 107, 0.12);
+        color: var(--brand);
+        font-size: 0.85rem;
+      }
+
+      .user-indicator[data-active='true'] {
+        display: inline-flex;
+      }
+
+      .user-indicator .plan-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(31, 41, 51, 0.08);
+        color: var(--text);
+        font-size: 0.75rem;
+      }
+
       .install-app-btn {
         background: transparent;
         border: 1px dashed var(--brand);
@@ -607,6 +632,11 @@
         color: var(--brand);
       }
 
+      .video-library-meta .pill.pro {
+        background: rgba(79, 70, 229, 0.12);
+        color: #4338ca;
+      }
+
       .video-library-actions {
         display: flex;
         flex-wrap: wrap;
@@ -957,6 +987,29 @@
         gap: 12px;
       }
 
+      .settings-note {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .account-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .activation-status {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .cloud-sync-hint {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
       .data-actions {
         display: flex;
         flex-wrap: wrap;
@@ -1283,6 +1336,10 @@
           >
             我的进度
           </button>
+          <div id="user-indicator" class="user-indicator" data-active="false" aria-live="polite">
+            <span id="user-email-display">未登录</span>
+            <span id="user-plan-badge" class="plan-badge" hidden>示例</span>
+          </div>
           <button
             id="install-app"
             class="install-app-btn"
@@ -1846,6 +1903,50 @@
             </label>
           </div>
           <div class="settings-group">
+            <h3 style="margin:0;">账户与登录</h3>
+            <p class="settings-note">填写邮箱即可接收一次性登录链接，所有凭证仅存于本地浏览器。</p>
+            <label>
+              邮箱
+              <input
+                type="email"
+                id="login-email"
+                placeholder="you@example.com"
+                autocomplete="email"
+                aria-label="输入登录邮箱"
+              />
+            </label>
+            <div class="account-actions">
+              <button
+                type="button"
+                data-action="send-login-code"
+                aria-label="发送 Supabase 登录验证码"
+              >
+                发送登录码
+              </button>
+            </div>
+            <p id="cloud-sync-hint" class="cloud-sync-hint">
+              云同步与激活功能需登录并正确配置 Supabase。
+            </p>
+            <label>
+              激活码
+              <input
+                type="text"
+                id="activation-code"
+                placeholder="输入激活码"
+                autocomplete="one-time-code"
+                aria-label="输入激活码"
+              />
+            </label>
+            <div class="account-actions">
+              <button type="button" data-action="redeem-activation" aria-label="兑换激活码">
+                兑换
+              </button>
+            </div>
+            <div id="activation-status" class="activation-status" aria-live="polite">
+              当前方案：示例体验（仅可访问本地示例视频）
+            </div>
+          </div>
+          <div class="settings-group">
             <h3 style="margin:0;">Supabase 环境（可选）</h3>
             <p style="margin:0;color:var(--muted);font-size:0.9rem;">
               仅在浏览器本地保存，用于加载云端视频与字幕资源。
@@ -1980,7 +2081,9 @@
         questions: 'es-app:question-bank',
         stats: 'es-app:stats',
         ops: 'es-app:ops',
-        device: 'es-app:deviceId'
+        device: 'es-app:deviceId',
+        profile: 'es-app:profile',
+        entitlement: 'es-app:entitlement'
       };
 
       const DEFAULT_SETTINGS = {
@@ -2001,6 +2104,7 @@
       };
 
       const APP_VERSION = '1.5.0';
+      const ENTITLEMENT_PLAN_LABELS = { pro: 'Pro', basic: 'Basic' };
 
       const userNotifier = (() => {
         let handler = (message, tone = 'info') => {
@@ -2060,7 +2164,317 @@
         return stored;
       }
 
+      /**
+       * 标准化权益信息
+       * @param {{plan?:string, expiresAt?:string, expire_at?:string}|null} raw
+       * @returns {{plan:string, expiresAt:string, active:boolean}}
+       */
+      function normalizeEntitlement(raw) {
+        if (!raw || typeof raw !== 'object') {
+          return { plan: '', expiresAt: '', active: false };
+        }
+        const plan = typeof raw.plan === 'string' ? raw.plan.trim().toLowerCase() : '';
+        const expiresAt =
+          typeof raw.expiresAt === 'string'
+            ? raw.expiresAt
+            : typeof raw.expire_at === 'string'
+            ? raw.expire_at
+            : '';
+        let active = false;
+        if (plan) {
+          if (expiresAt) {
+            const ts = Date.parse(expiresAt);
+            active = Number.isFinite(ts) ? ts > Date.now() : false;
+          } else {
+            active = true;
+          }
+        }
+        return { plan, expiresAt: expiresAt || '', active };
+      }
+
+      /**
+       * 获取权益标签
+       * @param {string} plan
+       * @returns {string}
+       */
+      function getPlanLabel(plan) {
+        const key = (plan || '').toLowerCase();
+        return ENTITLEMENT_PLAN_LABELS[key] || (plan ? plan : '示例');
+      }
+
+      /**
+       * 更新权益状态
+       * @param {{plan?:string, expiresAt?:string, expire_at?:string}|null} raw
+       * @param {boolean} [persist=true]
+       */
+      function setEntitlement(raw, persist = true) {
+        const normalized = normalizeEntitlement(raw);
+        state.identity.entitlement = normalized;
+        if (persist) {
+          if (normalized.plan) {
+            storage.save(STORAGE_KEYS.entitlement, normalized);
+          } else {
+            storage.remove(STORAGE_KEYS.entitlement);
+          }
+        }
+        updateEntitlementUI();
+      }
+
+      function updateCloudSyncHint() {
+        if (cloudSyncHint) {
+          cloudSyncHint.hidden = Boolean(state.identity.userId);
+        }
+        if (cloudSyncToggle) {
+          const shouldDisable = !state.identity.userId || !window.supabaseManager?.isReady?.();
+          cloudSyncToggle.disabled = shouldDisable;
+          if (shouldDisable) {
+            cloudSyncToggle.checked = false;
+          }
+        }
+      }
+
+      function updateUserIndicator() {
+        if (!userIndicator || !userEmailDisplay) return;
+        const loggedIn = Boolean(state.identity.userId && state.identity.email);
+        userIndicator.dataset.active = loggedIn ? 'true' : 'false';
+        userEmailDisplay.textContent = loggedIn ? state.identity.email : '未登录';
+        if (userPlanBadge) {
+          const entitlement = state.identity.entitlement;
+          if (loggedIn && entitlement.active && entitlement.plan) {
+            userPlanBadge.textContent = getPlanLabel(entitlement.plan);
+            userPlanBadge.hidden = false;
+          } else {
+            userPlanBadge.hidden = true;
+          }
+        }
+      }
+
+      function updateEntitlementUI() {
+        const entitlement = state.identity.entitlement;
+        if (activationStatus) {
+          if (entitlement.active && entitlement.plan) {
+            let expiresText = '';
+            if (entitlement.expiresAt) {
+              const date = new Date(entitlement.expiresAt);
+              if (!Number.isNaN(date.getTime())) {
+                expiresText = `（有效期至 ${new Intl.DateTimeFormat('zh-CN', {
+                  dateStyle: 'medium'
+                }).format(date)}）`;
+              }
+            }
+            const planLabel = getPlanLabel(entitlement.plan);
+            if (state.identity.userId) {
+              activationStatus.textContent = `当前方案：${planLabel}${expiresText}，已开放 Supabase 视频库。`;
+            } else {
+              activationStatus.textContent = `已激活：${planLabel}${expiresText}，请登录后访问 Supabase 视频库。`;
+            }
+          } else if (entitlement.plan && !entitlement.active) {
+            const planLabel = getPlanLabel(entitlement.plan);
+            activationStatus.textContent = `方案 ${planLabel} 已过期，请重新激活以继续访问云端视频。`;
+          } else {
+            activationStatus.textContent = '当前方案：示例体验（仅可访问本地示例视频）';
+          }
+        }
+        updateCloudSyncHint();
+        updateUserIndicator();
+      }
+
+      function hasRemoteVideoAccess() {
+        const entitlement = state.identity.entitlement;
+        return Boolean(state.identity.userId && entitlement.active && entitlement.plan);
+      }
+
+      function canAccessProContent() {
+        return hasRemoteVideoAccess() && state.identity.entitlement.plan === 'pro';
+      }
+
+      function initIdentity() {
+        ensureDeviceId();
+        const storedProfile = storage.load(STORAGE_KEYS.profile, null);
+        if (storedProfile && typeof storedProfile === 'object') {
+          state.identity.profile = storedProfile;
+          state.identity.userId = storedProfile.userId || '';
+          state.identity.email = storedProfile.email || '';
+        }
+        const storedEntitlement = storage.load(STORAGE_KEYS.entitlement, null);
+        if (storedEntitlement) {
+          setEntitlement(storedEntitlement, false);
+        } else {
+          state.identity.entitlement = normalizeEntitlement(null);
+          updateEntitlementUI();
+        }
+      }
+
+      function getProgressOwnerId() {
+        return state.identity.userId || state.identity.deviceId || ensureDeviceId();
+      }
+
+      function applyAuthUser(user) {
+        if (user && user.id) {
+          const profile = {
+            userId: user.id,
+            email: user.email || '',
+            lastSignInAt: user.last_sign_in_at || new Date().toISOString()
+          };
+          state.identity.profile = profile;
+          state.identity.userId = profile.userId;
+          state.identity.email = profile.email;
+          storage.save(STORAGE_KEYS.profile, profile);
+          const metadata = user.user_metadata || {};
+          if (metadata && (metadata.plan || metadata.activation_expire_at)) {
+            setEntitlement({
+              plan: metadata.plan,
+              expiresAt: metadata.activation_expire_at
+            });
+          } else {
+            updateEntitlementUI();
+          }
+        } else {
+          state.identity.profile = null;
+          state.identity.userId = '';
+          state.identity.email = '';
+          storage.remove(STORAGE_KEYS.profile);
+          updateEntitlementUI();
+        }
+        if (!state.identity.userId && state.remote.cloudSyncCards) {
+          state.remote.cloudSyncCards = false;
+          if (cloudSyncToggle) {
+            cloudSyncToggle.checked = false;
+          }
+          const currentSettings = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+          if (currentSettings.cloudSyncCards) {
+            storage.save(STORAGE_KEYS.settings, { ...currentSettings, cloudSyncCards: false });
+          }
+        }
+        updateUserIndicator();
+        updateCloudSyncHint();
+        if (videoLibraryList) {
+          refreshVideoLibrary(true);
+        }
+      }
+
+      async function attachSupabaseAuthListener() {
+        if (detachAuthListener) {
+          try {
+            detachAuthListener();
+          } catch (error) {
+            console.warn('清理 Supabase 监听失败', error);
+          }
+          detachAuthListener = null;
+        }
+        if (!window.supabaseManager?.isReady?.()) {
+          return;
+        }
+        if (typeof window.supabaseManager.onAuthStateChange === 'function') {
+          detachAuthListener = window.supabaseManager.onAuthStateChange((event, session) => {
+            if (session?.user) {
+              applyAuthUser(session.user);
+            } else if (event === 'SIGNED_OUT') {
+              applyAuthUser(null);
+            }
+          });
+        }
+        if (typeof window.supabaseManager.getUser === 'function') {
+          try {
+            const { data, error } = await window.supabaseManager.getUser();
+            if (!error && data?.user) {
+              applyAuthUser(data.user);
+            } else {
+              if (error) {
+                console.warn('获取 Supabase 用户失败', error);
+              }
+              applyAuthUser(null);
+            }
+          } catch (error) {
+            console.warn('同步 Supabase 用户失败', error);
+            applyAuthUser(null);
+          }
+        }
+      }
+
+      async function handleSendLoginCode() {
+        if (!loginEmailInput) return;
+        const email = loginEmailInput.value.trim();
+        if (!email) {
+          showToast('请输入有效的邮箱地址。');
+          loginEmailInput.focus();
+          return;
+        }
+        const secure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+        if (!secure) {
+          showToast('请在 HTTPS 环境或本地调试环境下登录。');
+          return;
+        }
+        if (!window.supabaseManager?.isReady?.()) {
+          showToast('Supabase 未配置，无法发送登录码。');
+          return;
+        }
+        try {
+          showToast('正在发送登录邮件…');
+          const result = await window.supabaseManager.signInWithOtp(email, {
+            emailRedirectTo: window.location.href
+          });
+          if (result?.error) {
+            throw result.error;
+          }
+          showToast('登录邮件已发送，请查收邮箱完成登录。');
+        } catch (error) {
+          console.warn('发送登录邮件失败', error);
+          showToast('发送登录邮件失败，请稍后重试。');
+        }
+      }
+
+      async function handleRedeemActivation() {
+        if (!activationInput) return;
+        const code = activationInput.value.trim();
+        if (!code) {
+          showToast('请输入激活码。');
+          activationInput.focus();
+          return;
+        }
+        if (!state.identity.userId) {
+          showToast('请先登录后再兑换激活码。');
+          return;
+        }
+        if (!window.supabaseManager?.isReady?.()) {
+          showToast('Supabase 未配置，暂无法兑换。');
+          return;
+        }
+        try {
+          showToast('正在验证激活码…');
+          const result = await window.supabaseManager.redeemActivation(code);
+          const payload = result?.data ?? result;
+          if (!payload || payload.error) {
+            throw payload?.error || new Error('redeem_failed');
+          }
+          if (!payload.ok) {
+            showToast(payload.message || '激活码无效，请检查后重试。');
+            return;
+          }
+          setEntitlement({ plan: payload.plan, expiresAt: payload.expire_at });
+          activationInput.value = '';
+          showToast('激活成功，已解锁更多视频内容！');
+          if (videoLibraryList) {
+            refreshVideoLibrary(true);
+          }
+          if (payload.plan && window.supabaseManager?.updateUserMetadata) {
+            try {
+              await window.supabaseManager.updateUserMetadata({
+                plan: payload.plan,
+                activation_expire_at: payload.expire_at || null
+              });
+            } catch (error) {
+              console.warn('更新用户元数据失败', error);
+            }
+          }
+        } catch (error) {
+          console.warn('兑换激活码失败', error);
+          showToast('激活失败，请稍后再试。');
+        }
+      }
+
       let diagnosticsLogged = false;
+      let detachAuthListener = null;
 
       const SAMPLE_MP3_DATA =
         '//uQZAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAAAACAAADSAAAAAEAAADSAAAAAQAAAEdUUkMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
@@ -4623,7 +5037,10 @@
         },
         identity: {
           deviceId: '',
-          userId: ''
+          userId: '',
+          email: '',
+          profile: null,
+          entitlement: { plan: '', expiresAt: '', active: false }
         }
       };
 
@@ -4820,6 +5237,8 @@
 
         function queueCard(card) {
           if (!state.remote.cloudSyncCards) return;
+          if (!state.identity.userId) return;
+          if (!window.supabaseManager?.isReady?.()) return;
           if (!card || !card.id) return;
           const cloudId = ensureCloudId(card);
           const payload = {
@@ -5922,7 +6341,7 @@
         function commitProgress(force = false) {
           const currentVideo = state.library.current;
           if (!currentVideo || currentVideo.source !== 'supabase') return;
-          const userId = state.identity.deviceId || ensureDeviceId();
+          const userId = getProgressOwnerId();
           if (!userId) return;
           const now = Date.now();
           if (!force && now - progressTracker.lastSubmitAt < 10000) {
@@ -6987,7 +7406,14 @@
           topic.textContent = `主题：${VIDEO_TOPIC_LABELS[item.topic] || '未分类'}`;
           const source = document.createElement('span');
           source.textContent = `来源：${item.source === 'supabase' ? 'Supabase' : '本地示例'}`;
-          meta.append(level, topic, source);
+          meta.append(level, topic);
+          if (item.requires_pro) {
+            const pro = document.createElement('span');
+            pro.className = 'pill pro';
+            pro.textContent = 'Pro';
+            meta.appendChild(pro);
+          }
+          meta.appendChild(source);
           header.appendChild(meta);
           article.appendChild(header);
           if (item.description) {
@@ -7051,29 +7477,53 @@
             state.remote.supabaseUrl &&
             state.remote.supabaseAnonKey
         );
+        const allowRemote = ready && hasRemoteVideoAccess();
+        const allowPro = canAccessProContent();
         let useRemote = false;
         let pageItems = [];
         let total = 0;
-        if (ready) {
+        let filteredOut = 0;
+        let statusLocked = false;
+        if (allowRemote) {
           const result = await window.supabaseManager.listVideos({
             page: state.library.page,
             pageSize: state.library.pageSize,
             topic: filters.topic,
             level: filters.level,
-            search: filters.search
+            search: filters.search,
+            includePro: allowPro
           });
           if (!result.error) {
-            pageItems = (result.data || []).map((item) => ({ ...item, source: 'supabase' }));
-            total = typeof result.count === 'number' ? result.count : pageItems.length;
+            const remoteItems = Array.isArray(result.data) ? result.data : [];
+            const accessible = remoteItems.filter((item) => !item.requires_pro || allowPro);
+            filteredOut = remoteItems.length - accessible.length;
+            pageItems = accessible.map((item) => ({ ...item, source: 'supabase' }));
+            total = typeof result.count === 'number' ? result.count : accessible.length;
             useRemote = true;
           } else if (reset) {
             userNotifier.notify('Supabase 视频加载失败，已回退到本地示例。', 'warning');
           }
+        } else if (ready && reset) {
+          const entitlement = state.identity.entitlement;
+          let message = '已配置 Supabase，登录并激活后可访问完整视频库。';
+          if (!state.identity.userId) {
+            message = '请登录后访问 Supabase 视频库。';
+          } else {
+            if (entitlement.plan && !entitlement.active) {
+              message = '当前方案已过期，请重新激活后访问 Supabase 视频库。';
+            } else if (entitlement.plan) {
+              message = '请保持登录以访问已激活的视频库。';
+            } else {
+              message = '请输入激活码以解锁 Supabase 视频库。';
+            }
+          }
+          setVideoLibraryStatus(message, false);
+          statusLocked = true;
         } else if (reset && (state.remote.supabaseUrl || state.remote.supabaseAnonKey)) {
           userNotifier.notify('Supabase 配置不完整，已使用本地示例视频。', 'warning');
         }
 
-        if (!useRemote && ready && !reset) {
+        if (!useRemote && allowRemote && !reset) {
           state.library.loading = false;
           userNotifier.notify('Supabase 视频加载失败，请稍后重试。', 'warning');
           setVideoLibraryStatus('加载更多失败，请稍后重试。', false);
@@ -7112,10 +7562,13 @@
             ? '暂无匹配的视频，请调整筛选条件。'
             : '暂无示例视频，可在设置中配置 Supabase 或手动上传字幕。';
           setVideoLibraryStatus(message, false);
-        } else {
+        } else if (!statusLocked) {
           setVideoLibraryStatus('', true);
         }
         state.library.loading = false;
+        if (filteredOut > 0 && reset) {
+          showToast('部分 Pro 视频需升级方案后访问，已为你隐藏。');
+        }
       }
 
       async function openLibraryVideo(videoId) {
@@ -7124,6 +7577,16 @@
         if (!target) {
           userNotifier.notify('未找到对应视频条目。', 'warning');
           return;
+        }
+        if (target.source === 'supabase') {
+          if (!state.identity.userId) {
+            showToast('请先登录后再访问云端视频。');
+            return;
+          }
+          if (target.requires_pro && !canAccessProContent()) {
+            showToast('该视频属于 Pro 方案，当前方案暂无法访问。');
+            return;
+          }
         }
         state.library.current = { ...target };
         state.video.durationHint = 0;
@@ -7266,9 +7729,21 @@
         if (supabaseKeyInput) {
           supabaseKeyInput.value = state.remote.supabaseAnonKey;
         }
+        if (loginEmailInput && state.identity.email) {
+          loginEmailInput.value = state.identity.email;
+        }
         if (cloudSyncToggle) {
-          cloudSyncToggle.checked = state.remote.cloudSyncCards;
+          const initialCloudSync = state.remote.cloudSyncCards && state.identity.userId;
+          cloudSyncToggle.checked = initialCloudSync;
+          state.remote.cloudSyncCards = initialCloudSync;
           cloudSyncToggle.addEventListener('change', () => {
+            if (cloudSyncToggle.checked && !state.identity.userId) {
+              cloudSyncToggle.checked = false;
+              state.remote.cloudSyncCards = false;
+              showToast('请先登录后再启用云同步。');
+              updateCloudSyncHint();
+              return;
+            }
             state.remote.cloudSyncCards = !!cloudSyncToggle.checked;
             saveSettings();
             if (state.remote.cloudSyncCards) {
@@ -7286,6 +7761,7 @@
             anonKey: state.remote.supabaseAnonKey
           });
         }
+        attachSupabaseAuthListener();
         updateAiStatus();
       }
 
@@ -7409,6 +7885,7 @@
         if (window.supabaseManager?.setConfig) {
           window.supabaseManager.setConfig({ url: supabaseUrlValue, anonKey: supabaseAnonValue });
         }
+        attachSupabaseAuthListener();
         if (supabaseChanged) {
           refreshVideoLibrary(true);
           cloudSync.schedule(true);
@@ -7764,24 +8241,31 @@
         const voiceNames = voices.map((voice) => `${voice.name} (${voice.lang})`);
         const sttSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
         const usageChars = storage.estimateUsage();
-        const usageKb = (usageChars * 2) / 1024;
-        if (!diagnosticsLogged) {
-          diagnosticsLogged = true;
-          console.groupCollapsed(`AI Español v${APP_VERSION} 自检`);
-          console.info('设备 ID：', state.identity.deviceId || '未生成');
-          console.info('可用语音：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
-          console.info('STT 支持：', sttSupported ? '可用' : '不可用');
-          console.info('localStorage 估算：', `${usageKb.toFixed(2)} KB`);
-          console.groupEnd();
-          if (navigator.storage?.estimate) {
-            navigator.storage
-              .estimate()
-              .then((info) => {
-                const quotaMb = info.quota ? (info.quota / (1024 * 1024)).toFixed(2) : '未知';
-                const usedMb = info.usage ? (info.usage / (1024 * 1024)).toFixed(2) : '未知';
-                console.info(`Storage 配额约 ${quotaMb} MB，已用 ${usedMb} MB。`);
-              })
-              .catch(() => {});
+          const usageKb = (usageChars * 2) / 1024;
+          if (!diagnosticsLogged) {
+            diagnosticsLogged = true;
+            console.groupCollapsed(`AI Español v${APP_VERSION} 自检`);
+            console.info('设备 ID：', state.identity.deviceId || '未生成');
+            console.info('登录邮箱：', state.identity.email || '未登录');
+            const entitlement = state.identity.entitlement;
+            const planInfo = entitlement.plan
+              ? `${getPlanLabel(entitlement.plan)}${entitlement.active ? '' : '(inactive)'}`
+              : '未激活';
+            console.info('权益信息：', planInfo);
+            console.info('可用语音：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
+            console.info('STT 支持：', sttSupported ? '可用' : '不可用');
+            console.info('localStorage 估算：', `${usageKb.toFixed(2)} KB`);
+            console.groupEnd();
+            if (navigator.storage?.estimate) {
+              navigator.storage
+                .estimate()
+                .then((info) => {
+                  const quotaMb = info.quota ? (info.quota / (1024 * 1024)).toFixed(2) : '未知';
+                  const usedMb = info.usage ? (info.usage / (1024 * 1024)).toFixed(2) : '未知';
+                  console.info(`Storage 配额约 ${quotaMb} MB，已用 ${usedMb} MB。`);
+                })
+                .catch(() => {});
+            }
           }
         } else if (voiceInfo) {
           console.info('语音列表更新：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
@@ -7929,6 +8413,15 @@
       const supabaseUrlInput = document.getElementById('supabase-url');
       const supabaseKeyInput = document.getElementById('supabase-key');
       const cloudSyncToggle = document.getElementById('cloud-sync-cards');
+      const loginEmailInput = document.getElementById('login-email');
+      const sendLoginCodeBtn = document.querySelector('[data-action="send-login-code"]');
+      const activationInput = document.getElementById('activation-code');
+      const redeemActivationBtn = document.querySelector('[data-action="redeem-activation"]');
+      const activationStatus = document.getElementById('activation-status');
+      const userIndicator = document.getElementById('user-indicator');
+      const userEmailDisplay = document.getElementById('user-email-display');
+      const userPlanBadge = document.getElementById('user-plan-badge');
+      const cloudSyncHint = document.getElementById('cloud-sync-hint');
       const aiDialogueTheme = document.getElementById('ai-dialogue-theme');
       const aiDialogueLevel = document.getElementById('ai-dialogue-level');
       const aiDialogueLength = document.getElementById('ai-dialogue-length');
@@ -8263,13 +8756,16 @@
             handleDownloadReport(range, button.dataset.format || 'md');
           }
         });
+
+        sendLoginCodeBtn?.addEventListener('click', handleSendLoginCode);
+        redeemActivationBtn?.addEventListener('click', handleRedeemActivation);
       }
 
       const practiceTheme = document.getElementById('practice-theme');
       const practiceLevel = document.getElementById('practice-level');
 
       function initApp() {
-        ensureDeviceId();
+        initIdentity();
         initTestDataUI();
         speech.init();
         if (typeof speech.onVoicesChange === 'function') {
