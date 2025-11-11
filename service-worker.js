@@ -1,11 +1,14 @@
-const CACHE_VERSION = 'es-app-cache-v1';
+const CACHE_VERSION = 'es-app-cache-v2';
 const CACHE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './service-worker.js',
   './icons/icon-192.svg',
-  './icons/icon-512.svg'
+  './icons/icon-512.svg',
+  './supabaseClient.js',
+  './demo/sample.mp4',
+  './demo/sample.vtt'
 ];
 
 self.addEventListener('install', (event) => {

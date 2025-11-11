@@ -6,6 +6,11 @@
     <title>AI Español - 西班牙语智能学习</title>
     <meta name="theme-color" content="#ff6b6b" />
     <link rel="manifest" href="manifest.json" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.1/dist/umd/supabase.min.js"
+      defer
+    ></script>
+    <script src="supabaseClient.js" defer></script>
     <style>
       :root {
         color-scheme: light;
@@ -545,6 +550,78 @@
 
       .ai-status {
         font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .video-library-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 16px;
+        align-items: center;
+      }
+
+      .video-library-controls input,
+      .video-library-controls select {
+        flex: 1 1 180px;
+        min-width: 160px;
+      }
+
+      .video-library-controls button {
+        flex: 0 0 auto;
+      }
+
+      .video-library-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .video-library-item {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(99, 102, 241, 0.18);
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+      }
+
+      .video-library-item header {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .video-library-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .video-library-meta .pill {
+        background: rgba(255, 107, 107, 0.12);
+        color: var(--brand);
+      }
+
+      .video-library-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .video-library-footer {
+        display: flex;
+        justify-content: center;
+        margin-top: 12px;
+      }
+
+      .video-library-empty {
+        padding: 24px;
+        text-align: center;
         color: var(--muted);
       }
 
@@ -1128,6 +1205,18 @@
         .video-layout {
           grid-template-columns: 1fr;
         }
+
+        .video-library-controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .video-library-controls input,
+        .video-library-controls select,
+        .video-library-controls button {
+          width: 100%;
+          min-width: 0;
+        }
       }
 
       @media (max-width: 720px) {
@@ -1217,6 +1306,7 @@
             <a href="#practice">今日练习</a>
             <a href="#cards">词卡SRS</a>
             <a href="#speaking">对话练习</a>
+            <a href="#video-library">视频库</a>
             <a href="#video">视频学习</a>
             <a href="#grammar">语法速查</a>
             <a href="#content">内容管理</a>
@@ -1441,6 +1531,51 @@
             <button type="button" data-action="generate-dialogue" aria-label="生成新的情景对话">生成新对话</button>
             <span id="dialogue-ai-status" class="ai-status" aria-live="polite">需在设置中启用 AI 对话功能。</span>
           </div>
+        </div>
+      </section>
+
+      <section id="video-library" aria-labelledby="video-library-title">
+        <h2 id="video-library-title">视频库</h2>
+        <p>
+          连接 Supabase 视频库即可浏览精选学习视频；若未配置，将展示本地示例，仍可自行上传字幕。
+        </p>
+        <div class="video-library-controls">
+          <input
+            type="search"
+            id="video-library-search"
+            placeholder="搜索视频标题关键词"
+            aria-label="搜索视频标题"
+          />
+          <select id="video-library-topic" aria-label="筛选主题">
+            <option value="all">全部主题</option>
+            <option value="travel">旅行</option>
+            <option value="restaurant">餐厅</option>
+            <option value="shopping">购物</option>
+            <option value="work">工作</option>
+            <option value="campus">校园</option>
+            <option value="daily">日常</option>
+          </select>
+          <select id="video-library-level" aria-label="筛选难度">
+            <option value="all">全部难度</option>
+            <option value="A1">A1</option>
+            <option value="A2">A2</option>
+            <option value="B1">B1</option>
+          </select>
+          <button type="button" data-action="video-library-refresh" aria-label="重新加载视频列表">
+            搜索
+          </button>
+        </div>
+        <div id="video-library-status" class="video-library-empty" aria-live="polite" hidden></div>
+        <div id="video-library-list" class="video-library-list" aria-live="polite"></div>
+        <div class="video-library-footer">
+          <button
+            type="button"
+            data-action="video-library-more"
+            aria-label="加载更多视频"
+            hidden
+          >
+            加载更多
+          </button>
         </div>
       </section>
 
@@ -1711,6 +1846,32 @@
             </label>
           </div>
           <div class="settings-group">
+            <h3 style="margin:0;">Supabase 环境（可选）</h3>
+            <p style="margin:0;color:var(--muted);font-size:0.9rem;">
+              仅在浏览器本地保存，用于加载云端视频与字幕资源。
+            </p>
+            <label>
+              SUPABASE_URL
+              <input
+                type="url"
+                id="supabase-url"
+                placeholder="https://your-project.supabase.co"
+                autocomplete="off"
+                aria-label="输入 Supabase 项目 URL"
+              />
+            </label>
+            <label>
+              SUPABASE_ANON_KEY
+              <input
+                type="password"
+                id="supabase-key"
+                placeholder="ey..."
+                autocomplete="off"
+                aria-label="输入 Supabase 匿名密钥"
+              />
+            </label>
+          </div>
+          <div class="settings-group">
             <h3 style="margin:0;">数据管理</h3>
             <p>导出/导入包含练习进度、词卡与口语记录的 JSON。</p>
             <div class="data-actions">
@@ -1828,7 +1989,9 @@
         aiDialogue: false,
         aiCorrection: false,
         cloudflareAccountId: '',
-        streamVideoId: ''
+        streamVideoId: '',
+        supabaseUrl: '',
+        supabaseAnonKey: ''
       };
 
       const APP_VERSION = '1.4.0';
@@ -2168,6 +2331,38 @@
           ]
         }
       };
+
+      const VIDEO_TOPIC_LABELS = {
+        travel: '旅行',
+        restaurant: '餐厅',
+        shopping: '购物',
+        work: '工作',
+        campus: '校园',
+        daily: '日常'
+      };
+
+      const LOCAL_VIDEO_LIBRARY = [
+        {
+          id: 'local-market',
+          title: 'Mercado en Madrid - 市场问路',
+          topic: 'shopping',
+          level: 'A1',
+          stream_id: '',
+          poster: '',
+          vtt_url: 'demo/sample.vtt',
+          description: '学习如何在集市询问价格与讨价还价。'
+        },
+        {
+          id: 'local-cafe',
+          title: 'En la cafetería - 点单练习',
+          topic: 'restaurant',
+          level: 'A1',
+          stream_id: '',
+          poster: '',
+          vtt_url: 'demo/sample.vtt',
+          description: '模拟咖啡馆点单对话，练习常用礼貌表达。'
+        }
+      ];
 
       const DEFAULT_CARDS = [
         { id: 'c1', phrase: 'hola', zh: '你好', note: 'Hola, ¿cómo estás?', level: 1, src: 'default' },
@@ -4323,6 +4518,22 @@
           cloudflareAccountId: '',
           streamVideoId: ''
         },
+        library: {
+          items: [],
+          page: 1,
+          pageSize: 6,
+          total: 0,
+          source: 'local',
+          loading: false,
+          hasMore: false,
+          search: '',
+          topic: 'all',
+          level: 'all'
+        },
+        remote: {
+          supabaseUrl: '',
+          supabaseAnonKey: ''
+        },
         cefr: {
           responses: {}
         },
@@ -4882,6 +5093,28 @@
           }
         }
 
+        /**
+         * 通过 URL 加载字幕内容
+         * @param {string} url
+         * @param {string} [source]
+         * @returns {Promise<void>}
+         */
+        function loadSubtitleFromUrl(url, source = '远程字幕') {
+          if (!url) {
+            return Promise.reject(new Error('missing_url'));
+          }
+          return fetch(url)
+            .then((response) => {
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              return response.text();
+            })
+            .then((text) => {
+              loadFromText(text, source);
+            });
+        }
+
         function handleUrlLoad() {
           const value = urlInput?.value?.trim();
           if (!value) {
@@ -4895,19 +5128,9 @@
             userNotifier.notify('字幕链接格式不正确。', 'error');
             return;
           }
-          fetch(targetUrl.toString())
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-              }
-              return response.text();
-            })
-            .then((text) => {
-              loadFromText(text, targetUrl.hostname);
-            })
-            .catch(() => {
-              userNotifier.notify('字幕加载失败，请确认链接可访问且允许跨域。', 'error');
-            });
+          loadSubtitleFromUrl(targetUrl.toString(), targetUrl.hostname).catch(() => {
+            userNotifier.notify('字幕加载失败，请确认链接可访问且允许跨域。', 'error');
+          });
         }
 
         function handleSearchInput() {
@@ -5449,7 +5672,7 @@
           refreshPlayerAdapter();
         }
 
-        return { init, updateStreamSource, refreshPlayerAdapter };
+        return { init, updateStreamSource, refreshPlayerAdapter, loadSubtitleFromUrl };
       })();
 
       function cloneCardsWithSchedule(baseCards, startTime = Date.now()) {
@@ -6370,6 +6593,276 @@
         render.grammar(grammarList, filtered);
       }
 
+      function setVideoLibraryStatus(message, hidden = false) {
+        if (!videoLibraryStatus) return;
+        if (hidden) {
+          videoLibraryStatus.hidden = true;
+          videoLibraryStatus.textContent = '';
+        } else {
+          videoLibraryStatus.hidden = false;
+          videoLibraryStatus.textContent = message;
+        }
+      }
+
+      function filterLocalVideos(filters) {
+        const term = (filters.search || '').toLowerCase();
+        return LOCAL_VIDEO_LIBRARY.filter((item) => {
+          const matchTopic = filters.topic === 'all' || item.topic === filters.topic;
+          const matchLevel = filters.level === 'all' || item.level === filters.level;
+          const matchTerm = !term || item.title.toLowerCase().includes(term);
+          return matchTopic && matchLevel && matchTerm;
+        });
+      }
+
+      function renderVideoLibrary() {
+        if (!videoLibraryList) return;
+        videoLibraryList.innerHTML = '';
+        const formatter = new Intl.DateTimeFormat('zh-CN', {
+          dateStyle: 'short',
+          timeStyle: 'short'
+        });
+        state.library.items.forEach((item) => {
+          const article = document.createElement('article');
+          article.className = 'video-library-item';
+          article.dataset.id = item.id;
+          const header = document.createElement('header');
+          const title = document.createElement('strong');
+          title.textContent = item.title || '未命名视频';
+          header.appendChild(title);
+          const meta = document.createElement('div');
+          meta.className = 'video-library-meta';
+          const level = document.createElement('span');
+          level.className = 'pill';
+          level.textContent = item.level ? `Lv.${item.level}` : '无级别';
+          const topic = document.createElement('span');
+          topic.textContent = `主题：${VIDEO_TOPIC_LABELS[item.topic] || '未分类'}`;
+          const source = document.createElement('span');
+          source.textContent = `来源：${item.source === 'supabase' ? 'Supabase' : '本地示例'}`;
+          meta.append(level, topic, source);
+          header.appendChild(meta);
+          article.appendChild(header);
+          if (item.description) {
+            const desc = document.createElement('p');
+            desc.style.margin = '0';
+            desc.style.color = 'var(--muted)';
+            desc.textContent = item.description;
+            article.appendChild(desc);
+          }
+          if (item.updated_at) {
+            const parsedDate = new Date(item.updated_at);
+            if (!Number.isNaN(parsedDate.getTime())) {
+              const updated = document.createElement('div');
+              updated.style.fontSize = '0.8rem';
+              updated.style.color = 'var(--muted)';
+              updated.textContent = `更新：${formatter.format(parsedDate)}`;
+              article.appendChild(updated);
+            }
+          }
+          const actions = document.createElement('div');
+          actions.className = 'video-library-actions';
+          const openBtn = document.createElement('button');
+          openBtn.type = 'button';
+          openBtn.dataset.action = 'video-library-open';
+          openBtn.dataset.id = item.id;
+          openBtn.setAttribute('aria-label', `加载视频 ${item.title || ''}`);
+          openBtn.textContent = '进入学习';
+          actions.appendChild(openBtn);
+          if (item.vtt_url) {
+            const hint = document.createElement('span');
+            hint.style.fontSize = '0.85rem';
+            hint.style.color = 'var(--muted)';
+            hint.textContent = '含字幕链接';
+            actions.appendChild(hint);
+          }
+          article.appendChild(actions);
+          videoLibraryList.appendChild(article);
+        });
+      }
+
+      async function refreshVideoLibrary(reset = false) {
+        if (!videoLibraryList) return;
+        if (state.library.loading) return;
+        state.library.loading = true;
+        if (reset) {
+          state.library.page = 1;
+          state.library.items = [];
+          state.library.total = 0;
+          state.library.hasMore = false;
+        }
+        if (!state.library.items.length || reset) {
+          setVideoLibraryStatus('正在加载视频…', false);
+        }
+        const filters = {
+          search: state.library.search,
+          topic: state.library.topic,
+          level: state.library.level
+        };
+        const ready = Boolean(
+          window.supabaseManager?.isReady?.() &&
+            state.remote.supabaseUrl &&
+            state.remote.supabaseAnonKey
+        );
+        let useRemote = false;
+        let pageItems = [];
+        let total = 0;
+        if (ready) {
+          const result = await window.supabaseManager.listVideos({
+            page: state.library.page,
+            pageSize: state.library.pageSize,
+            topic: filters.topic,
+            level: filters.level,
+            search: filters.search
+          });
+          if (!result.error) {
+            pageItems = (result.data || []).map((item) => ({ ...item, source: 'supabase' }));
+            total = typeof result.count === 'number' ? result.count : pageItems.length;
+            useRemote = true;
+          } else if (reset) {
+            userNotifier.notify('Supabase 视频加载失败，已回退到本地示例。', 'warning');
+          }
+        } else if (reset && (state.remote.supabaseUrl || state.remote.supabaseAnonKey)) {
+          userNotifier.notify('Supabase 配置不完整，已使用本地示例视频。', 'warning');
+        }
+
+        if (!useRemote && ready && !reset) {
+          state.library.loading = false;
+          userNotifier.notify('Supabase 视频加载失败，请稍后重试。', 'warning');
+          setVideoLibraryStatus('加载更多失败，请稍后重试。', false);
+          if (videoLibraryMoreBtn) {
+            videoLibraryMoreBtn.hidden = true;
+            videoLibraryMoreBtn.disabled = true;
+          }
+          return;
+        }
+
+        if (!useRemote) {
+          const localList = filterLocalVideos(filters);
+          total = localList.length;
+          const start = (state.library.page - 1) * state.library.pageSize;
+          const end = start + state.library.pageSize;
+          pageItems = localList.slice(start, end).map((item) => ({ ...item, source: 'local' }));
+        }
+
+        if (reset) {
+          state.library.items = [];
+        }
+        state.library.items = state.library.items.concat(pageItems);
+        state.library.total = total;
+        state.library.source = useRemote ? 'supabase' : 'local';
+        state.library.hasMore = state.library.items.length < total;
+        if (state.library.hasMore) {
+          state.library.page += 1;
+        }
+        renderVideoLibrary();
+        if (videoLibraryMoreBtn) {
+          videoLibraryMoreBtn.hidden = !state.library.hasMore;
+          videoLibraryMoreBtn.disabled = !state.library.hasMore;
+        }
+        if (!state.library.items.length) {
+          const message = useRemote
+            ? '暂无匹配的视频，请调整筛选条件。'
+            : '暂无示例视频，可在设置中配置 Supabase 或手动上传字幕。';
+          setVideoLibraryStatus(message, false);
+        } else {
+          setVideoLibraryStatus('', true);
+        }
+        state.library.loading = false;
+      }
+
+      async function openLibraryVideo(videoId) {
+        if (!videoId) return;
+        const target = state.library.items.find((item) => item.id === videoId);
+        if (!target) {
+          userNotifier.notify('未找到对应视频条目。', 'warning');
+          return;
+        }
+        showToast(`已切换到《${target.title}》，正在准备字幕…`);
+        if (target.stream_id) {
+          state.video.streamVideoId = target.stream_id;
+          videoLearning.updateStreamSource({
+            accountId: state.video.cloudflareAccountId,
+            videoId: target.stream_id
+          });
+        } else {
+          videoLearning.updateStreamSource({
+            accountId: state.video.cloudflareAccountId,
+            videoId: ''
+          });
+        }
+        await loadVideoSubtitles(target);
+      }
+
+      async function loadVideoSubtitles(videoItem) {
+        if (!videoItem) return;
+        if (videoItem.vtt_url) {
+          try {
+            await videoLearning.loadSubtitleFromUrl(videoItem.vtt_url, videoItem.source === 'supabase' ? 'Supabase' : '本地');
+          } catch (error) {
+            console.warn('加载内置字幕失败', error);
+            userNotifier.notify('字幕加载失败，请尝试手动导入 .vtt 文件。', 'error');
+          }
+          return;
+        }
+        if (videoItem.source === 'supabase' && window.supabaseManager?.isReady?.()) {
+          const result = await window.supabaseManager.fetchSubtitles(videoItem.id);
+          if (result.error) {
+            userNotifier.notify('云端字幕加载失败，请手动上传。', 'warning');
+            return;
+          }
+          const records = Array.isArray(result.data) ? result.data : [];
+          const preferred = records.find((item) => String(item.lang || '').toLowerCase() === 'es') || records[0];
+          if (preferred?.vtt_url) {
+            try {
+              await videoLearning.loadSubtitleFromUrl(preferred.vtt_url, 'Supabase');
+            } catch (error) {
+              console.warn('Supabase 字幕加载失败', error);
+              userNotifier.notify('Supabase 字幕拉取失败，请手动导入。', 'error');
+            }
+          } else {
+            userNotifier.notify('该视频暂无可用字幕，请上传本地 .vtt 文件。', 'info');
+          }
+        } else {
+          userNotifier.notify('没有可用的字幕链接，请使用“导入 WebVTT”功能。', 'info');
+        }
+      }
+
+      function initVideoLibrary() {
+        if (!videoLibraryList) return;
+        state.library.search = videoLibrarySearch?.value?.trim() || '';
+        state.library.topic = videoLibraryTopic?.value || 'all';
+        state.library.level = videoLibraryLevel?.value || 'all';
+        videoLibraryList.addEventListener('click', (event) => {
+          const button = event.target instanceof HTMLElement
+            ? event.target.closest('button[data-action="video-library-open"]')
+            : null;
+          if (!button) return;
+          openLibraryVideo(button.dataset.id || '');
+        });
+        videoLibraryMoreBtn?.addEventListener('click', () => {
+          refreshVideoLibrary(false);
+        });
+        videoLibraryRefreshBtn?.addEventListener('click', () => {
+          state.library.search = videoLibrarySearch?.value?.trim() || '';
+          refreshVideoLibrary(true);
+        });
+        videoLibrarySearch?.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            state.library.search = videoLibrarySearch.value.trim();
+            refreshVideoLibrary(true);
+          }
+        });
+        videoLibraryTopic?.addEventListener('change', () => {
+          state.library.topic = videoLibraryTopic.value;
+          refreshVideoLibrary(true);
+        });
+        videoLibraryLevel?.addEventListener('change', () => {
+          state.library.level = videoLibraryLevel.value;
+          refreshVideoLibrary(true);
+        });
+        refreshVideoLibrary(true);
+      }
+
       function initSettings() {
         const saved = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
         state.speaking.ttsRate = saved.ttsRate;
@@ -6391,6 +6884,8 @@
         };
         state.video.cloudflareAccountId = saved.cloudflareAccountId || '';
         state.video.streamVideoId = saved.streamVideoId || '';
+        state.remote.supabaseUrl = saved.supabaseUrl || '';
+        state.remote.supabaseAnonKey = saved.supabaseAnonKey || '';
         if (openaiKeyInput) {
           openaiKeyInput.value = state.ai.apiKey;
         }
@@ -6412,10 +6907,22 @@
         if (cfStreamInput) {
           cfStreamInput.value = state.video.streamVideoId;
         }
+        if (supabaseUrlInput) {
+          supabaseUrlInput.value = state.remote.supabaseUrl;
+        }
+        if (supabaseKeyInput) {
+          supabaseKeyInput.value = state.remote.supabaseAnonKey;
+        }
         videoLearning.updateStreamSource({
           accountId: state.video.cloudflareAccountId,
           videoId: state.video.streamVideoId
         });
+        if (window.supabaseManager?.setConfig) {
+          window.supabaseManager.setConfig({
+            url: state.remote.supabaseUrl,
+            anonKey: state.remote.supabaseAnonKey
+          });
+        }
         updateAiStatus();
       }
 
@@ -6506,8 +7013,15 @@
         };
         const accountId = cfAccountInput ? cfAccountInput.value.trim() : state.video.cloudflareAccountId;
         const streamIdValue = cfStreamInput ? cfStreamInput.value.trim() : state.video.streamVideoId;
+        const supabaseUrlValue = supabaseUrlInput ? supabaseUrlInput.value.trim() : state.remote.supabaseUrl;
+        const supabaseAnonValue = supabaseKeyInput ? supabaseKeyInput.value.trim() : state.remote.supabaseAnonKey;
         state.video.cloudflareAccountId = accountId;
         state.video.streamVideoId = streamIdValue;
+        const supabaseChanged =
+          supabaseUrlValue !== state.remote.supabaseUrl ||
+          supabaseAnonValue !== state.remote.supabaseAnonKey;
+        state.remote.supabaseUrl = supabaseUrlValue;
+        state.remote.supabaseAnonKey = supabaseAnonValue;
         const existing = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
         storage.save(STORAGE_KEYS.settings, {
           ...existing,
@@ -6521,9 +7035,17 @@
           aiDialogue: aiDialogueValue,
           aiCorrection: aiCorrectionValue,
           cloudflareAccountId: accountId,
-          streamVideoId: streamIdValue
+          streamVideoId: streamIdValue,
+          supabaseUrl: supabaseUrlValue,
+          supabaseAnonKey: supabaseAnonValue
         });
         videoLearning.updateStreamSource({ accountId, videoId: streamIdValue });
+        if (window.supabaseManager?.setConfig) {
+          window.supabaseManager.setConfig({ url: supabaseUrlValue, anonKey: supabaseAnonValue });
+        }
+        if (supabaseChanged) {
+          refreshVideoLibrary(true);
+        }
         updateAiStatus();
       }
 
@@ -6559,7 +7081,7 @@
         const data = {
           practice: storage.load(STORAGE_KEYS.practice, state.practice),
           cards: srs.getCards(),
-          settings: { ...rawSettings, openaiKey: '' },
+          settings: { ...rawSettings, openaiKey: '', supabaseAnonKey: '' },
           speaking: storage.load(STORAGE_KEYS.speaking, []),
           customQuestions: questionRepo.getCustom(),
           stats: statsData
@@ -6597,7 +7119,9 @@
               const mergedSettings = {
                 ...currentSettings,
                 ...data.settings,
-                openaiKey: currentSettings.openaiKey || ''
+                openaiKey: currentSettings.openaiKey || '',
+                supabaseAnonKey: currentSettings.supabaseAnonKey || '',
+                supabaseUrl: currentSettings.supabaseUrl || ''
               };
               storage.save(STORAGE_KEYS.settings, mergedSettings);
             }
@@ -6614,6 +7138,7 @@
             updateCardsUI();
             prepareReview();
             initSettings();
+            refreshVideoLibrary(true);
             loadPracticeFromStorage();
             updateProgressPanel();
             showToast('导入完成，欢迎继续学习！');
@@ -7031,6 +7556,8 @@
       const aiCorrectionToggle = document.getElementById('ai-correction');
       const cfAccountInput = document.getElementById('cf-account-id');
       const cfStreamInput = document.getElementById('cf-stream-id');
+      const supabaseUrlInput = document.getElementById('supabase-url');
+      const supabaseKeyInput = document.getElementById('supabase-key');
       const aiDialogueTheme = document.getElementById('ai-dialogue-theme');
       const aiDialogueLevel = document.getElementById('ai-dialogue-level');
       const aiDialogueLength = document.getElementById('ai-dialogue-length');
@@ -7057,6 +7584,13 @@
       const testDataSelect = document.getElementById('test-data-select');
       const applyTestDataBtn = document.querySelector('[data-action="apply-test-data"]');
       const mobileActionBar = document.getElementById('mobile-action-bar');
+      const videoLibrarySearch = document.getElementById('video-library-search');
+      const videoLibraryTopic = document.getElementById('video-library-topic');
+      const videoLibraryLevel = document.getElementById('video-library-level');
+      const videoLibraryList = document.getElementById('video-library-list');
+      const videoLibraryStatus = document.getElementById('video-library-status');
+      const videoLibraryMoreBtn = document.querySelector('[data-action="video-library-more"]');
+      const videoLibraryRefreshBtn = document.querySelector('[data-action="video-library-refresh"]');
 
       function loadPracticeFromStorage() {
         const stored = storage.load(STORAGE_KEYS.practice, null);
@@ -7256,6 +7790,16 @@
             saveSettings();
           });
         }
+        if (supabaseUrlInput) {
+          supabaseUrlInput.addEventListener('change', () => {
+            saveSettings();
+          });
+        }
+        if (supabaseKeyInput) {
+          supabaseKeyInput.addEventListener('change', () => {
+            saveSettings();
+          });
+        }
         [aiExplainToggle, aiDialogueToggle, aiCorrectionToggle].forEach((toggle) => {
           if (!toggle) return;
           toggle.addEventListener('change', () => {
@@ -7410,6 +7954,7 @@
             cancel: videoCardCancelBtn
           }
         });
+        initVideoLibrary();
         if (!sttSupported) {
           state.speaking.sttEnabled = false;
           sttEnabled.checked = false;
