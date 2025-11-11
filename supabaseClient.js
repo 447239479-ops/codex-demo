@@ -33,6 +33,21 @@
  *   card_id uuid references public.cards(id) on delete cascade
  * );
  *
+ * create table if not exists public.study_notes (
+ *   id uuid primary key,
+ *   video_id uuid references public.videos(id) on delete cascade,
+ *   cue_id text,
+ *   kind text,
+ *   title text,
+ *   body text,
+ *   examples jsonb,
+ *   tags text[],
+ *   cue_text text,
+ *   video_title text,
+ *   created_at timestamptz default now(),
+ *   updated_at timestamptz default now()
+ * );
+ *
  * create table if not exists public.user_progress (
  *   user_id uuid,
  *   video_id uuid references public.videos(id) on delete cascade,
@@ -56,6 +71,7 @@
  * alter table public.subtitles enable row level security;
  * alter table public.cards enable row level security;
  * alter table public.video_cards enable row level security;
+ * alter table public.study_notes enable row level security;
  * alter table public.user_progress enable row level security;
  * alter table public.activations enable row level security;
  * -- 允许登录用户访问自身数据，匿名用户可根据 deviceId 写入进度
@@ -188,6 +204,27 @@
       return { data: data || [] };
     } catch (error) {
       console.warn('加载 Supabase 字幕失败', error);
+      return { data: [], error };
+    }
+  };
+
+  manager.fetchStudyNotes = async function fetchStudyNotes(videoId) {
+    const client = ensureClient();
+    if (!client || !videoId) {
+      return { data: [], error: new Error('unconfigured') };
+    }
+    try {
+      const { data, error } = await client
+        .from('study_notes')
+        .select('id,video_id,cue_id,kind,title,body,examples,tags,updated_at,created_at,cue_text,video_title')
+        .eq('video_id', videoId)
+        .order('updated_at', { ascending: false, nullsFirst: false });
+      if (error) {
+        throw error;
+      }
+      return { data: data || [] };
+    } catch (error) {
+      console.warn('加载 Supabase 精读卡失败', error);
       return { data: [], error };
     }
   };

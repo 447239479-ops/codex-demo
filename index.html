@@ -774,6 +774,11 @@
         box-shadow: inset 0 0 0 2px rgba(255, 214, 102, 0.8);
       }
 
+      .cue.has-note {
+        border-color: rgba(79, 70, 229, 0.35);
+        box-shadow: inset 0 0 0 1px rgba(79, 70, 229, 0.25);
+      }
+
       .cue-time {
         font-size: 0.8rem;
         color: var(--muted);
@@ -784,6 +789,27 @@
 
       .cue-text {
         line-height: 1.6;
+      }
+
+      .cue-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .cue-actions button {
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        background: rgba(79, 70, 229, 0.12);
+        color: #4338ca;
+        box-shadow: none;
+      }
+
+      .cue-actions button:hover,
+      .cue-actions button:focus-visible {
+        background: rgba(79, 70, 229, 0.2);
+        color: #312e81;
       }
 
       .tok {
@@ -850,6 +876,23 @@
         align-items: center;
       }
 
+      .note-indicator {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        background: rgba(79, 70, 229, 0.15);
+        color: #312e81;
+        box-shadow: none;
+      }
+
+      .note-indicator[data-visible='true'] {
+        display: inline-flex;
+      }
+
+      .note-indicator::before {
+        content: '💡';
+      }
+
       .subtitle-search-row input[type='search'] {
         flex: 1;
         min-width: 180px;
@@ -894,6 +937,166 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
+      }
+
+      .note-sidebar {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #f5f3ff;
+        padding: 12px;
+        display: none;
+        gap: 10px;
+      }
+
+      .note-sidebar[data-open='true'] {
+        display: grid;
+      }
+
+      .note-sidebar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .note-sidebar-title {
+        margin: 0;
+        font-size: 1rem;
+        color: #312e81;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+
+      .note-sidebar-body {
+        display: grid;
+        gap: 6px;
+      }
+
+      .note-sidebar-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        font-size: 0.8rem;
+      }
+
+      .note-tag {
+        background: rgba(79, 70, 229, 0.2);
+        color: #312e81;
+        padding: 2px 8px;
+        border-radius: 999px;
+      }
+
+      .study-notes-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .study-notes-header input[type='search'] {
+        flex: 1;
+        min-width: 200px;
+      }
+
+      .study-notes-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .study-note-group {
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+        display: grid;
+        gap: 12px;
+        background: rgba(243, 244, 255, 0.6);
+      }
+
+      .study-note-group h3 {
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .study-note-card {
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        border-radius: 12px;
+        padding: 12px;
+        display: grid;
+        gap: 6px;
+        background: #fff;
+      }
+
+      .study-note-card .note-kind {
+        font-size: 0.8rem;
+        color: #4338ca;
+      }
+
+      .study-note-card .note-body {
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+
+      .study-note-card .note-examples {
+        display: grid;
+        gap: 4px;
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
+      .study-notes-empty {
+        padding: 24px;
+        text-align: center;
+        color: var(--muted);
+        border: 1px dashed var(--border);
+        border-radius: 16px;
+      }
+
+      .note-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.45);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 50;
+      }
+
+      .note-modal[aria-hidden='false'] {
+        display: flex;
+      }
+
+      .note-modal .modal-content {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        max-width: 520px;
+        width: 100%;
+        display: grid;
+        gap: 12px;
+      }
+
+      .note-modal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+
+      .note-modal select,
+      .note-modal textarea,
+      .note-modal input {
+        width: 100%;
+      }
+
+      .note-modal small {
+        color: var(--muted);
       }
 
       .video-card-actions button {
@@ -1365,6 +1568,7 @@
             <a href="#speaking">对话练习</a>
             <a href="#video-library">视频库</a>
             <a href="#video">视频学习</a>
+            <a href="#study-notes">内容精读</a>
             <a href="#grammar">语法速查</a>
             <a href="#content">内容管理</a>
             <a href="#settings">设置</a>
@@ -1719,9 +1923,37 @@
                   data-action="video-add-card"
                   aria-label="将选中内容加入学习卡片"
                 >+卡片</button>
+                <button
+                  type="button"
+                  id="cue-note-indicator"
+                  class="secondary note-indicator"
+                  data-action="video-toggle-note"
+                  aria-label="查看当前字幕的精读笔记"
+                  data-visible="false"
+                >精读</button>
               </div>
               <div id="subsPanel" class="subtitle-panel" tabindex="0" role="listbox" aria-label="字幕列表"></div>
               <div id="word-preview" class="word-preview" aria-live="polite">将鼠标移到单词上查看词卡预览。</div>
+              <aside
+                id="cue-note-sidebar"
+                class="note-sidebar"
+                aria-live="polite"
+                aria-label="字幕精读侧栏"
+                data-open="false"
+              >
+                <div class="note-sidebar-header">
+                  <h3 class="note-sidebar-title">💡 当前精读</h3>
+                  <button
+                    type="button"
+                    class="secondary"
+                    data-action="note-sidebar-close"
+                    aria-label="关闭精读侧栏"
+                  >收起</button>
+                </div>
+                <div id="cue-note-sidebar-body" class="note-sidebar-body">
+                  <p style="margin:0;color:var(--muted);">暂无精读内容，点击字幕右上方的“添加到精读”按钮即可记录重点。</p>
+                </div>
+              </aside>
             </div>
             <div
               id="video-panel-cards"
@@ -1758,6 +1990,66 @@
           </div>
         </div>
       </div>
+
+      <div
+        id="note-modal"
+        class="note-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="note-modal-title"
+        aria-hidden="true"
+      >
+        <div class="modal-content">
+          <h3 id="note-modal-title" style="margin:0;">记录精读笔记</h3>
+          <p style="margin:0;color:var(--muted);font-size:0.9rem;">选择类型并补充要点、例句与标签，便于复习与检索。</p>
+          <label>
+            类型
+            <select id="note-kind" aria-label="选择精读类型">
+              <option value="phrase">短语</option>
+              <option value="collocation">搭配</option>
+              <option value="grammar">语法</option>
+            </select>
+          </label>
+          <label>
+            标题
+            <input id="note-title" type="text" aria-label="精读标题" placeholder="如：No hay de qué 的用法" />
+          </label>
+          <label>
+            重点摘要
+            <textarea id="note-body" rows="3" aria-label="精读内容摘要"></textarea>
+          </label>
+          <label>
+            例句（每行“西语｜中文”）
+            <textarea id="note-examples" rows="3" aria-label="精读例句"></textarea>
+            <small>如：Muchas gracias｜非常感谢。</small>
+          </label>
+          <label>
+            标签（逗号分隔）
+            <input id="note-tags" type="text" aria-label="精读标签" placeholder="礼貌表达,感谢" />
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-action="note-cancel" aria-label="取消精读记录">取消</button>
+            <button type="button" data-action="note-save" aria-label="保存精读记录">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <section id="study-notes" aria-labelledby="study-notes-title">
+        <h2 id="study-notes-title">内容精读</h2>
+        <p>整理视频中值得精读的句子、搭配与语法要点，随时回顾并按照标签快速检索。</p>
+        <div class="study-notes-header">
+          <input
+            type="search"
+            id="study-note-search"
+            placeholder="输入标签或关键词，如：礼貌, 虚拟式"
+            aria-label="搜索精读笔记"
+          />
+          <span style="font-size:0.85rem;color:var(--muted);">提示：标签以逗号分隔，可用于筛选精读卡片。</span>
+        </div>
+        <div id="study-notes-list" class="study-notes-list" aria-live="polite">
+          <div class="study-notes-empty">暂无精读笔记，试着在字幕面板中点击“添加到精读”按钮。</div>
+        </div>
+      </section>
 
       <section id="grammar" aria-labelledby="grammar-title">
         <h2 id="grammar-title">语法速查</h2>
@@ -2083,7 +2375,8 @@
         ops: 'es-app:ops',
         device: 'es-app:deviceId',
         profile: 'es-app:profile',
-        entitlement: 'es-app:entitlement'
+        entitlement: 'es-app:entitlement',
+        notes: 'es-app:study-notes'
       };
 
       const DEFAULT_SETTINGS = {
@@ -3503,6 +3796,258 @@
         return { init, recordPractice, recordSpeaking, getSummary, getSeries, getDailySnapshot };
       })();
 
+      /**
+       * @typedef {Object} StudyNote
+       * @property {string} id
+       * @property {string} videoId
+       * @property {string} videoTitle
+       * @property {string} cueId
+       * @property {string} cueText
+       * @property {'collocation'|'phrase'|'grammar'} kind
+       * @property {string} title
+       * @property {string} body
+       * @property {{es:string, zh:string}[]} examples
+       * @property {string[]} tags
+       * @property {number} createdAt
+       * @property {number} updatedAt
+       * @property {'local'|'remote'} source
+       * @property {string[]} relatedCards
+       */
+
+      const studyNotes = (() => {
+        /** @type {StudyNote[]} */
+        let notes = [];
+        /** @type {Set<(notes:StudyNote[])=>void>} */
+        const listeners = new Set();
+
+        /**
+         * @param {any} raw
+         * @returns {StudyNote|null}
+         */
+        function normalize(raw) {
+          if (!raw) return null;
+          const allowedKinds = ['collocation', 'phrase', 'grammar'];
+          const videoId = String(raw.videoId || raw.video_id || state.video.videoId || 'local-demo').trim();
+          const cueId = String(raw.cueId || raw.cue_id || '').trim();
+          const kindRaw = String(raw.kind || '').trim().toLowerCase();
+          const kind = allowedKinds.includes(kindRaw) ? kindRaw : 'phrase';
+          const title = String(raw.title || '').trim();
+          const body = String(raw.body || '').trim();
+          const cueText = String(raw.cueText || raw.cue_text || raw.phrase || raw.text || '').trim();
+          if (!title && !body && !cueText) {
+            return null;
+          }
+          const examples = Array.isArray(raw.examples)
+            ? raw.examples
+                .map((item) => {
+                  if (!item) return null;
+                  if (typeof item === 'string') {
+                    const [es = '', zh = ''] = item.split('|');
+                    return { es: es.trim(), zh: zh.trim() };
+                  }
+                  if (typeof item === 'object') {
+                    const es = String(item.es || item.spanish || '').trim();
+                    const zh = String(item.zh || item.chinese || item.cn || '').trim();
+                    if (!es && !zh) return null;
+                    return { es, zh };
+                  }
+                  return null;
+                })
+                .filter((item) => item && (item.es || item.zh))
+            : [];
+          const tags = Array.isArray(raw.tags)
+            ? raw.tags.map((tag) => String(tag || '').trim()).filter(Boolean)
+            : String(raw.tags || '')
+                .split(/[,，]/)
+                .map((tag) => tag.trim())
+                .filter(Boolean);
+          const now = Date.now();
+          const createdAt = Number.isFinite(Number(raw.createdAt)) ? Number(raw.createdAt) : now;
+          const updatedAt = Number.isFinite(Number(raw.updatedAt)) ? Number(raw.updatedAt) : now;
+          const relatedCards = Array.isArray(raw.relatedCards)
+            ? raw.relatedCards.map((id) => String(id || '').trim()).filter(Boolean)
+            : [];
+          return {
+            id: String(raw.id || `note-${now}-${Math.random().toString(16).slice(2)}`),
+            videoId: videoId || 'local-demo',
+            videoTitle: String(raw.videoTitle || raw.video_title || state.video.videoTitle || '').trim(),
+            cueId,
+            cueText,
+            kind,
+            title: title || cueText || '精读笔记',
+            body,
+            examples,
+            tags,
+            createdAt,
+            updatedAt,
+            source: raw.source === 'remote' ? 'remote' : 'local',
+            relatedCards
+          };
+        }
+
+        function clone(note) {
+          return {
+            ...note,
+            examples: note.examples.map((item) => ({ ...item })),
+            tags: note.tags.slice(),
+            relatedCards: note.relatedCards.slice()
+          };
+        }
+
+        function persist() {
+          storage.save(
+            STORAGE_KEYS.notes,
+            notes.filter((note) => note.source === 'local')
+          );
+        }
+
+        function notify() {
+          const snapshot = getAll();
+          listeners.forEach((fn) => {
+            try {
+              fn(snapshot);
+            } catch (error) {
+              console.warn('studyNotes listener error', error);
+            }
+          });
+        }
+
+        function init() {
+          const stored = storage.load(STORAGE_KEYS.notes, []);
+          if (Array.isArray(stored)) {
+            notes = stored
+              .map((item) => normalize({ ...item, source: 'local' }))
+              .filter(Boolean);
+          } else {
+            notes = [];
+          }
+          persist();
+          return getAll();
+        }
+
+        function getAll() {
+          return notes.map((note) => clone(note));
+        }
+
+        /**
+         * @param {string} videoId
+         * @returns {StudyNote[]}
+         */
+        function getByVideo(videoId) {
+          if (!videoId) return [];
+          return notes.filter((note) => note.videoId === videoId).map((note) => clone(note));
+        }
+
+        /**
+         * @param {string} videoId
+         * @param {string} cueId
+         * @returns {StudyNote[]}
+         */
+        function getByCue(videoId, cueId) {
+          if (!videoId) return [];
+          return notes
+            .filter((note) => note.videoId === videoId && (!cueId || note.cueId === cueId))
+            .map((note) => clone(note));
+        }
+
+        /**
+         * @param {Partial<StudyNote>} payload
+         * @returns {StudyNote|null}
+         */
+        function add(payload) {
+          const normalized = normalize({ ...payload, source: 'local' });
+          if (!normalized) return null;
+          const now = Date.now();
+          const existingIndex = notes.findIndex(
+            (note) =>
+              note.source === 'local' &&
+              note.videoId === normalized.videoId &&
+              note.cueId === normalized.cueId &&
+              note.title.toLowerCase() === normalized.title.toLowerCase()
+          );
+          if (existingIndex >= 0) {
+            const updated = {
+              ...notes[existingIndex],
+              ...normalized,
+              createdAt: notes[existingIndex].createdAt,
+              updatedAt: now,
+              source: 'local'
+            };
+            notes[existingIndex] = updated;
+            persist();
+            notify();
+            return clone(updated);
+          }
+          const note = {
+            ...normalized,
+            id: normalized.id || `note-${now}-${Math.random().toString(16).slice(2)}`,
+            createdAt: now,
+            updatedAt: now,
+            source: 'local'
+          };
+          notes.push(note);
+          persist();
+          notify();
+          return clone(note);
+        }
+
+        /**
+         * @param {string} id
+         * @param {Partial<StudyNote>} patch
+         */
+        function update(id, patch) {
+          const index = notes.findIndex((note) => note.id === id);
+          if (index < 0) return;
+          notes[index] = {
+            ...notes[index],
+            ...patch,
+            updatedAt: Date.now()
+          };
+          persist();
+          notify();
+        }
+
+        /**
+         * 关联词卡信息
+         * @param {{id:string,videoId?:string,cueId?:string}} card
+         */
+        function attachCardReference(card) {
+          if (!card || !card.id) return;
+          const videoId = card.videoId || '';
+          const cueId = card.cueId || '';
+          if (!videoId || !cueId) return;
+          let changed = false;
+          notes.forEach((note, index) => {
+            if (note.videoId === videoId && note.cueId === cueId) {
+              if (!note.relatedCards.includes(card.id)) {
+                notes[index] = {
+                  ...note,
+                  relatedCards: note.relatedCards.concat(card.id),
+                  updatedAt: Date.now()
+                };
+                changed = true;
+              }
+            }
+          });
+          if (changed) {
+            persist();
+            notify();
+          }
+        }
+
+        /**
+         * @param {(notes:StudyNote[])=>void} handler
+         * @returns {() => void}
+         */
+        function subscribe(handler) {
+          if (typeof handler !== 'function') return () => {};
+          listeners.add(handler);
+          return () => listeners.delete(handler);
+        }
+
+        return { init, getAll, getByVideo, getByCue, add, update, attachCardReference, subscribe };
+      })();
+
       const srs = (() => {
         let cards = [];
         let syncHandler = null;
@@ -3527,7 +4072,23 @@
           const intervalDaysRaw = Number.isFinite(Number(raw.intervalDays)) ? Number(raw.intervalDays) : 1;
           const intervalDays = Math.max(1, Math.round(intervalDaysRaw));
           const cloudId = typeof raw.cloudId === 'string' && raw.cloudId ? raw.cloudId : null;
-          return { id, phrase, zh, note, level, dueAt: dueAtRaw, src, intervalDays, cloudId };
+          const videoId = typeof raw.videoId === 'string' ? raw.videoId : typeof raw.video_id === 'string' ? raw.video_id : '';
+          const cueId = typeof raw.cueId === 'string' ? raw.cueId : typeof raw.cue_id === 'string' ? raw.cue_id : '';
+          const videoTitle = typeof raw.videoTitle === 'string' ? raw.videoTitle : String(raw.video_title || '');
+          return {
+            id,
+            phrase,
+            zh,
+            note,
+            level,
+            dueAt: dueAtRaw,
+            src,
+            intervalDays,
+            cloudId,
+            videoId,
+            cueId,
+            videoTitle
+          };
         }
 
         /**
@@ -3596,11 +4157,15 @@
             level: draft.level || 1,
             dueAt: Date.now(),
             src: payload.src || draft.src || 'custom',
-            intervalDays: 1
+            intervalDays: 1,
+            videoId: typeof payload.videoId === 'string' ? payload.videoId : draft.videoId || '',
+            cueId: typeof payload.cueId === 'string' ? payload.cueId : draft.cueId || '',
+            videoTitle: typeof payload.videoTitle === 'string' ? payload.videoTitle : draft.videoTitle || ''
           };
           cards.push(newCard);
           persist();
           notifySync(newCard, 'insert');
+          studyNotes.attachCardReference?.(newCard);
           return { ...newCard };
         }
 
@@ -4474,7 +5039,7 @@
        */
       function renderCues(container, cues, options = {}) {
         if (!container) return;
-        const { activeIndex = -1, selectedIndex = -1, query = '' } = options;
+        const { activeIndex = -1, selectedIndex = -1, query = '', noteCueMap = null } = options;
         const highlight = typeof query === 'string' ? query.trim().toLowerCase() : '';
         container.innerHTML = '';
         const fragment = document.createDocumentFragment();
@@ -4490,6 +5055,13 @@
           item.setAttribute('role', 'option');
           item.setAttribute('aria-selected', index === selectedIndex ? 'true' : 'false');
           item.tabIndex = 0;
+          const noteCount = noteCueMap && cue.id && noteCueMap[cue.id] ? noteCueMap[cue.id] : 0;
+          if (noteCount) {
+            item.classList.add('has-note');
+            item.dataset.notes = String(noteCount);
+          } else {
+            item.removeAttribute('data-notes');
+          }
           const time = document.createElement('div');
           time.className = 'cue-time';
           time.textContent = `${formatSeconds(cue.start)} ~ ${formatSeconds(cue.end)}`;
@@ -4512,7 +5084,16 @@
           } else {
             text.textContent = cue.text;
           }
-          item.append(time, text);
+          const actions = document.createElement('div');
+          actions.className = 'cue-actions';
+          const noteButton = document.createElement('button');
+          noteButton.type = 'button';
+          noteButton.dataset.action = 'cue-add-note';
+          noteButton.dataset.index = String(index);
+          noteButton.setAttribute('aria-label', `将字幕第 ${index + 1} 条加入精读`);
+          noteButton.textContent = noteCount ? `追加精读 (${noteCount})` : '添加到精读';
+          actions.appendChild(noteButton);
+          item.append(time, text, actions);
           fragment.appendChild(item);
         });
         container.appendChild(fragment);
@@ -5002,10 +5583,23 @@
           search: '',
           lastToken: '',
           lastCueIndex: -1,
-          cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 },
+          cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1, videoId: '', cueId: '' },
+          noteDraft: {
+            kind: 'phrase',
+            title: '',
+            body: '',
+            examples: '',
+            tags: '',
+            cueIndex: -1,
+            cueId: ''
+          },
           cloudflareAccountId: '',
           streamVideoId: '',
-          durationHint: 0
+          durationHint: 0,
+          videoId: 'local-demo',
+          videoTitle: '示例视频',
+          noteSidebarOpen: false,
+          noteCueMap: {}
         },
         library: {
           items: [],
@@ -5024,6 +5618,11 @@
           supabaseUrl: '',
           supabaseAnonKey: '',
           cloudSyncCards: false
+        },
+        notes: {
+          filter: '',
+          remoteByVideo: {},
+          groups: []
         },
         cefr: {
           responses: {}
@@ -5554,6 +6153,20 @@
         let modalSaveButton = null;
         /** @type {HTMLButtonElement|null} */
         let modalCancelButton = null;
+        /** @type {HTMLElement|null} */
+        let noteModal = null;
+        /** @type {{kind:HTMLSelectElement|null,title:HTMLInputElement|null,body:HTMLTextAreaElement|null,examples:HTMLTextAreaElement|null,tags:HTMLInputElement|null}} */
+        let noteFields = { kind: null, title: null, body: null, examples: null, tags: null };
+        /** @type {HTMLButtonElement|null} */
+        let noteSaveButton = null;
+        /** @type {HTMLButtonElement|null} */
+        let noteCancelButton = null;
+        /** @type {HTMLButtonElement|null} */
+        let noteIndicatorButton = null;
+        /** @type {HTMLElement|null} */
+        let noteSidebar = null;
+        /** @type {HTMLElement|null} */
+        let noteSidebarBody = null;
         let activeTab = 'subtitles';
         let currentCueIndex = -1;
         let loopRuntime = { mode: null, remaining: 0, total: 0 };
@@ -5580,7 +6193,13 @@
          *  cardList?: HTMLElement|null,
          *  modal?: HTMLElement|null,
          *  modalFields?: { phrase?: HTMLTextAreaElement|null, zh?: HTMLInputElement|null, note?: HTMLTextAreaElement|null },
-         *  modalButtons?: { save?: HTMLButtonElement|null, cancel?: HTMLButtonElement|null }
+         *  modalButtons?: { save?: HTMLButtonElement|null, cancel?: HTMLButtonElement|null },
+         *  noteModal?: HTMLElement|null,
+         *  noteFields?: { kind?: HTMLSelectElement|null, title?: HTMLInputElement|null, body?: HTMLTextAreaElement|null, examples?: HTMLTextAreaElement|null, tags?: HTMLInputElement|null },
+         *  noteButtons?: { save?: HTMLButtonElement|null, cancel?: HTMLButtonElement|null },
+         *  noteIndicator?: HTMLButtonElement|null,
+         *  noteSidebar?: HTMLElement|null,
+         *  noteSidebarBody?: HTMLElement|null
          * }} elements
          */
         function init(elements) {
@@ -5609,6 +6228,19 @@
           };
           modalSaveButton = elements.modalButtons?.save || null;
           modalCancelButton = elements.modalButtons?.cancel || null;
+          noteModal = elements.noteModal || null;
+          noteFields = {
+            kind: elements.noteFields?.kind || null,
+            title: elements.noteFields?.title || null,
+            body: elements.noteFields?.body || null,
+            examples: elements.noteFields?.examples || null,
+            tags: elements.noteFields?.tags || null
+          };
+          noteSaveButton = elements.noteButtons?.save || null;
+          noteCancelButton = elements.noteButtons?.cancel || null;
+          noteIndicatorButton = elements.noteIndicator || null;
+          noteSidebar = elements.noteSidebar || null;
+          noteSidebarBody = elements.noteSidebarBody || null;
 
           if (html5Player) {
             html5Player.addEventListener('loadedmetadata', () => {
@@ -5638,6 +6270,19 @@
           cardList?.addEventListener('click', handleCardListClick);
           modalSaveButton?.addEventListener('click', saveModalCard);
           modalCancelButton?.addEventListener('click', closeModal);
+          noteSaveButton?.addEventListener('click', saveNoteFromModal);
+          noteCancelButton?.addEventListener('click', () => {
+            captureNoteDraft();
+            closeNoteModal();
+          });
+          noteIndicatorButton?.addEventListener('click', () => {
+            toggleNoteSidebar();
+          });
+          noteSidebar?.addEventListener('click', (event) => {
+            if (event.target.closest('button[data-action="note-sidebar-close"]')) {
+              closeNoteSidebar();
+            }
+          });
 
           if (modal) {
             modal.addEventListener('click', (event) => {
@@ -5646,6 +6291,17 @@
               }
             });
           }
+
+          if (noteModal) {
+            noteModal.addEventListener('click', (event) => {
+              if (event.target === noteModal) {
+                captureNoteDraft();
+                closeNoteModal();
+              }
+            });
+          }
+
+          document.addEventListener('keydown', handleVideoKeydown);
 
           if (wordPreview) {
             wordPreview.dataset.default = wordPreview.textContent || '';
@@ -5859,7 +6515,8 @@
           renderCues(panel, state.video.cues, {
             activeIndex: currentCueIndex,
             selectedIndex: state.video.selectedIndex,
-            query: state.video.search
+            query: state.video.search,
+            noteCueMap: state.video.noteCueMap
           });
           if (state.video.selectedIndex >= 0) {
             setSelectedIndex(state.video.selectedIndex, false, false, true);
@@ -5870,6 +6527,7 @@
           if (state.video.search) {
             scrollFirstMatchIntoView();
           }
+          updateCueNoteIndicator();
         }
 
         function handleTabSwitch(event) {
@@ -5953,18 +6611,139 @@
             userNotifier.notify('请填写西语原句/词与中文释义。', 'warning');
             return;
           }
-          const created = srs.addCard({ phrase, zh, note, src: 'subtitle' });
+          const cueIndex = state.video.cardDraft.cueIndex;
+          const cue = cueIndex >= 0 ? state.video.cues[cueIndex] : null;
+          const created = srs.addCard({
+            phrase,
+            zh,
+            note,
+            src: 'subtitle',
+            videoId: state.video.videoId,
+            cueId: cue?.id || state.video.cardDraft.cueId || '',
+            videoTitle: state.video.videoTitle
+          });
           if (created) {
             showToast('学习卡片已保存，记得复习！');
             if (modalFields.phrase) modalFields.phrase.value = '';
             if (modalFields.zh) modalFields.zh.value = '';
             if (modalFields.note) modalFields.note.value = '';
-            state.video.cardDraft = { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 };
+            state.video.cardDraft = {
+              phrase: '',
+              zh: '',
+              note: '',
+              src: 'subtitle',
+              cueIndex: -1,
+              videoId: state.video.videoId,
+              cueId: ''
+            };
             closeModal();
             updateCardsUI();
+            refreshCueNotes();
           } else {
             userNotifier.notify('该卡片已存在，无需重复添加。', 'info');
           }
+        }
+
+        function captureNoteDraft() {
+          state.video.noteDraft = {
+            kind: noteFields.kind?.value || state.video.noteDraft.kind || 'phrase',
+            title: noteFields.title?.value || '',
+            body: noteFields.body?.value || '',
+            examples: noteFields.examples?.value || '',
+            tags: noteFields.tags?.value || '',
+            cueIndex: state.video.noteDraft.cueIndex,
+            cueId: state.video.noteDraft.cueId || ''
+          };
+        }
+
+        function openNoteModal(index) {
+          if (!noteModal) return;
+          const cue = state.video.cues[index];
+          if (!cue) {
+            userNotifier.notify('请选择有效的字幕行。', 'warning');
+            return;
+          }
+          state.video.noteDraft.cueIndex = index;
+          state.video.noteDraft.cueId = cue.id || '';
+          const defaults = {
+            kind: state.video.noteDraft.kind || 'phrase',
+            title: state.video.noteDraft.title || cue.text || '',
+            body: state.video.noteDraft.body || '',
+            examples: state.video.noteDraft.examples || '',
+            tags: state.video.noteDraft.tags || ''
+          };
+          if (noteFields.kind) noteFields.kind.value = defaults.kind;
+          if (noteFields.title) noteFields.title.value = defaults.title;
+          if (noteFields.body) noteFields.body.value = defaults.body;
+          if (noteFields.examples) noteFields.examples.value = defaults.examples;
+          if (noteFields.tags) noteFields.tags.value = defaults.tags;
+          noteModal.setAttribute('aria-hidden', 'false');
+          noteFields.title?.focus();
+        }
+
+        function closeNoteModal() {
+          if (!noteModal) return;
+          noteModal.setAttribute('aria-hidden', 'true');
+        }
+
+        function parseExamples(text) {
+          return text
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const [es = '', zh = ''] = line.split(/[|｜]/);
+              return { es: es.trim(), zh: zh.trim() };
+            })
+            .filter((item) => item.es || item.zh);
+        }
+
+        function saveNoteFromModal() {
+          if (!noteModal) return;
+          const index = state.video.noteDraft.cueIndex >= 0 ? state.video.noteDraft.cueIndex : state.video.selectedIndex;
+          const cue = index >= 0 ? state.video.cues[index] : null;
+          if (!cue) {
+            userNotifier.notify('请先选择需要记录的字幕句子。', 'warning');
+            return;
+          }
+          const kind = noteFields.kind?.value || 'phrase';
+          const title = noteFields.title?.value?.trim() || cue.text || '';
+          const body = noteFields.body?.value?.trim() || '';
+          const examplesText = noteFields.examples?.value || '';
+          const tagsText = noteFields.tags?.value || '';
+          const examples = parseExamples(examplesText);
+          const tags = tagsText
+            .split(/[,，]/)
+            .map((tag) => tag.trim())
+            .filter(Boolean);
+          const result = studyNotes.add({
+            kind,
+            title,
+            body,
+            examples,
+            tags,
+            videoId: state.video.videoId,
+            videoTitle: state.video.videoTitle,
+            cueId: cue.id || '',
+            cueText: cue.text || ''
+          });
+          if (!result) {
+            userNotifier.notify('保存精读笔记失败，请检查填写内容。', 'error');
+            return;
+          }
+          showToast('精读笔记已保存，记得在“内容精读”中复盘。');
+          state.video.noteDraft = {
+            kind,
+            title: '',
+            body: '',
+            examples: '',
+            tags: '',
+            cueIndex: -1,
+            cueId: ''
+          };
+          closeNoteModal();
+          refreshCueNotes();
+          updateStudyNotesSection();
         }
 
         function getSelectedCueText() {
@@ -5976,6 +6755,155 @@
           const range = selection.getRangeAt(0);
           if (!panel.contains(range.commonAncestorContainer)) return '';
           return text.replace(/\s+/g, ' ');
+        }
+
+        function getAllNotesForCurrentVideo() {
+          const videoId = state.video.videoId;
+          const local = Array.isArray(studyNotes.getByVideo?.(videoId)) ? studyNotes.getByVideo(videoId) : [];
+          const remote = Array.isArray(state.notes.remoteByVideo?.[videoId])
+            ? state.notes.remoteByVideo[videoId].map((note) => ({ ...note, examples: note.examples?.map((item) => ({ ...item })) || [], tags: note.tags ? note.tags.slice() : [], relatedCards: Array.isArray(note.relatedCards) ? note.relatedCards.slice() : [] }))
+            : [];
+          return [...local, ...remote];
+        }
+
+        function buildCueNoteMap() {
+          const map = {};
+          getAllNotesForCurrentVideo().forEach((note) => {
+            if (!note.cueId) return;
+            map[note.cueId] = (map[note.cueId] || 0) + 1;
+          });
+          state.video.noteCueMap = map;
+        }
+
+        function renderNoteSidebarContent() {
+          if (!noteSidebarBody) return;
+          const index = state.video.selectedIndex >= 0 ? state.video.selectedIndex : currentCueIndex;
+          const cue = index >= 0 ? state.video.cues[index] : null;
+          noteSidebarBody.innerHTML = '';
+          if (!cue) {
+            noteSidebarBody.innerHTML = '<p style="margin:0;color:var(--muted);">请选择字幕句子后查看精读内容。</p>';
+            return;
+          }
+          const notes = getAllNotesForCurrentVideo().filter((note) => note.cueId && note.cueId === cue.id);
+          if (!notes.length) {
+            noteSidebarBody.innerHTML = '<p style="margin:0;color:var(--muted);">当前字幕暂无精读记录。</p>';
+            return;
+          }
+          notes.forEach((note) => {
+            const item = document.createElement('article');
+            item.className = 'study-note-card';
+            const header = document.createElement('div');
+            header.className = 'note-kind';
+            header.textContent = `${note.kind === 'grammar' ? '语法' : note.kind === 'collocation' ? '搭配' : '短语'} · ${note.source === 'remote' ? '云端' : '本地'}`;
+            const title = document.createElement('strong');
+            title.textContent = note.title || cue.text || '';
+            const body = document.createElement('div');
+            body.className = 'note-body';
+            body.textContent = note.body || '（待补充）';
+            item.append(header, title, body);
+            if (note.examples && note.examples.length) {
+              const examplesEl = document.createElement('div');
+              examplesEl.className = 'note-examples';
+              note.examples.forEach((example) => {
+                const line = document.createElement('div');
+                line.textContent = example.zh ? `${example.es} ｜ ${example.zh}` : example.es;
+                examplesEl.appendChild(line);
+              });
+              item.appendChild(examplesEl);
+            }
+            if (note.tags && note.tags.length) {
+              const tagsEl = document.createElement('div');
+              tagsEl.className = 'note-sidebar-tags';
+              note.tags.forEach((tag) => {
+                const pill = document.createElement('span');
+                pill.className = 'note-tag';
+                pill.textContent = tag;
+                tagsEl.appendChild(pill);
+              });
+              item.appendChild(tagsEl);
+            }
+            if (note.relatedCards && note.relatedCards.length) {
+              const hint = document.createElement('div');
+              hint.style.fontSize = '0.8rem';
+              hint.style.color = 'var(--muted)';
+              hint.textContent = `已关联 ${note.relatedCards.length} 张学习卡片。`;
+              item.appendChild(hint);
+            }
+            noteSidebarBody.appendChild(item);
+          });
+        }
+
+        function closeNoteSidebar() {
+          state.video.noteSidebarOpen = false;
+          noteSidebar?.setAttribute('data-open', 'false');
+        }
+
+        function toggleNoteSidebar(force) {
+          if (!noteSidebar || !noteIndicatorButton) return;
+          const index = state.video.selectedIndex >= 0 ? state.video.selectedIndex : currentCueIndex;
+          const cue = index >= 0 ? state.video.cues[index] : null;
+          const count = cue?.id ? state.video.noteCueMap[cue.id] || 0 : 0;
+          if (!count) {
+            userNotifier.notify('当前字幕暂无精读笔记。', 'info');
+            return;
+          }
+          const nextState = typeof force === 'boolean' ? force : !state.video.noteSidebarOpen;
+          state.video.noteSidebarOpen = nextState;
+          noteSidebar.setAttribute('data-open', nextState ? 'true' : 'false');
+          if (nextState) {
+            renderNoteSidebarContent();
+          }
+        }
+
+        function updateCueNoteIndicator() {
+          if (!noteIndicatorButton) return;
+          const index = state.video.selectedIndex >= 0 ? state.video.selectedIndex : currentCueIndex;
+          const cue = index >= 0 ? state.video.cues[index] : null;
+          const count = cue?.id ? state.video.noteCueMap[cue.id] || 0 : 0;
+          const visible = count > 0;
+          noteIndicatorButton.dataset.visible = visible ? 'true' : 'false';
+          noteIndicatorButton.disabled = !visible;
+          noteIndicatorButton.tabIndex = visible ? 0 : -1;
+          noteIndicatorButton.textContent = visible ? `精读 (${count})` : '精读';
+          if (!visible) {
+            closeNoteSidebar();
+          } else if (state.video.noteSidebarOpen) {
+            renderNoteSidebarContent();
+          }
+        }
+
+        function refreshCueNotes(rerender = true) {
+          buildCueNoteMap();
+          if (rerender && panel) {
+            renderCues(panel, state.video.cues, {
+              activeIndex: currentCueIndex,
+              selectedIndex: state.video.selectedIndex,
+              query: state.video.search,
+              noteCueMap: state.video.noteCueMap
+            });
+            if (state.video.selectedIndex >= 0) {
+              panel.setAttribute('aria-activedescendant', `cue-${state.video.selectedIndex}`);
+            }
+          }
+          updateCueNoteIndicator();
+        }
+
+        function handleVideoKeydown(event) {
+          if (event.key !== 'Escape') return;
+          if (noteModal && noteModal.getAttribute('aria-hidden') === 'false') {
+            captureNoteDraft();
+            closeNoteModal();
+            event.preventDefault();
+            return;
+          }
+          if (modal && modal.hidden === false) {
+            closeModal();
+            event.preventDefault();
+            return;
+          }
+          if (state.video.noteSidebarOpen) {
+            closeNoteSidebar();
+          }
         }
 
         function scrollFirstMatchIntoView() {
@@ -6081,13 +7009,26 @@
             zh: state.video.cardDraft.zh || '',
             note: state.video.cardDraft.note || '',
             src: 'subtitle',
-            cueIndex: -1
+            cueIndex: -1,
+            videoId: state.video.videoId,
+            cueId: ''
           };
+          state.video.noteDraft = {
+            kind: 'phrase',
+            title: '',
+            body: '',
+            examples: '',
+            tags: '',
+            cueIndex: -1,
+            cueId: ''
+          };
+          buildCueNoteMap();
           if (panel) {
             renderCues(panel, cues, {
               activeIndex: -1,
               selectedIndex: state.video.selectedIndex,
-              query: state.video.search
+              query: state.video.search,
+              noteCueMap: state.video.noteCueMap
             });
             if (state.video.selectedIndex >= 0) {
               panel.setAttribute('aria-activedescendant', `cue-${state.video.selectedIndex}`);
@@ -6105,9 +7046,20 @@
           if (state.video.search) {
             scrollFirstMatchIntoView();
           }
+          updateCueNoteIndicator();
         }
 
         function handleCueClick(event) {
+          const noteButton = event.target.closest('button[data-action="cue-add-note"]');
+          if (noteButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            const idx = Number(noteButton.dataset.index);
+            if (Number.isInteger(idx)) {
+              openNoteModal(idx);
+            }
+            return;
+          }
           const cueEl = event.target.closest('.cue');
           if (!cueEl) return;
           const index = Number(cueEl.dataset.index);
@@ -6119,11 +7071,15 @@
             state.video.lastToken = phrase;
             state.video.cardDraft.phrase = phrase;
             state.video.cardDraft.cueIndex = index;
+            state.video.cardDraft.cueId = state.video.cues[index]?.id || state.video.cardDraft.cueId || '';
+            state.video.cardDraft.videoId = state.video.videoId;
             return;
           }
           state.video.lastToken = '';
           setSelectedIndex(index, true, true);
           state.video.cardDraft.phrase = state.video.cues[index]?.text || state.video.cardDraft.phrase;
+          state.video.cardDraft.cueId = state.video.cues[index]?.id || state.video.cardDraft.cueId || '';
+          state.video.cardDraft.videoId = state.video.videoId;
         }
 
         function handleCueDblClick(event) {
@@ -6243,9 +7199,10 @@
               if (state.video.selectedIndex === -1) {
                 setSelectedIndex(index, false, false);
               }
-            }
-            state.video.lastCueIndex = index;
           }
+          state.video.lastCueIndex = index;
+          updateCueNoteIndicator();
+        }
         }
 
         function scrollCueIntoView(element) {
@@ -6300,16 +7257,21 @@
           }
           state.video.selectedIndex = index;
           state.video.cardDraft.cueIndex = index;
-          state.video.cardDraft.phrase = state.video.cues[index]?.text || state.video.cardDraft.phrase || '';
+          const cue = state.video.cues[index];
+          state.video.cardDraft.phrase = cue?.text || state.video.cardDraft.phrase || '';
+          state.video.cardDraft.cueId = cue?.id || state.video.cardDraft.cueId || '';
+          state.video.cardDraft.videoId = state.video.videoId;
+          state.video.noteDraft.cueIndex = index;
+          state.video.noteDraft.cueId = cue?.id || '';
           state.video.lastCueIndex = index;
           state.video.lastToken = '';
           if (shouldSeek && adapter) {
-            const cue = state.video.cues[index];
             adapter.seekTo(cue.start);
             if (autoPlay) {
               adapter.play().catch(() => {});
             }
           }
+          updateCueNoteIndicator();
         }
 
         function updateLoopStatus() {
@@ -6440,7 +7402,13 @@
           refreshPlayerAdapter();
         }
 
-        return { init, updateStreamSource, refreshPlayerAdapter, loadSubtitleFromUrl };
+        return {
+          init,
+          updateStreamSource,
+          refreshPlayerAdapter,
+          loadSubtitleFromUrl,
+          refreshNotes: () => refreshCueNotes(true)
+        };
       })();
 
       function cloneCardsWithSchedule(baseCards, startTime = Date.now()) {
@@ -7571,6 +8539,120 @@
         }
       }
 
+      function normalizeRemoteStudyNote(raw, videoMeta = {}) {
+        if (!raw) return null;
+        const ensureString = (value) => (typeof value === 'string' ? value.trim() : '');
+        const allowedKinds = ['collocation', 'phrase', 'grammar'];
+        const rawKind = ensureString(raw.kind).toLowerCase();
+        const kind = allowedKinds.includes(rawKind) ? rawKind : 'phrase';
+        const videoId = ensureString(raw.video_id || raw.videoId || videoMeta.id || state.video.videoId || 'local-demo');
+        const cueId = ensureString(raw.cue_id || raw.cueId);
+        const cueText = ensureString(raw.cue_text || raw.cueText || raw.phrase || raw.text);
+        const title = ensureString(raw.title) || cueText || '精读笔记';
+        const body = ensureString(raw.body);
+        const parseExamples = (source) => {
+          if (Array.isArray(source)) {
+            return source
+              .map((item) => {
+                if (!item) return null;
+                if (typeof item === 'string') {
+                  const [es = '', zh = ''] = item.split(/[|｜]/);
+                  return { es: es.trim(), zh: zh.trim() };
+                }
+                if (typeof item === 'object') {
+                  const es = ensureString(item.es || item.spanish);
+                  const zh = ensureString(item.zh || item.chinese || item.cn);
+                  if (!es && !zh) return null;
+                  return { es, zh };
+                }
+                return null;
+              })
+              .filter((item) => item && (item.es || item.zh));
+          }
+          if (typeof source === 'string' && source.trim()) {
+            return source
+              .split(/\n+/)
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => {
+                const [es = '', zh = ''] = line.split(/[|｜]/);
+                return { es: es.trim(), zh: zh.trim() };
+              })
+              .filter((item) => item.es || item.zh);
+          }
+          return [];
+        };
+        const tags = Array.isArray(raw.tags)
+          ? raw.tags.map((tag) => ensureString(tag)).filter(Boolean)
+          : ensureString(raw.tags)
+              .split(/[,，]/)
+              .map((tag) => tag.trim())
+              .filter(Boolean);
+        const toTimestamp = (value) => {
+          if (!value) return Date.now();
+          const time = new Date(value).getTime();
+          return Number.isFinite(time) ? time : Date.now();
+        };
+        const createdAt = toTimestamp(raw.created_at || raw.createdAt);
+        const updatedAt = toTimestamp(raw.updated_at || raw.updatedAt || createdAt);
+        const videoTitle = ensureString(
+          raw.video_title || raw.videoTitle || videoMeta.title || state.video.videoTitle || ''
+        );
+        const relatedCards = Array.isArray(raw.relatedCards)
+          ? raw.relatedCards.map((id) => ensureString(id)).filter(Boolean)
+          : [];
+        const id = ensureString(raw.id) || `remote-note-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        return {
+          id,
+          videoId: videoId || 'local-demo',
+          videoTitle: videoTitle || '云端视频',
+          cueId,
+          cueText,
+          kind,
+          title,
+          body,
+          examples: parseExamples(raw.examples),
+          tags,
+          createdAt,
+          updatedAt,
+          source: 'remote',
+          relatedCards
+        };
+      }
+
+      async function loadRemoteStudyNotes(videoItem) {
+        const videoId = videoItem?.id;
+        if (!videoId) return [];
+        if (!state.notes.remoteByVideo) {
+          state.notes.remoteByVideo = {};
+        }
+        if (!window.supabaseManager?.isReady?.() || !window.supabaseManager?.fetchStudyNotes) {
+          state.notes.remoteByVideo[videoId] = [];
+          return [];
+        }
+        try {
+          const result = await window.supabaseManager.fetchStudyNotes(videoId);
+          if (result.error) {
+            throw result.error;
+          }
+          const records = Array.isArray(result.data) ? result.data : [];
+          const normalized = records
+            .map((item) => normalizeRemoteStudyNote(item, videoItem))
+            .filter(Boolean);
+          state.notes.remoteByVideo[videoId] = normalized;
+          updateStudyNotesSection();
+          videoLearning.refreshNotes?.();
+          return normalized;
+        } catch (error) {
+          console.warn('加载云端精读笔记失败', error);
+          state.notes.remoteByVideo[videoId] = [];
+          userNotifier.notify('云端精读笔记加载失败，将仅显示本地记录。', 'warning');
+          updateStudyNotesSection();
+          videoLearning.refreshNotes?.();
+          return [];
+        }
+      }
+
       async function openLibraryVideo(videoId) {
         if (!videoId) return;
         const target = state.library.items.find((item) => item.id === videoId);
@@ -7589,6 +8671,15 @@
           }
         }
         state.library.current = { ...target };
+        state.video.videoId = target.id || 'local-demo';
+        state.video.videoTitle = target.title || '示例视频';
+        if (target.source === 'supabase') {
+          await loadRemoteStudyNotes(target);
+        } else {
+          state.notes.remoteByVideo[state.video.videoId] = [];
+          updateStudyNotesSection();
+          videoLearning.refreshNotes?.();
+        }
         state.video.durationHint = 0;
         resetProgressTracker();
         showToast(`已切换到《${target.title}》，正在准备字幕…`);
@@ -7805,6 +8896,109 @@
           correction: enabled && state.ai.correction && state.speaking.sttEnabled
         });
         updateDialogueStatus();
+      }
+
+      function noteMatchesFilter(note, filter) {
+        if (!filter) return true;
+        const normalized = filter.toLowerCase();
+        const candidates = [note.title, note.body, note.cueText]
+          .concat(Array.isArray(note.tags) ? note.tags : [])
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase());
+        return candidates.some((value) => value.includes(normalized));
+      }
+
+      function createStudyNoteCard(note) {
+        const item = document.createElement('article');
+        item.className = 'study-note-card';
+        const kind = document.createElement('div');
+        kind.className = 'note-kind';
+        kind.textContent = `${note.kind === 'grammar' ? '语法' : note.kind === 'collocation' ? '搭配' : '短语'} · ${note.source === 'remote' ? '云端' : '本地'}`;
+        const title = document.createElement('strong');
+        title.textContent = note.title || '精读笔记';
+        item.append(kind, title);
+        if (note.cueText) {
+          const cueLine = document.createElement('div');
+          cueLine.style.fontSize = '0.85rem';
+          cueLine.style.color = 'var(--muted)';
+          cueLine.textContent = `字幕：${note.cueText}`;
+          item.appendChild(cueLine);
+        }
+        const body = document.createElement('div');
+        body.className = 'note-body';
+        body.textContent = note.body || '（待补充）';
+        item.appendChild(body);
+        if (Array.isArray(note.examples) && note.examples.length) {
+          const examplesEl = document.createElement('div');
+          examplesEl.className = 'note-examples';
+          note.examples.forEach((example) => {
+            const line = document.createElement('div');
+            const es = example.es || '';
+            const zh = example.zh || '';
+            line.textContent = zh ? `${es} ｜ ${zh}` : es;
+            examplesEl.appendChild(line);
+          });
+          item.appendChild(examplesEl);
+        }
+        if (Array.isArray(note.tags) && note.tags.length) {
+          const tagsEl = document.createElement('div');
+          tagsEl.className = 'note-sidebar-tags';
+          note.tags.forEach((tag) => {
+            const pill = document.createElement('span');
+            pill.className = 'note-tag';
+            pill.textContent = tag;
+            tagsEl.appendChild(pill);
+          });
+          item.appendChild(tagsEl);
+        }
+        if (Array.isArray(note.relatedCards) && note.relatedCards.length) {
+          const hint = document.createElement('div');
+          hint.style.fontSize = '0.8rem';
+          hint.style.color = 'var(--muted)';
+          hint.textContent = `已关联 ${note.relatedCards.length} 张学习卡片。`;
+          item.appendChild(hint);
+        }
+        return item;
+      }
+
+      function updateStudyNotesSection() {
+        if (!studyNotesList) return;
+        const filterText = (state.notes.filter || '').trim().toLowerCase();
+        const localNotes = typeof studyNotes.getAll === 'function' ? studyNotes.getAll() : [];
+        const remoteCollections = Object.values(state.notes.remoteByVideo || {});
+        const remoteNotes = remoteCollections.flat();
+        const combined = [...localNotes, ...remoteNotes];
+        const filtered = filterText ? combined.filter((note) => noteMatchesFilter(note, filterText)) : combined;
+        studyNotesList.innerHTML = '';
+        if (!filtered.length) {
+          studyNotesList.innerHTML = '<div class="study-notes-empty">暂无精读笔记，试试从字幕面板添加新的精读卡片。</div>';
+          return;
+        }
+        const groups = new Map();
+        filtered.forEach((note) => {
+          const key = note.videoId || 'unknown';
+          if (!groups.has(key)) {
+            groups.set(key, { title: note.videoTitle || '未命名视频', notes: [] });
+          }
+          groups.get(key).notes.push(note);
+        });
+        groups.forEach((group) => {
+          group.notes.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+          const wrapper = document.createElement('article');
+          wrapper.className = 'study-note-group';
+          const heading = document.createElement('h3');
+          heading.textContent = group.title;
+          const count = document.createElement('span');
+          count.style.fontSize = '0.85rem';
+          count.style.color = 'var(--muted)';
+          count.textContent = `${group.notes.length} 条精读`;
+          heading.appendChild(count);
+          wrapper.appendChild(heading);
+          group.notes.forEach((note) => {
+            wrapper.appendChild(createStudyNoteCard(note));
+          });
+          studyNotesList.appendChild(wrapper);
+        });
       }
 
       function updateDialogueStatus() {
@@ -8439,6 +9633,19 @@
       const progressDue = document.getElementById('progress-due');
       const progressChart = document.getElementById('progress-chart');
       const toastEl = document.getElementById('toast');
+      const studyNotesList = document.getElementById('study-notes-list');
+      const studyNotesSearch = document.getElementById('study-note-search');
+      const noteModalEl = document.getElementById('note-modal');
+      const noteKind = document.getElementById('note-kind');
+      const noteTitle = document.getElementById('note-title');
+      const noteBody = document.getElementById('note-body');
+      const noteExamples = document.getElementById('note-examples');
+      const noteTags = document.getElementById('note-tags');
+      const noteSaveBtn = document.querySelector('[data-action="note-save"]');
+      const noteCancelBtn = document.querySelector('[data-action="note-cancel"]');
+      const noteIndicatorBtn = document.getElementById('cue-note-indicator');
+      const noteSidebarEl = document.getElementById('cue-note-sidebar');
+      const noteSidebarBody = document.getElementById('cue-note-sidebar-body');
       const startCefrBtn = document.getElementById('start-cefr');
       const cefrPanel = document.getElementById('cefr-panel');
       const cefrQuestions = document.getElementById('cefr-questions');
@@ -8632,6 +9839,11 @@
           }
         });
 
+        studyNotesSearch?.addEventListener('input', () => {
+          state.notes.filter = studyNotesSearch.value.trim();
+          updateStudyNotesSection();
+        });
+
         if (openaiKeyInput) {
           openaiKeyInput.addEventListener('change', () => {
             state.ai.apiKey = openaiKeyInput.value.trim();
@@ -8791,6 +10003,12 @@
         }
         questionRepo.init();
         statsTracker.init();
+        studyNotes.init();
+        updateStudyNotesSection();
+        studyNotes.subscribe(() => {
+          updateStudyNotesSection();
+          videoLearning.refreshNotes?.();
+        });
         srs.init();
         updateCardsUI();
         initSettings();
@@ -8821,7 +10039,22 @@
           modalButtons: {
             save: videoCardSaveBtn,
             cancel: videoCardCancelBtn
-          }
+          },
+          noteModal: noteModalEl,
+          noteFields: {
+            kind: noteKind,
+            title: noteTitle,
+            body: noteBody,
+            examples: noteExamples,
+            tags: noteTags
+          },
+          noteButtons: {
+            save: noteSaveBtn,
+            cancel: noteCancelBtn
+          },
+          noteIndicator: noteIndicatorBtn,
+          noteSidebar: noteSidebarEl,
+          noteSidebarBody: noteSidebarBody
         });
         initVideoLibrary();
         if (!sttSupported) {
