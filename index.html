@@ -364,6 +364,19 @@
         background: rgba(94, 234, 212, 0.16);
       }
 
+      .checkin-row {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .checkin-status {
+        font-size: 0.9rem;
+        color: #2563eb;
+      }
+
       .card-item {
         border: 1px solid var(--border);
         border-radius: 14px;
@@ -1712,6 +1725,17 @@
         </div>
         <div id="practice-container" aria-live="polite"></div>
         <div class="practice-summary" id="practice-summary" role="status" aria-live="polite" hidden></div>
+        <div class="checkin-row">
+          <button
+            id="daily-checkin"
+            type="button"
+            data-action="daily-checkin"
+            aria-label="标记今日已完成学习"
+          >
+            今日完成打卡
+          </button>
+          <span id="checkin-status" class="checkin-status" aria-live="polite"></span>
+        </div>
       </section>
 
       <section id="cards" aria-labelledby="cards-title">
@@ -2477,6 +2501,26 @@
             <strong id="progress-due">0</strong>
             <small>张</small>
           </div>
+          <div class="progress-metric">
+            <span>本周学习时长</span>
+            <strong id="progress-week-time">0</strong>
+            <small>分钟</small>
+          </div>
+          <div class="progress-metric">
+            <span>观看视频数</span>
+            <strong id="progress-week-videos">0</strong>
+            <small>部</small>
+          </div>
+          <div class="progress-metric">
+            <span>复读次数</span>
+            <strong id="progress-repeat">0</strong>
+            <small>次</small>
+          </div>
+          <div class="progress-metric">
+            <span>掌握词卡数</span>
+            <strong id="progress-mastered">0</strong>
+            <small>张</small>
+          </div>
         </div>
         <div class="chart-wrapper">
           <h4 style="margin:0 0 8px;">最近 7 天学习趋势</h4>
@@ -2610,6 +2654,59 @@
           }
         };
       })();
+
+      /**
+       * 根据远程错误信息生成友好的提示文案
+       * @param {any} error
+       * @returns {string}
+       */
+      function interpretRemoteError(error) {
+        if (!error) {
+          return '网络连接异常，请稍后重试。';
+        }
+        const code = typeof error.code === 'string' || typeof error.code === 'number' ? String(error.code) : '';
+        const status = typeof error.status === 'string' || typeof error.status === 'number' ? String(error.status) : '';
+        const rawMessage =
+          (typeof error.message === 'string' && error.message) ||
+          (typeof error.error_description === 'string' && error.error_description) ||
+          (typeof error.msg === 'string' && error.msg) ||
+          '';
+        const message = rawMessage.toLowerCase();
+        if (code === '42501' || status === '403' || message.includes('permission') || message.includes('not authorized')) {
+          return '权限不足，请检查账号、激活状态或 Supabase 策略。';
+        }
+        if (code === '429' || message.includes('rate limit') || message.includes('quota') || message.includes('over limit')) {
+          return '请求频率或额度已达上限，请稍后再试或升级配额。';
+        }
+        if (
+          status === '503' ||
+          status === '500' ||
+          message.includes('network') ||
+          message.includes('fetch') ||
+          message.includes('timeout') ||
+          message.includes('connection') ||
+          error.name === 'TypeError'
+        ) {
+          return '网络连接异常，请检查网络后重试。';
+        }
+        if (message.includes('invalid') && message.includes('token')) {
+          return '认证信息已失效，请重新登录后再试。';
+        }
+        return rawMessage ? rawMessage : '操作失败，请稍后重试。';
+      }
+
+      /**
+       * 通用的远程错误提示
+       * @param {any} error
+       * @param {string} fallback
+       * @param {'info'|'error'|'success'|'warning'} [tone]
+       * @returns {string}
+       */
+      function notifyRemoteFailure(error, fallback, tone = 'error') {
+        const message = interpretRemoteError(error) || fallback || '操作失败，请稍后重试。';
+        userNotifier.notify(message, tone);
+        return message;
+      }
 
       /**
        * 生成 UUID
@@ -3871,12 +3968,31 @@
         };
       })();
 
+      let statsReady = false;
+
       const statsTracker = (() => {
         let data = {
           lastActiveDate: null,
           streakCount: 0,
           daily: {}
         };
+
+        function normalizeEntry(entry = {}) {
+          return {
+            practice: Number(entry.practice) || 0,
+            speaking: Number(entry.speaking) || 0,
+            videoSeconds: Number(entry.videoSeconds) || 0,
+            repeats: Number(entry.repeats) || 0,
+            mastered: Number(entry.mastered) || 0,
+            videos: entry.videos && typeof entry.videos === 'object' ? { ...entry.videos } : {},
+            completedVideos:
+              entry.completedVideos && typeof entry.completedVideos === 'object'
+                ? { ...entry.completedVideos }
+                : {},
+            checkIn: Boolean(entry.checkIn),
+            activity: Number(entry.activity) || 0
+          };
+        }
 
         function init() {
           const stored = storage.load(STORAGE_KEYS.stats, null);
@@ -3887,8 +4003,12 @@
               daily: stored.daily && typeof stored.daily === 'object' ? stored.daily : {}
             };
           }
+          Object.keys(data.daily || {}).forEach((key) => {
+            data.daily[key] = normalizeEntry(data.daily[key]);
+          });
           prune();
           persist();
+          statsReady = true;
           return data;
         }
 
@@ -3907,7 +4027,9 @@
 
         function ensureDay(key) {
           if (!data.daily[key]) {
-            data.daily[key] = { practice: 0, speaking: 0 };
+            data.daily[key] = normalizeEntry();
+          } else {
+            data.daily[key] = normalizeEntry(data.daily[key]);
           }
         }
 
@@ -3930,14 +4052,21 @@
           return Math.round((currDate.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000));
         }
 
-        function updateStreakFor(dateKey, wasActiveBefore) {
-          if (wasActiveBefore) return;
+        function markActivityInternal(entry, dateKey) {
+          const before = entry.activity || 0;
+          entry.activity = before + 1;
+          if (!before) {
+            updateStreakFor(dateKey);
+          }
+        }
+
+        function updateStreakFor(dateKey) {
           if (!data.lastActiveDate) {
             data.streakCount = 1;
           } else {
             const diff = dayDiff(data.lastActiveDate, dateKey);
             if (diff === 0) {
-              // 同一天首次活动不改变 streakCount
+              // no change
             } else if (diff === 1) {
               data.streakCount += 1;
             } else {
@@ -3947,33 +4076,112 @@
           data.lastActiveDate = dateKey;
         }
 
-        function record(type, amount = 1) {
+        function recordPractice(amount = 1) {
+          const value = Number.isFinite(amount) ? Number(amount) : 1;
           const key = todayKey();
           ensureDay(key);
           const entry = data.daily[key];
-          const before = entry.practice + entry.speaking;
-          if (type === 'practice') {
-            entry.practice += amount;
-          } else if (type === 'speaking') {
-            entry.speaking += amount;
-          }
-          updateStreakFor(key, before > 0);
+          entry.practice += Math.max(0, value);
+          markActivityInternal(entry, key);
           prune();
           persist();
         }
 
-        function recordPractice(amount = 1) {
-          record('practice', amount);
+        function recordSpeaking(amount = 1) {
+          const value = Number.isFinite(amount) ? Number(amount) : 1;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          entry.speaking += Math.max(0, value);
+          markActivityInternal(entry, key);
+          prune();
+          persist();
         }
 
-        function recordSpeaking(amount = 1) {
-          record('speaking', amount);
+        function recordVideoSeconds(seconds, videoId) {
+          if (!Number.isFinite(seconds) || seconds <= 0) return;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          entry.videoSeconds += seconds;
+          if (videoId) {
+            entry.videos[videoId] = true;
+          }
+          if (!(entry.activity > 0)) {
+            markActivityInternal(entry, key);
+          }
+          prune();
+          persist();
+        }
+
+        function recordVideoVisit(videoId) {
+          if (!videoId) return;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          if (!entry.videos[videoId]) {
+            entry.videos[videoId] = false;
+            prune();
+            persist();
+          }
+        }
+
+        function recordRepeat(count = 1) {
+          if (!Number.isFinite(count) || count <= 0) return;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          entry.repeats += Math.max(1, Math.round(count));
+          prune();
+          persist();
+        }
+
+        function recordMastered(count = 1) {
+          if (!Number.isFinite(count) || count <= 0) return;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          entry.mastered += Math.max(1, Math.round(count));
+          prune();
+          persist();
+        }
+
+        function markVideoCompleted(videoId) {
+          if (!videoId) return;
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          if (!entry.completedVideos[videoId]) {
+            entry.completedVideos[videoId] = true;
+            prune();
+            persist();
+          }
+        }
+
+        function markCheckIn() {
+          const key = todayKey();
+          ensureDay(key);
+          const entry = data.daily[key];
+          if (entry.checkIn) {
+            return false;
+          }
+          entry.checkIn = true;
+          markActivityInternal(entry, key);
+          prune();
+          persist();
+          return true;
+        }
+
+        function hasCheckInToday() {
+          const key = todayKey();
+          ensureDay(key);
+          return Boolean(data.daily[key].checkIn);
         }
 
         function getSummary(days = 7) {
           const today = todayKey();
           ensureDay(today);
-          const todayEntry = data.daily[today] || { practice: 0, speaking: 0 };
+          const todayEntry = data.daily[today] || normalizeEntry();
           return {
             streak: data.streakCount,
             practice: todayEntry.practice,
@@ -3986,7 +4194,7 @@
           const series = [];
           for (let i = days - 1; i >= 0; i -= 1) {
             const key = todayKey(-i);
-            const entry = data.daily[key] || { practice: 0, speaking: 0 };
+            const entry = data.daily[key] || normalizeEntry();
             const date = new Date(key);
             const label = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(
               date.getDate()
@@ -3996,18 +4204,73 @@
           return series;
         }
 
+        function getWeeklyMetrics(days = 7) {
+          const videoSet = new Set();
+          let seconds = 0;
+          let repeats = 0;
+          let mastered = 0;
+          let checkInDays = 0;
+          let completed = 0;
+          for (let i = days - 1; i >= 0; i -= 1) {
+            const key = todayKey(-i);
+            const entry = data.daily[key];
+            if (!entry) continue;
+            seconds += Number(entry.videoSeconds) || 0;
+            repeats += Number(entry.repeats) || 0;
+            mastered += Number(entry.mastered) || 0;
+            if (entry.checkIn) checkInDays += 1;
+            if (entry.videos) {
+              Object.keys(entry.videos).forEach((vid) => {
+                if (vid) videoSet.add(vid);
+              });
+            }
+            if (entry.completedVideos) {
+              completed += Object.keys(entry.completedVideos).length;
+            }
+          }
+          return {
+            seconds,
+            repeats,
+            mastered,
+            videoCount: videoSet.size,
+            checkInDays,
+            completedVideos: completed
+          };
+        }
+
         function getDailySnapshot() {
           const snapshot = {};
           Object.entries(data.daily || {}).forEach(([key, value]) => {
             snapshot[key] = {
               practice: value?.practice || 0,
-              speaking: value?.speaking || 0
+              speaking: value?.speaking || 0,
+              videoSeconds: value?.videoSeconds || 0,
+              repeats: value?.repeats || 0,
+              mastered: value?.mastered || 0,
+              checkIn: Boolean(value?.checkIn),
+              videos: value?.videos ? { ...value.videos } : {},
+              completedVideos: value?.completedVideos ? { ...value.completedVideos } : {}
             };
           });
           return snapshot;
         }
 
-        return { init, recordPractice, recordSpeaking, getSummary, getSeries, getDailySnapshot };
+        return {
+          init,
+          recordPractice,
+          recordSpeaking,
+          recordVideoSeconds,
+          recordVideoVisit,
+          recordRepeat,
+          recordMastered,
+          markVideoCompleted,
+          markCheckIn,
+          hasCheckInToday,
+          getSummary,
+          getSeries,
+          getWeeklyMetrics,
+          getDailySnapshot
+        };
       })();
 
       /**
@@ -4289,6 +4552,9 @@
           const videoId = typeof raw.videoId === 'string' ? raw.videoId : typeof raw.video_id === 'string' ? raw.video_id : '';
           const cueId = typeof raw.cueId === 'string' ? raw.cueId : typeof raw.cue_id === 'string' ? raw.cue_id : '';
           const videoTitle = typeof raw.videoTitle === 'string' ? raw.videoTitle : String(raw.video_title || '');
+          const createdAt = Number.isFinite(Number(raw.createdAt || raw.created_at))
+            ? Number(raw.createdAt || raw.created_at)
+            : Date.now();
           return {
             id,
             phrase,
@@ -4301,7 +4567,8 @@
             cloudId,
             videoId,
             cueId,
-            videoTitle
+            videoTitle,
+            createdAt
           };
         }
 
@@ -4374,7 +4641,8 @@
             intervalDays: 1,
             videoId: typeof payload.videoId === 'string' ? payload.videoId : draft.videoId || '',
             cueId: typeof payload.cueId === 'string' ? payload.cueId : draft.cueId || '',
-            videoTitle: typeof payload.videoTitle === 'string' ? payload.videoTitle : draft.videoTitle || ''
+            videoTitle: typeof payload.videoTitle === 'string' ? payload.videoTitle : draft.videoTitle || '',
+            createdAt: Number.isFinite(Number(draft.createdAt)) ? Number(draft.createdAt) : Date.now()
           };
           cards.push(newCard);
           persist();
@@ -4946,10 +5214,13 @@
         }
         const rangeEnd = new Date(end);
         rangeEnd.setHours(23, 59, 59, 999);
+        const startTime = start.getTime();
+        const endTime = rangeEnd.getTime();
+
         const history = Array.isArray(state.practice.history) ? state.practice.history : [];
         const filtered = history.filter((session) => {
           const ts = Number(session.timestamp) || 0;
-          return ts >= start.getTime() && ts <= rangeEnd.getTime();
+          return ts >= startTime && ts <= endTime;
         });
         let totalQuestions = 0;
         let correctQuestions = 0;
@@ -4967,46 +5238,68 @@
         const accuracy = totalQuestions
           ? Math.min(100, Math.round((correctQuestions / totalQuestions) * 1000) / 10)
           : 0;
+
         const dailyStats = statsTracker.getDailySnapshot();
         let speakingCount = 0;
+        let totalVideoSeconds = 0;
+        let repeatCount = 0;
+        let masteredCount = 0;
+        let checkInDays = 0;
+        const videoSet = new Set();
+        let completedVideos = 0;
         for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
           const key = formatDateKeySimple(cursor);
           const entry = dailyStats[key];
-          if (entry) {
-            speakingCount += Number(entry.speaking) || 0;
+          if (!entry) continue;
+          speakingCount += Number(entry.speaking) || 0;
+          totalVideoSeconds += Number(entry.videoSeconds) || 0;
+          repeatCount += Number(entry.repeats) || 0;
+          masteredCount += Number(entry.mastered) || 0;
+          if (entry.checkIn) {
+            checkInDays += 1;
+          }
+          if (entry.videos) {
+            Object.keys(entry.videos).forEach((vid) => {
+              if (vid) videoSet.add(vid);
+            });
+          }
+          if (entry.completedVideos) {
+            completedVideos += Object.keys(entry.completedVideos).length;
           }
         }
-        const cards = srs
+
+        const topNewWords = srs
           .getCards()
-          .slice()
-          .sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))
+          .filter((card) => {
+            const createdAt = Number(card.createdAt || card.created_at || 0);
+            return createdAt && createdAt >= startTime && createdAt <= endTime;
+          })
+          .sort((a, b) => (Number(b.createdAt || b.created_at || 0) - Number(a.createdAt || a.created_at || 0)))
           .slice(0, 10)
           .map((card) => {
-            const dueText = describeDueAt(card.dueAt);
-            return `${card.phrase} - ${card.zh}${dueText ? `（${dueText}）` : ''}`;
+            const base = `${card.phrase}${card.zh ? ` - ${card.zh}` : ''}`;
+            return card.note ? `${base}（${card.note}）` : base;
           });
-        const mistakeMap = new Map();
-        filtered.forEach((session) => {
-          const details = Array.isArray(session.mistakeDetails) ? session.mistakeDetails : [];
-          details.forEach((detail) => {
-            const key = detail?.prompt || detail?.explanation || '未标注知识点';
-            if (!mistakeMap.has(key)) {
-              mistakeMap.set(key, {
-                prompt: detail?.prompt || key,
-                explanation: detail?.explanation || '',
-                count: 0
-              });
-            }
-            const record = mistakeMap.get(key);
-            record.count += 1;
+
+        const noteList = typeof studyNotes.getAll === 'function' ? studyNotes.getAll() : [];
+        const topExpressions = noteList
+          .filter((note) => {
+            const createdAt = Number(note?.createdAt || 0);
+            return note && note.kind !== 'grammar' && createdAt && createdAt >= startTime && createdAt <= endTime;
+          })
+          .sort((a, b) => (Number(b.updatedAt || b.createdAt || 0) - Number(a.updatedAt || a.createdAt || 0)))
+          .slice(0, 5)
+          .map((note) => {
+            const title = note.title || note.cueText || '精读笔记';
+            const snippet = note.body ? note.body.replace(/\s+/g, ' ').slice(0, 80) : '';
+            const tags = Array.isArray(note.tags) && note.tags.length ? `#${note.tags.join(' #')}` : '';
+            return [title, tags, snippet].filter(Boolean).join('｜');
           });
-        });
-        const topMistakes = Array.from(mistakeMap.values())
-          .sort((a, b) => b.count - a.count)
-          .slice(0, 5);
+
         const displayRange = range === 'week'
           ? `${formatReadableDate(start)} - ${formatReadableDate(end)}`
           : formatReadableDate(end);
+
         return {
           range,
           start,
@@ -5016,11 +5309,17 @@
           correctQuestions,
           accuracy,
           speakingCount,
-          cards,
-          topMistakes,
+          topNewWords,
+          topExpressions,
           displayRange,
           filenameRange: `${formatCompactDate(start)}-${formatCompactDate(end)}`,
-          averageScore: filtered.length ? Math.round((scoreSum / filtered.length) * 10) / 10 : 0
+          averageScore: filtered.length ? Math.round((scoreSum / filtered.length) * 10) / 10 : 0,
+          totalStudyMinutes: Math.round(totalVideoSeconds / 60),
+          repeatCount,
+          masteredCount,
+          checkInDays,
+          videoCount: videoSet.size,
+          completedVideos
         };
       }
 
@@ -5094,28 +5393,29 @@
           `# ${title}`,
           '',
           `- 日期范围：${report.displayRange}`,
-          `- 完成题数：${report.totalQuestions}`,
-          `- 平均正确率：${accuracyText}`,
-          `- 口语练习次数：${report.speakingCount}`,
+          `- 学习总时长：${report.totalStudyMinutes} 分钟`,
+          `- 完成视频数：${report.completedVideos || 0}｜口语句数：${report.speakingCount}`,
+          `- 完成题数：${report.totalQuestions}｜平均正确率：${accuracyText}`,
+          `- 复读次数：${report.repeatCount}｜掌握词卡数：${report.masteredCount}`,
+          `- 打卡天数：${report.checkInDays}`,
           ''
         ];
-        lines.push('## Top 10 词卡');
-        if (report.cards.length) {
-          report.cards.forEach((card, index) => {
-            lines.push(`${index + 1}. ${card}`);
+        lines.push('## Top 10 新词');
+        if (report.topNewWords.length) {
+          report.topNewWords.forEach((item, index) => {
+            lines.push(`${index + 1}. ${item}`);
           });
         } else {
-          lines.push('暂无词卡统计。');
+          lines.push('本周期暂无新增词卡。');
         }
         lines.push('');
-        lines.push('## 错题知识点 Top 5');
-        if (report.topMistakes.length) {
-          report.topMistakes.forEach((item, index) => {
-            const detail = item.explanation ? `｜${item.explanation}` : '';
-            lines.push(`${index + 1}. ${item.prompt}${detail}（${item.count} 次）`);
+        lines.push('## 重点表达 Top 5');
+        if (report.topExpressions.length) {
+          report.topExpressions.forEach((item, index) => {
+            lines.push(`${index + 1}. ${item}`);
           });
         } else {
-          lines.push('本周期未出现错题，继续保持！');
+          lines.push('本周期暂无重点表达记录。');
         }
         lines.push('');
         lines.push('_由 AI Español 自动生成，欢迎分享到你的学习圈。_');
@@ -5125,29 +5425,27 @@
       function buildHtmlReport(range, report) {
         const title = range === 'week' ? 'AI Español 学习周报' : 'AI Español 学习日报';
         const accuracyText = `${report.accuracy.toFixed(1).replace(/\.0$/, '')}%`;
-        const cardsHtml = report.cards.length
-          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.cards
-              .map((card) => `<li>${escapeHtml(card)}</li>`)
+        const wordsHtml = report.topNewWords.length
+          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.topNewWords
+              .map((item) => `<li>${escapeHtml(item)}</li>`)
               .join('')}</ol>`
-          : '<p style="margin:0 0 12px;">暂无词卡统计。</p>';
-        const mistakesHtml = report.topMistakes.length
-          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.topMistakes
-              .map((item) => {
-                const detail = item.explanation ? `｜${item.explanation}` : '';
-                return `<li>${escapeHtml(`${item.prompt}${detail}`)}（${item.count} 次）</li>`;
-              })
+          : '<p style="margin:0 0 12px;">本周期暂无新增词卡。</p>';
+        const expressionsHtml = report.topExpressions.length
+          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.topExpressions
+              .map((item) => `<li>${escapeHtml(item)}</li>`)
               .join('')}</ol>`
-          : '<p style="margin:0 0 12px;">本周期未出现错题，继续保持！</p>';
+          : '<p style="margin:0 0 12px;">本周期暂无重点表达记录。</p>';
         return `
 <div style="font-family:'PingFang SC','Segoe UI','Microsoft YaHei',sans-serif;line-height:1.6;color:#1f2933;">
   <h1 style="font-size:20px;color:#d94848;margin:0 0 12px;">${escapeHtml(title)}</h1>
   <p style="margin:4px 0;">日期范围：<strong>${escapeHtml(report.displayRange)}</strong></p>
-  <p style="margin:4px 0;">完成题数：<strong>${report.totalQuestions}</strong>｜平均正确率：<strong>${accuracyText}</strong></p>
-  <p style="margin:4px 0;">口语练习次数：<strong>${report.speakingCount}</strong></p>
-  <h2 style="font-size:18px;margin:16px 0 8px;">Top 10 词卡</h2>
-  ${cardsHtml}
-  <h2 style="font-size:18px;margin:16px 0 8px;">错题知识点 Top 5</h2>
-  ${mistakesHtml}
+  <p style="margin:4px 0;">学习总时长：<strong>${report.totalStudyMinutes}</strong> 分钟｜完成题数：<strong>${report.totalQuestions}</strong>｜平均正确率：<strong>${accuracyText}</strong></p>
+  <p style="margin:4px 0;">完成视频数：<strong>${report.completedVideos || 0}</strong>｜口语句数：<strong>${report.speakingCount}</strong></p>
+  <p style="margin:4px 0;">复读次数：<strong>${report.repeatCount}</strong>｜掌握词卡数：<strong>${report.masteredCount}</strong>｜打卡天数：<strong>${report.checkInDays}</strong></p>
+  <h2 style="font-size:18px;margin:16px 0 8px;">Top 10 新词</h2>
+  ${wordsHtml}
+  <h2 style="font-size:18px;margin:16px 0 8px;">重点表达 Top 5</h2>
+  ${expressionsHtml}
   <p style="margin:16px 0 0;font-size:0.9rem;color:#6b7280;">由 AI Español 自动生成，粘贴到公众号也很好看。</p>
 </div>`;
       }
@@ -5918,34 +6216,34 @@
         }
 
         async function processOperation(op) {
-          if (!op || typeof op !== 'object') return true;
+          if (!op || typeof op !== 'object') return { success: true };
           if (op.type === 'progress') {
             if (!op.payload?.userId || !op.payload?.videoId) {
-              return true;
+              return { success: true };
             }
             if (!window.supabaseManager?.upsertProgress) {
-              return false;
+              return { success: false, error: new Error('client_unavailable') };
             }
             const result = await window.supabaseManager.upsertProgress(op.payload);
-            return !result || !result.error;
+            return result && result.error ? { success: false, error: result.error } : { success: true };
           }
           if (op.type === 'card') {
             if (!op.payload?.id) {
-              return true;
+              return { success: true };
             }
             if (!state.remote.cloudSyncCards) {
-              return true;
+              return { success: true };
             }
             if (!window.supabaseManager?.upsertCard) {
-              return false;
+              return { success: false, error: new Error('client_unavailable') };
             }
             const result = await window.supabaseManager.upsertCard(op.payload);
-            return !result || !result.error;
+            return result && result.error ? { success: false, error: result.error } : { success: true };
           }
           if (op.type === 'redeem') {
-            return true;
+            return { success: true };
           }
-          return true;
+          return { success: true };
         }
 
         async function flush(force = false) {
@@ -5961,23 +6259,26 @@
             return;
           }
           flushing = true;
+          let lastError = null;
           try {
             while (queue.length) {
               const current = queue[0];
               // eslint-disable-next-line no-await-in-loop
-              const ok = await processOperation(current);
-              if (!ok) {
-                throw new Error('operation_failed');
+              const result = await processOperation(current);
+              if (!result.success) {
+                lastError = result.error || new Error('operation_failed');
+                throw lastError;
               }
               queue.shift();
               persist();
             }
             retryDelay = 2000;
             warned = false;
+            lastError = null;
           } catch (error) {
             retryDelay = Math.min(retryDelay * 2, 60000);
             if (!warned) {
-              userNotifier.notify('云端同步暂时失败，稍后将自动重试。', 'warning');
+              notifyRemoteFailure(lastError || error, '云端同步暂时失败，请稍后重试。', 'warning');
               warned = true;
             }
           } finally {
@@ -6385,7 +6686,7 @@
         let activeTab = 'subtitles';
         let currentCueIndex = -1;
         let loopRuntime = { mode: null, remaining: 0, total: 0 };
-        const progressTracker = { lastTime: 0, lastSubmitAt: 0 };
+        const progressTracker = { lastTime: 0, lastSubmitAt: 0, lastRecordedTime: 0 };
 
         /**
          * 初始化视频学习模块
@@ -6653,6 +6954,8 @@
           }
           state.video.loop = { start: cue.start, end: cue.end, active: true };
           loopRuntime = { mode: 'repeat', remaining: 2, total: 3 };
+          statsTracker.recordRepeat(loopRuntime.total || 3);
+          updateProgressPanel();
           updateLoopStatus();
           setSelectedIndex(index, true, true);
         }
@@ -6785,6 +7088,9 @@
           if (!id || !rating) return;
           srs.scheduleSubtitle(id, rating);
           const label = rating === 'again' ? '忘记' : rating === 'good' ? '一般' : '容易';
+          if (rating === 'easy') {
+            statsTracker.recordMastered(1);
+          }
           showToast(`已记录“${label}”评价，系统会安排下次复习。`);
           renderVideoCards();
           updateProgressPanel();
@@ -7382,6 +7688,18 @@
             return;
           }
           if (!Number.isFinite(current)) return;
+          const previous = Number(progressTracker.lastRecordedTime) || 0;
+          let delta = current - previous;
+          if (!Number.isFinite(delta)) {
+            delta = 0;
+          }
+          if (delta < 0 || delta > 30) {
+            delta = 0;
+          }
+          if (delta > 0.25) {
+            statsTracker.recordVideoSeconds(delta, state.video.videoId);
+          }
+          progressTracker.lastRecordedTime = current;
           progressTracker.lastTime = current;
           commitProgress(false);
           let targetIndex = -1;
@@ -7507,6 +7825,7 @@
         function resetProgressTracker() {
           progressTracker.lastTime = 0;
           progressTracker.lastSubmitAt = 0;
+          progressTracker.lastRecordedTime = 0;
         }
 
         function estimateDuration() {
@@ -7528,6 +7847,9 @@
           const duration = estimateDuration();
           const completed = duration > 0 && time >= duration * 0.8;
           const streak = typeof statsTracker?.getSummary === 'function' ? statsTracker.getSummary().streak : undefined;
+          if (completed) {
+            statsTracker.markVideoCompleted(currentVideo.id);
+          }
           cloudSync.queueProgress({
             userId,
             videoId: currentVideo.id,
@@ -7537,6 +7859,7 @@
             streak
           });
           progressTracker.lastSubmitAt = now;
+          updateProgressPanel();
         }
 
         function updatePlayButton() {
@@ -8396,6 +8719,7 @@
           questionRepo.init();
           srs.init();
           statsTracker.init();
+          updateCheckinUI();
           loadPracticeFromStorage();
           updateCardsUI();
           prepareReview();
@@ -8679,6 +9003,9 @@
       function handleReviewQuality(quality) {
         if (!state.review.currentCard) return;
         srs.schedule(state.review.currentCard.id, quality);
+        if (quality === 3) {
+          statsTracker.recordMastered(1);
+        }
         prepareReview();
         updateCardsUI();
       }
@@ -8942,14 +9269,28 @@
         render.grammar(grammarList, filtered);
       }
 
-      function setVideoLibraryStatus(message, hidden = false) {
+      function setVideoLibraryStatus(message, hidden = false, options = {}) {
         if (!videoLibraryStatus) return;
         if (hidden) {
           videoLibraryStatus.hidden = true;
           videoLibraryStatus.textContent = '';
+          videoLibraryStatus.innerHTML = '';
         } else {
           videoLibraryStatus.hidden = false;
-          videoLibraryStatus.textContent = message;
+          videoLibraryStatus.textContent = '';
+          videoLibraryStatus.innerHTML = '';
+          const textSpan = document.createElement('span');
+          textSpan.textContent = message;
+          videoLibraryStatus.appendChild(textSpan);
+          if (options.retry) {
+            const retryButton = document.createElement('button');
+            retryButton.type = 'button';
+            retryButton.className = 'secondary';
+            retryButton.dataset.action = 'video-library-retry';
+            retryButton.setAttribute('aria-label', '重试加载视频列表');
+            retryButton.textContent = '重新加载';
+            videoLibraryStatus.appendChild(retryButton);
+          }
         }
       }
 
@@ -9065,6 +9406,7 @@
         let total = 0;
         let filteredOut = 0;
         let statusLocked = false;
+        let remoteError = null;
         if (allowRemote) {
           const result = await window.supabaseManager.listVideos({
             page: state.library.page,
@@ -9082,7 +9424,10 @@
             total = typeof result.count === 'number' ? result.count : accessible.length;
             useRemote = true;
           } else if (reset) {
-            userNotifier.notify('Supabase 视频加载失败，已回退到本地示例。', 'warning');
+            remoteError = result.error;
+            notifyRemoteFailure(result.error, 'Supabase 视频加载失败，已回退到本地示例。', 'warning');
+          } else {
+            remoteError = result.error;
           }
         } else if (ready && reset) {
           const entitlement = state.identity.entitlement;
@@ -9106,11 +9451,16 @@
 
         if (!useRemote && allowRemote && !reset) {
           state.library.loading = false;
-          userNotifier.notify('Supabase 视频加载失败，请稍后重试。', 'warning');
-          setVideoLibraryStatus('加载更多失败，请稍后重试。', false);
+          const message = notifyRemoteFailure(
+            remoteError,
+            'Supabase 视频加载失败，请稍后重试。',
+            'warning'
+          );
+          setVideoLibraryStatus(`${message} 可点击下方“加载更多”按钮重试。`, false, { retry: true });
           if (videoLibraryMoreBtn) {
-            videoLibraryMoreBtn.hidden = true;
-            videoLibraryMoreBtn.disabled = true;
+            videoLibraryMoreBtn.hidden = false;
+            videoLibraryMoreBtn.disabled = false;
+            videoLibraryMoreBtn.textContent = '重试加载';
           }
           return;
         }
@@ -9135,6 +9485,7 @@
         }
         renderVideoLibrary();
         if (videoLibraryMoreBtn) {
+          videoLibraryMoreBtn.textContent = '加载更多';
           videoLibraryMoreBtn.hidden = !state.library.hasMore;
           videoLibraryMoreBtn.disabled = !state.library.hasMore;
         }
@@ -9259,7 +9610,7 @@
         } catch (error) {
           console.warn('加载云端精读笔记失败', error);
           state.notes.remoteByVideo[videoId] = [];
-          userNotifier.notify('云端精读笔记加载失败，将仅显示本地记录。', 'warning');
+          notifyRemoteFailure(error, '云端精读笔记加载失败，将仅显示本地记录。', 'warning');
           updateStudyNotesSection();
           videoLearning.refreshNotes?.();
           return [];
@@ -9286,6 +9637,7 @@
         state.library.current = { ...target };
         state.video.videoId = target.id || 'local-demo';
         state.video.videoTitle = target.title || '示例视频';
+        statsTracker.recordVideoVisit(state.video.videoId);
         if (target.source === 'supabase') {
           await loadRemoteStudyNotes(target);
         } else {
@@ -9318,14 +9670,14 @@
             await videoLearning.loadSubtitleFromUrl(videoItem.vtt_url, videoItem.source === 'supabase' ? 'Supabase' : '本地');
           } catch (error) {
             console.warn('加载内置字幕失败', error);
-            userNotifier.notify('字幕加载失败，请尝试手动导入 .vtt 文件。', 'error');
+            notifyRemoteFailure(error, '字幕加载失败，请尝试手动导入 .vtt 文件。', 'error');
           }
           return;
         }
         if (videoItem.source === 'supabase' && window.supabaseManager?.isReady?.()) {
           const result = await window.supabaseManager.fetchSubtitles(videoItem.id);
           if (result.error) {
-            userNotifier.notify('云端字幕加载失败，请手动上传。', 'warning');
+            notifyRemoteFailure(result.error, '云端字幕加载失败，请手动上传。', 'warning');
             return;
           }
           const records = Array.isArray(result.data) ? result.data : [];
@@ -9335,7 +9687,7 @@
               await videoLearning.loadSubtitleFromUrl(preferred.vtt_url, 'Supabase');
             } catch (error) {
               console.warn('Supabase 字幕加载失败', error);
-              userNotifier.notify('Supabase 字幕拉取失败，请手动导入。', 'error');
+              notifyRemoteFailure(error, 'Supabase 字幕拉取失败，请手动导入。', 'error');
             }
           } else {
             userNotifier.notify('该视频暂无可用字幕，请上传本地 .vtt 文件。', 'info');
@@ -9362,6 +9714,15 @@
         });
         videoLibraryRefreshBtn?.addEventListener('click', () => {
           state.library.search = videoLibrarySearch?.value?.trim() || '';
+          refreshVideoLibrary(true);
+        });
+        videoLibraryStatus?.addEventListener('click', (event) => {
+          const retryButton =
+            event.target instanceof HTMLElement
+              ? event.target.closest('button[data-action="video-library-retry"]')
+              : null;
+          if (!retryButton) return;
+          event.preventDefault();
           refreshVideoLibrary(true);
         });
         videoLibrarySearch?.addEventListener('keydown', (event) => {
@@ -9798,6 +10159,7 @@
             if (data.stats) {
               storage.save(STORAGE_KEYS.stats, data.stats);
               statsTracker.init();
+              updateCheckinUI();
             }
             updateCardsUI();
             prepareReview();
@@ -10042,6 +10404,63 @@
         ctx.restore();
       }
 
+      function updateCheckinUI() {
+        if (!dailyCheckinBtn) return;
+        if (!statsReady) {
+          dailyCheckinBtn.disabled = true;
+          dailyCheckinBtn.setAttribute('aria-pressed', 'false');
+          if (checkinStatus) {
+            checkinStatus.textContent = '加载学习数据中…';
+          }
+          return;
+        }
+        const done = statsTracker.hasCheckInToday();
+        dailyCheckinBtn.disabled = done;
+        dailyCheckinBtn.setAttribute('aria-pressed', done ? 'true' : 'false');
+        if (checkinStatus) {
+          checkinStatus.textContent = done
+            ? '今日已打卡，继续保持！'
+            : '点击“今日完成打卡”记录今天的学习成果。';
+        }
+      }
+
+      function syncCheckInIfPossible() {
+        const ownerId = getProgressOwnerId();
+        const currentVideo = state.library.current;
+        if (!ownerId || !currentVideo || currentVideo.source !== 'supabase' || !currentVideo.id) {
+          return;
+        }
+        const ready = window.supabaseManager?.isReady?.();
+        cloudSync.queueProgress({
+          userId: ownerId,
+          videoId: currentVideo.id,
+          lastSec: 0,
+          completed: false,
+          updatedAt: new Date().toISOString(),
+          streak: statsTracker.getSummary().streak
+        });
+        if (!ready) {
+          userNotifier.notify('打卡信息已保存，将在连接 Supabase 后自动同步。', 'warning');
+        }
+      }
+
+      function handleDailyCheckIn() {
+        if (statsTracker.hasCheckInToday()) {
+          showToast('今日已打卡，继续保持！');
+          updateCheckinUI();
+          return;
+        }
+        const marked = statsTracker.markCheckIn();
+        if (marked) {
+          showToast('打卡成功，已记录今日学习！');
+          updateProgressPanel();
+          syncCheckInIfPossible();
+        } else {
+          showToast('今日已打卡，继续保持！');
+        }
+        updateCheckinUI();
+      }
+
       function updateProgressPanel() {
         if (!progressStreak) return;
         const summary = statsTracker.getSummary();
@@ -10049,7 +10468,22 @@
         progressPractice.textContent = summary.practice;
         progressSpeaking.textContent = summary.speaking;
         progressDue.textContent = getDueCount();
+        const weekly = statsTracker.getWeeklyMetrics();
+        if (progressWeekTime) {
+          const minutes = Math.round(weekly.seconds / 60);
+          progressWeekTime.textContent = String(minutes);
+        }
+        if (progressWeekVideos) {
+          progressWeekVideos.textContent = String(weekly.videoCount);
+        }
+        if (progressRepeat) {
+          progressRepeat.textContent = String(weekly.repeats);
+        }
+        if (progressMastered) {
+          progressMastered.textContent = String(weekly.mastered);
+        }
         drawProgressChart(summary.series);
+        updateCheckinUI();
       }
 
       function logDiagnostics(voiceInfo) {
@@ -10184,6 +10618,8 @@
 
       const practiceContainer = document.getElementById('practice-container');
       const practiceSummary = document.getElementById('practice-summary');
+      const dailyCheckinBtn = document.getElementById('daily-checkin');
+      const checkinStatus = document.getElementById('checkin-status');
       const cardSamples = document.getElementById('card-samples');
       const reviewCard = document.getElementById('review-card');
       const reviewCount = document.getElementById('review-count');
@@ -10258,6 +10694,10 @@
       const progressPractice = document.getElementById('progress-practice');
       const progressSpeaking = document.getElementById('progress-speaking');
       const progressDue = document.getElementById('progress-due');
+      const progressWeekTime = document.getElementById('progress-week-time');
+      const progressWeekVideos = document.getElementById('progress-week-videos');
+      const progressRepeat = document.getElementById('progress-repeat');
+      const progressMastered = document.getElementById('progress-mastered');
       const progressChart = document.getElementById('progress-chart');
       const toastEl = document.getElementById('toast');
       const studyNotesList = document.getElementById('study-notes-list');
@@ -10391,6 +10831,10 @@
           if (event.target.dataset.action === 'submit-practice') {
             submitPractice();
           }
+        });
+
+        dailyCheckinBtn?.addEventListener('click', () => {
+          handleDailyCheckIn();
         });
 
         document.querySelector('[data-action="show-translation"]').addEventListener('click', () => {
@@ -10630,6 +11074,7 @@
         }
         questionRepo.init();
         statsTracker.init();
+        updateCheckinUI();
         studyNotes.init();
         updateStudyNotesSection();
         studyNotes.subscribe(() => {
