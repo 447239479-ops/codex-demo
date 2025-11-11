@@ -2546,6 +2546,39 @@
         cloudSyncCards: false
       };
 
+      const ENV_DEFAULTS = (() => {
+        const source =
+          (typeof window !== 'undefined' && window.__ENV__ && typeof window.__ENV__ === 'object'
+            ? window.__ENV__
+            : null) || {};
+        const read = (candidates) => {
+          const keys = Array.isArray(candidates) ? candidates : [candidates];
+          for (const key of keys) {
+            const value = source[key];
+            if (typeof value === 'string' && value.trim()) {
+              return value.trim();
+            }
+          }
+          return '';
+        };
+        const mapped = {};
+        const supabaseUrl = read(['VITE_SUPABASE_URL', 'SUPABASE_URL']);
+        if (supabaseUrl) mapped.supabaseUrl = supabaseUrl;
+        const supabaseKey = read(['VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY']);
+        if (supabaseKey) mapped.supabaseAnonKey = supabaseKey;
+        const cfAccountId = read(['VITE_CF_ACCOUNT_ID', 'CF_ACCOUNT_ID']);
+        if (cfAccountId) mapped.cloudflareAccountId = cfAccountId;
+        const cfToken = read(['VITE_CF_TOKEN', 'CF_TOKEN']);
+        if (cfToken) mapped.cloudflareToken = cfToken;
+        const cfStream = read(['VITE_CF_STREAM_ID', 'CF_STREAM_ID']);
+        if (cfStream) mapped.streamVideoId = cfStream;
+        const openaiKey = read(['VITE_OPENAI_KEY', 'OPENAI_API_KEY']);
+        if (openaiKey) mapped.openaiKey = openaiKey;
+        const openaiModel = read(['VITE_OPENAI_MODEL', 'OPENAI_MODEL']);
+        if (openaiModel) mapped.openaiModel = openaiModel;
+        return mapped;
+      })();
+
       const APP_VERSION = '1.6.0';
       const ENTITLEMENT_PLAN_LABELS = { pro: 'Pro', basic: 'Basic' };
 
@@ -9350,30 +9383,32 @@
       }
 
       function initSettings() {
-        const saved = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
-        state.speaking.ttsRate = saved.ttsRate;
-        state.speaking.sttEnabled = saved.sttEnabled;
-        state.practice.level = saved.recommendedLevel || state.practice.level;
+        const stored = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS) || {};
+        const saved = { ...DEFAULT_SETTINGS, ...stored };
+        const effective = { ...saved, ...ENV_DEFAULTS };
+        state.speaking.ttsRate = effective.ttsRate;
+        state.speaking.sttEnabled = effective.sttEnabled;
+        state.practice.level = effective.recommendedLevel || state.practice.level;
         document.querySelectorAll('input[name="plan"]').forEach((radio) => {
-          radio.checked = radio.value === saved.plan;
+          radio.checked = radio.value === effective.plan;
           radio.addEventListener('change', () => saveSettings());
         });
-        ttsRate.value = saved.ttsRate;
-        sttEnabled.checked = saved.sttEnabled;
+        ttsRate.value = effective.ttsRate;
+        sttEnabled.checked = effective.sttEnabled;
         practiceLevel.value = state.practice.level;
         state.ai = {
-          apiKey: saved.openaiKey || '',
-          model: saved.openaiModel || 'gpt-4o-mini',
-          explain: Boolean(saved.aiExplain),
-          dialogue: Boolean(saved.aiDialogue),
-          correction: Boolean(saved.aiCorrection)
+          apiKey: effective.openaiKey || '',
+          model: effective.openaiModel || 'gpt-4o-mini',
+          explain: Boolean(effective.aiExplain),
+          dialogue: Boolean(effective.aiDialogue),
+          correction: Boolean(effective.aiCorrection)
         };
-        state.video.cloudflareAccountId = saved.cloudflareAccountId || '';
-        state.video.streamVideoId = saved.streamVideoId || '';
-        state.video.cloudflareToken = saved.cloudflareToken || '';
-        state.remote.supabaseUrl = saved.supabaseUrl || '';
-        state.remote.supabaseAnonKey = saved.supabaseAnonKey || '';
-        state.remote.cloudSyncCards = Boolean(saved.cloudSyncCards);
+        state.video.cloudflareAccountId = effective.cloudflareAccountId || '';
+        state.video.streamVideoId = effective.streamVideoId || '';
+        state.video.cloudflareToken = effective.cloudflareToken || '';
+        state.remote.supabaseUrl = effective.supabaseUrl || '';
+        state.remote.supabaseAnonKey = effective.supabaseAnonKey || '';
+        state.remote.cloudSyncCards = Boolean(effective.cloudSyncCards);
         if (openaiKeyInput) {
           openaiKeyInput.value = state.ai.apiKey;
         }
