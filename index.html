@@ -675,6 +675,156 @@
         color: #8b4513;
       }
 
+      .tok.match {
+        background: rgba(129, 140, 248, 0.35);
+        color: #312e81;
+      }
+
+      .video-side {
+        display: grid;
+        gap: 12px;
+      }
+
+      .video-tabs {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px;
+        background: rgba(226, 232, 240, 0.45);
+        width: max-content;
+      }
+
+      .video-tabs button {
+        border-radius: 999px;
+        padding: 6px 16px;
+        font-size: 0.9rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--muted);
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .video-tabs button.active {
+        background: #4f46e5;
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+      }
+
+      .video-panel {
+        display: none;
+      }
+
+      .video-panel.active {
+        display: grid;
+        gap: 12px;
+      }
+
+      .subtitle-search-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .subtitle-search-row input[type='search'] {
+        flex: 1;
+        min-width: 180px;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+
+      .video-card-list {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+        max-height: 420px;
+        overflow-y: auto;
+      }
+
+      .video-card-item {
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: grid;
+        gap: 8px;
+        background: rgba(129, 140, 248, 0.1);
+      }
+
+      .video-card-item.due {
+        border-color: rgba(234, 179, 8, 0.5);
+        background: rgba(250, 204, 21, 0.25);
+      }
+
+      .video-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .video-card-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .video-card-actions button {
+        flex: 1 1 80px;
+      }
+
+      .video-card-empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 40px 12px;
+      }
+
+      .video-card-modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.4);
+        display: grid;
+        place-items: center;
+        z-index: 50;
+      }
+
+      .video-card-modal[hidden] {
+        display: none;
+      }
+
+      .video-card-modal .modal-content {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        width: min(420px, 94vw);
+        display: grid;
+        gap: 12px;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+      }
+
+      .video-card-modal label {
+        display: grid;
+        gap: 6px;
+        font-size: 0.9rem;
+      }
+
+      .video-card-modal textarea,
+      .video-card-modal input[type='text'] {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+
+      .video-card-modal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+
       .word-preview {
         position: sticky;
         top: 0;
@@ -1189,8 +1339,8 @@
               <input id="custom-card-zh" type="text" placeholder="请输入释义" />
             </label>
             <label>
-              例句
-              <textarea id="custom-card-example" rows="3" placeholder="Ejemplo"></textarea>
+              备注
+              <textarea id="custom-card-example" rows="3" placeholder="Nota"></textarea>
             </label>
             <button
               type="button"
@@ -1311,12 +1461,85 @@
               <button type="button" data-action="video-load-url" aria-label="加载链接字幕">加载字幕</button>
             </div>
           </div>
-          <div style="display: grid; gap: 12px;">
-            <div id="subsPanel" class="subtitle-panel" tabindex="0" role="listbox" aria-label="字幕列表"></div>
-            <div id="word-preview" class="word-preview" aria-live="polite">将鼠标移到单词上查看词卡预览。</div>
+          <div class="video-side">
+            <div class="video-tabs" role="tablist" aria-label="字幕与学习卡片切换">
+              <button
+                type="button"
+                class="active"
+                role="tab"
+                id="tab-subtitles"
+                aria-selected="true"
+                aria-controls="video-panel-subtitles"
+                data-action="video-tab"
+                data-tab="subtitles"
+              >字幕</button>
+              <button
+                type="button"
+                role="tab"
+                id="tab-cards"
+                aria-selected="false"
+                aria-controls="video-panel-cards"
+                data-action="video-tab"
+                data-tab="cards"
+              >学习卡片</button>
+            </div>
+            <div
+              id="video-panel-subtitles"
+              class="video-panel active"
+              role="tabpanel"
+              aria-labelledby="tab-subtitles"
+            >
+              <div class="subtitle-search-row">
+                <input
+                  type="search"
+                  id="subtitle-search"
+                  placeholder="搜索字幕中的词或短语"
+                  aria-label="搜索字幕"
+                />
+                <button
+                  type="button"
+                  data-action="video-add-card"
+                  aria-label="将选中内容加入学习卡片"
+                >+卡片</button>
+              </div>
+              <div id="subsPanel" class="subtitle-panel" tabindex="0" role="listbox" aria-label="字幕列表"></div>
+              <div id="word-preview" class="word-preview" aria-live="polite">将鼠标移到单词上查看词卡预览。</div>
+            </div>
+            <div
+              id="video-panel-cards"
+              class="video-panel"
+              role="tabpanel"
+              aria-labelledby="tab-cards"
+            >
+              <p style="margin:0;color:var(--muted);">到期的学习卡片会优先显示，可直接在此复习。</p>
+              <div id="video-card-list" class="video-card-list" aria-live="polite"></div>
+            </div>
           </div>
         </div>
       </section>
+
+      <div id="video-card-modal" class="video-card-modal" hidden role="dialog" aria-modal="true" aria-labelledby="video-card-modal-title">
+        <div class="modal-content">
+          <h3 id="video-card-modal-title" style="margin:0;">保存学习卡片</h3>
+          <p style="margin:0;color:var(--muted);font-size:0.9rem;">请填写中文释义与备注，方便稍后复习。</p>
+          <label>
+            西语原句/词
+            <textarea id="video-card-phrase" rows="2" aria-label="西语原句或单词"></textarea>
+          </label>
+          <label>
+            中文释义
+            <input id="video-card-zh" type="text" aria-label="输入中文释义" />
+          </label>
+          <label>
+            备注
+            <textarea id="video-card-note" rows="2" aria-label="输入学习备注"></textarea>
+          </label>
+          <div class="modal-actions">
+            <button type="button" class="secondary" data-action="video-card-cancel" aria-label="取消添加学习卡片">取消</button>
+            <button type="button" data-action="video-card-save" aria-label="保存学习卡片">保存</button>
+          </div>
+        </div>
+      </div>
 
       <section id="grammar" aria-labelledby="grammar-title">
         <h2 id="grammar-title">语法速查</h2>
@@ -1893,46 +2116,46 @@
       };
 
       const DEFAULT_CARDS = [
-        { id: 'c1', es: 'hola', zh: '你好', example: 'Hola, ¿cómo estás?', level: 1 },
-        { id: 'c2', es: 'gracias', zh: '谢谢', example: 'Muchas gracias por tu ayuda.', level: 1 },
-        { id: 'c3', es: 'por favor', zh: '请；劳驾', example: 'Una mesa, por favor.', level: 1 },
-        { id: 'c4', es: '¿cuánto?', zh: '多少钱？', example: '¿Cuánto cuesta esto?', level: 1 },
-        { id: 'c5', es: 'perdón', zh: '对不起，打扰了', example: 'Perdón, no fue mi intención.', level: 1 },
-        { id: 'c6', es: 'sí', zh: '是', example: 'Sí, entiendo.', level: 1 },
-        { id: 'c7', es: 'no', zh: '不', example: 'No quiero eso.', level: 1 },
-        { id: 'c8', es: 'adiós', zh: '再见', example: 'Adiós, hasta luego.', level: 1 },
-        { id: 'c9', es: 'buenos días', zh: '早上好', example: 'Buenos días, profesor.', level: 1 },
-        { id: 'c10', es: 'buenas tardes', zh: '下午好', example: 'Buenas tardes a todos.', level: 1 },
-        { id: 'c11', es: 'buenas noches', zh: '晚上好/晚安', example: 'Buenas noches, mamá.', level: 1 },
-        { id: 'c12', es: 'hasta luego', zh: '待会见', example: 'Hasta luego, amigos.', level: 1 },
-        { id: 'c13', es: 'salud', zh: '祝健康/干杯', example: '¡Salud! Por nosotros.', level: 1 },
-        { id: 'c14', es: 'perdona', zh: '抱歉（非正式）', example: 'Perdona, ¿puedes repetir?', level: 1 },
-        { id: 'c15', es: 'baño', zh: '厕所，浴室', example: '¿Dónde está el baño?', level: 1 },
-        { id: 'c16', es: 'agua', zh: '水', example: 'Quiero agua, por favor.', level: 1 },
-        { id: 'c17', es: 'comida', zh: '食物', example: 'La comida está deliciosa.', level: 1 },
-        { id: 'c18', es: 'cuenta', zh: '账单', example: 'La cuenta, por favor.', level: 1 },
-        { id: 'c19', es: 'precio', zh: '价格', example: 'El precio es alto.', level: 1 },
-        { id: 'c20', es: 'trabajo', zh: '工作', example: 'Tengo mucho trabajo.', level: 1 },
-        { id: 'c21', es: 'amigo', zh: '朋友', example: 'Mi amigo vive en Madrid.', level: 1 },
-        { id: 'c22', es: 'familia', zh: '家庭', example: 'Mi familia es grande.', level: 1 },
-        { id: 'c23', es: 'comer', zh: '吃', example: 'Vamos a comer juntos.', level: 1 },
-        { id: 'c24', es: 'beber', zh: '喝', example: '¿Quieres beber algo?', level: 1 },
-        { id: 'c25', es: 'ir', zh: '去', example: 'Voy a ir al cine.', level: 1 },
-        { id: 'c26', es: 'venir', zh: '来', example: '¿Vienes conmigo?', level: 1 },
-        { id: 'c27', es: 'hacer', zh: '做', example: '¿Qué vas a hacer?', level: 1 },
-        { id: 'c28', es: 'tener', zh: '有', example: 'Tengo dos hermanos.', level: 1 },
-        { id: 'c29', es: 'querer', zh: '想，要', example: 'Quiero aprender español.', level: 1 },
-        { id: 'c30', es: 'gustar', zh: '喜欢', example: 'Me gusta la música.', level: 1 },
-        { id: 'c31', es: 'tiempo', zh: '时间；天气', example: 'No tengo tiempo.', level: 1 },
-        { id: 'c32', es: 'hoy', zh: '今天', example: 'Hoy es lunes.', level: 1 },
-        { id: 'c33', es: 'mañana', zh: '明天；早上', example: 'Mañana estudiamos.', level: 1 },
-        { id: 'c34', es: 'ayer', zh: '昨天', example: 'Ayer llovió mucho.', level: 1 },
-        { id: 'c35', es: 'mucho', zh: '很多', example: 'Tengo mucho sueño.', level: 1 },
-        { id: 'c36', es: 'poco', zh: '少量', example: 'Habla poco español.', level: 1 },
-        { id: 'c37', es: 'muy', zh: '非常', example: 'Es muy amable.', level: 1 },
-        { id: 'c38', es: 'bien', zh: '好地', example: 'Estoy bien, gracias.', level: 1 },
-        { id: 'c39', es: 'mal', zh: '不好', example: 'Hoy me siento mal.', level: 1 },
-        { id: 'c40', es: 'porque', zh: '因为', example: 'No voy porque estoy cansado.', level: 1 }
+        { id: 'c1', phrase: 'hola', zh: '你好', note: 'Hola, ¿cómo estás?', level: 1, src: 'default' },
+        { id: 'c2', phrase: 'gracias', zh: '谢谢', note: 'Muchas gracias por tu ayuda.', level: 1, src: 'default' },
+        { id: 'c3', phrase: 'por favor', zh: '请；劳驾', note: 'Una mesa, por favor.', level: 1, src: 'default' },
+        { id: 'c4', phrase: '¿cuánto?', zh: '多少钱？', note: '¿Cuánto cuesta esto?', level: 1, src: 'default' },
+        { id: 'c5', phrase: 'perdón', zh: '对不起，打扰了', note: 'Perdón, no fue mi intención.', level: 1, src: 'default' },
+        { id: 'c6', phrase: 'sí', zh: '是', note: 'Sí, entiendo.', level: 1, src: 'default' },
+        { id: 'c7', phrase: 'no', zh: '不', note: 'No quiero eso.', level: 1, src: 'default' },
+        { id: 'c8', phrase: 'adiós', zh: '再见', note: 'Adiós, hasta luego.', level: 1, src: 'default' },
+        { id: 'c9', phrase: 'buenos días', zh: '早上好', note: 'Buenos días, profesor.', level: 1, src: 'default' },
+        { id: 'c10', phrase: 'buenas tardes', zh: '下午好', note: 'Buenas tardes a todos.', level: 1, src: 'default' },
+        { id: 'c11', phrase: 'buenas noches', zh: '晚上好/晚安', note: 'Buenas noches, mamá.', level: 1, src: 'default' },
+        { id: 'c12', phrase: 'hasta luego', zh: '待会见', note: 'Hasta luego, amigos.', level: 1, src: 'default' },
+        { id: 'c13', phrase: 'salud', zh: '祝健康/干杯', note: '¡Salud! Por nosotros.', level: 1, src: 'default' },
+        { id: 'c14', phrase: 'perdona', zh: '抱歉（非正式）', note: 'Perdona, ¿puedes repetir?', level: 1, src: 'default' },
+        { id: 'c15', phrase: 'baño', zh: '厕所，浴室', note: '¿Dónde está el baño?', level: 1, src: 'default' },
+        { id: 'c16', phrase: 'agua', zh: '水', note: 'Quiero agua, por favor.', level: 1, src: 'default' },
+        { id: 'c17', phrase: 'comida', zh: '食物', note: 'La comida está deliciosa.', level: 1, src: 'default' },
+        { id: 'c18', phrase: 'cuenta', zh: '账单', note: 'La cuenta, por favor.', level: 1, src: 'default' },
+        { id: 'c19', phrase: 'precio', zh: '价格', note: 'El precio es alto.', level: 1, src: 'default' },
+        { id: 'c20', phrase: 'trabajo', zh: '工作', note: 'Tengo mucho trabajo.', level: 1, src: 'default' },
+        { id: 'c21', phrase: 'amigo', zh: '朋友', note: 'Mi amigo vive en Madrid.', level: 1, src: 'default' },
+        { id: 'c22', phrase: 'familia', zh: '家庭', note: 'Mi familia es grande.', level: 1, src: 'default' },
+        { id: 'c23', phrase: 'comer', zh: '吃', note: 'Vamos a comer juntos.', level: 1, src: 'default' },
+        { id: 'c24', phrase: 'beber', zh: '喝', note: '¿Quieres beber algo?', level: 1, src: 'default' },
+        { id: 'c25', phrase: 'ir', zh: '去', note: 'Voy a ir al cine.', level: 1, src: 'default' },
+        { id: 'c26', phrase: 'venir', zh: '来', note: '¿Vienes conmigo?', level: 1, src: 'default' },
+        { id: 'c27', phrase: 'hacer', zh: '做', note: '¿Qué vas a hacer?', level: 1, src: 'default' },
+        { id: 'c28', phrase: 'tener', zh: '有', note: 'Tengo dos hermanos.', level: 1, src: 'default' },
+        { id: 'c29', phrase: 'querer', zh: '想，要', note: 'Quiero aprender español.', level: 1, src: 'default' },
+        { id: 'c30', phrase: 'gustar', zh: '喜欢', note: 'Me gusta la música.', level: 1, src: 'default' },
+        { id: 'c31', phrase: 'tiempo', zh: '时间；天气', note: 'No tengo tiempo.', level: 1, src: 'default' },
+        { id: 'c32', phrase: 'hoy', zh: '今天', note: 'Hoy es lunes.', level: 1, src: 'default' },
+        { id: 'c33', phrase: 'mañana', zh: '明天；早上', note: 'Mañana estudiamos.', level: 1, src: 'default' },
+        { id: 'c34', phrase: 'ayer', zh: '昨天', note: 'Ayer llovió mucho.', level: 1, src: 'default' },
+        { id: 'c35', phrase: 'mucho', zh: '很多', note: 'Tengo mucho sueño.', level: 1, src: 'default' },
+        { id: 'c36', phrase: 'poco', zh: '少量', note: 'Habla poco español.', level: 1, src: 'default' },
+        { id: 'c37', phrase: 'muy', zh: '非常', note: 'Es muy amable.', level: 1, src: 'default' },
+        { id: 'c38', phrase: 'bien', zh: '好地', note: 'Estoy bien, gracias.', level: 1, src: 'default' },
+        { id: 'c39', phrase: 'mal', zh: '不好', note: 'Hoy me siento mal.', level: 1, src: 'default' },
+        { id: 'c40', phrase: 'porque', zh: '因为', note: 'No voy porque estoy cansado.', level: 1, src: 'default' }
       ];
 
       const CEFR_QUESTIONS = [
@@ -2586,23 +2809,46 @@
         let cards = [];
 
         /**
+         * 规范化卡片数据
+         * @param {any} raw
+         * @param {number} [index]
+         * @returns {{id:string,phrase:string,zh:string,note:string,level:number,dueAt:number,src:string,intervalDays:number}|null}
+         */
+        function normalizeCard(raw, index = 0) {
+          if (!raw) return null;
+          const phrase = String(raw.phrase || raw.es || '').trim();
+          if (!phrase) return null;
+          const zh = String(raw.zh || '').trim();
+          const note = String(raw.note || raw.example || '').trim();
+          const id = String(raw.id || `card-${Date.now()}-${index}`);
+          const levelRaw = Number.isFinite(Number(raw.level)) ? Number(raw.level) : 1;
+          const level = Math.max(1, Math.round(levelRaw));
+          const dueAtRaw = Number.isFinite(Number(raw.dueAt)) ? Number(raw.dueAt) : Date.now();
+          const src = raw.src || (raw.es && !raw.phrase ? 'legacy' : 'custom');
+          const intervalDaysRaw = Number.isFinite(Number(raw.intervalDays)) ? Number(raw.intervalDays) : 1;
+          const intervalDays = Math.max(1, Math.round(intervalDaysRaw));
+          return { id, phrase, zh, note, level, dueAt: dueAtRaw, src, intervalDays };
+        }
+
+        /**
          * 初始化词卡数据
          * @returns {Array}
          */
         function init() {
           const stored = storage.load(STORAGE_KEYS.cards, null);
           if (Array.isArray(stored) && stored.length) {
-            cards = stored;
+            cards = stored.map((item, index) => normalizeCard(item, index)).filter(Boolean);
+            persist();
           } else {
             const now = Date.now();
-            cards = DEFAULT_CARDS.map((card, index) => ({
-              ...card,
-              dueAt: now + index * 60000,
-              intervalDays: 1
-            }));
+            cards = DEFAULT_CARDS.map((card, index) => {
+              const normalized = normalizeCard(card, index);
+              if (!normalized) return null;
+              return { ...normalized, dueAt: now + index * 60000, intervalDays: 1 };
+            }).filter(Boolean);
             persist();
           }
-          return cards;
+          return getCards();
         }
 
         /**
@@ -2617,32 +2863,34 @@
          * @returns {Array}
          */
         function getCards() {
-          return cards.slice();
+          return cards.map((card) => ({ ...card }));
         }
 
         /**
          * 添加词卡
-         * @param {{es:string, zh:string, example:string}} payload
+         * @param {{id?:string, phrase?:string, es?:string, zh?:string, note?:string, example?:string, src?:string}} payload
+         * @returns {{id:string,phrase:string,zh:string,note:string,level:number,dueAt:number,src:string,intervalDays:number}|null}
          */
         function addCard(payload) {
-          const exists = cards.some((item) => item.es.toLowerCase() === payload.es.toLowerCase());
-          if (exists) return false;
+          const draft = normalizeCard({ ...payload }, cards.length + 1);
+          if (!draft) return null;
+          const exists = cards.some((item) => item.phrase.toLowerCase() === draft.phrase.toLowerCase());
+          if (exists) return null;
           const newCard = {
-            id: `custom-${Date.now()}`,
-            es: payload.es.trim(),
-            zh: payload.zh.trim(),
-            example: payload.example.trim(),
-            level: 1,
-            intervalDays: 1,
-            dueAt: Date.now()
+            ...draft,
+            id: payload.id || `custom-${Date.now()}`,
+            level: draft.level || 1,
+            dueAt: Date.now(),
+            src: payload.src || draft.src || 'custom',
+            intervalDays: 1
           };
           cards.push(newCard);
           persist();
-          return newCard;
+          return { ...newCard };
         }
 
         /**
-         * 调整 SRS 计划
+         * 调整标准复习计划
          * @param {string} id
          * @param {0|1|2|3} quality
          */
@@ -2670,15 +2918,43 @@
         }
 
         /**
+         * 视频学习快捷调度（忘记/一般/容易）
+         * @param {string} id
+         * @param {'again'|'good'|'easy'} label
+         */
+        function scheduleSubtitle(id, label) {
+          const card = cards.find((item) => item.id === id);
+          if (!card) return;
+          const now = Date.now();
+          if (label === 'again') {
+            card.dueAt = now + 10 * 60 * 1000;
+            card.level = Math.max(1, card.level);
+          } else if (label === 'good') {
+            card.dueAt = now + 24 * 60 * 60 * 1000;
+            card.level = Math.max(1, card.level + 1);
+          } else if (label === 'easy') {
+            card.dueAt = now + 3 * 24 * 60 * 60 * 1000;
+            card.level = Math.max(1, card.level + 2);
+          }
+          card.intervalDays = Math.max(1, Math.round((card.dueAt - now) / (24 * 60 * 60 * 1000)));
+          persist();
+        }
+
+        /**
          * 覆盖当前词卡集合
          * @param {Array} nextCards
          */
         function updateCards(nextCards) {
-          cards = nextCards;
+          if (!Array.isArray(nextCards)) {
+            cards = [];
+            persist();
+            return;
+          }
+          cards = nextCards.map((item, index) => normalizeCard(item, index)).filter(Boolean);
           persist();
         }
 
-        return { init, getCards, addCard, schedule, updateCards };
+        return { init, getCards, addCard, schedule, scheduleSubtitle, updateCards };
       })();
 
       const diffUtil = (() => {
@@ -3191,7 +3467,7 @@
           .slice(0, 10)
           .map((card) => {
             const dueText = describeDueAt(card.dueAt);
-            return `${card.es} - ${card.zh}${dueText ? `（${dueText}）` : ''}`;
+            return `${card.phrase} - ${card.zh}${dueText ? `（${dueText}）` : ''}`;
           });
         const mistakeMap = new Map();
         filtered.forEach((session) => {
@@ -3461,7 +3737,8 @@
        */
       function renderCues(container, cues, options = {}) {
         if (!container) return;
-        const { activeIndex = -1, selectedIndex = -1 } = options;
+        const { activeIndex = -1, selectedIndex = -1, query = '' } = options;
+        const highlight = typeof query === 'string' ? query.trim().toLowerCase() : '';
         container.innerHTML = '';
         const fragment = document.createDocumentFragment();
         cues.forEach((cue, index) => {
@@ -3487,6 +3764,9 @@
               span.className = 'tok';
               span.dataset.t = word;
               span.textContent = word;
+              if (highlight && word.toLowerCase().includes(highlight)) {
+                span.classList.add('match');
+              }
               text.appendChild(span);
               if (wordIndex !== cue.words.length - 1) {
                 text.appendChild(document.createTextNode(' '));
@@ -3688,7 +3968,7 @@
           installBtn.hidden = !(available && !isStandalone);
         }
 
-        return { init };
+        return { init, refreshCards: renderVideoCards };
       })();
 
       const render = (() => {
@@ -3802,11 +4082,11 @@
                 item.style.right = '12px';
                 item.style.top = `${i * rowHeight + 12}px`;
                 const title = document.createElement('strong');
-                title.textContent = `${card.es}`;
+                title.textContent = `${card.phrase}`;
                 const zh = document.createElement('div');
                 zh.textContent = card.zh;
                 const example = document.createElement('div');
-                example.textContent = card.example;
+                example.textContent = card.note;
                 item.append(title, zh, example);
                 content.appendChild(item);
               }
@@ -3819,11 +4099,11 @@
             const item = document.createElement('div');
             item.className = 'card-item';
             const title = document.createElement('strong');
-            title.textContent = card.es;
+            title.textContent = card.phrase;
             const zh = document.createElement('div');
             zh.textContent = card.zh;
             const example = document.createElement('div');
-            example.textContent = card.example;
+            example.textContent = card.note;
             item.append(title, zh, example);
             container.appendChild(item);
           });
@@ -3842,11 +4122,11 @@
           }
           container.innerHTML = `
             <div class="card-item" data-card-id="${card.id}">
-              <strong>${card.es}</strong>
+              <strong>${card.phrase}</strong>
               <div class="pill">熟练度：Lv.${card.level}</div>
               ${
                 showTranslation
-                  ? `<div><strong>中文：</strong>${card.zh}</div><div>${card.example}</div>`
+                  ? `<div><strong>中文：</strong>${card.zh}</div><div>${card.note || '暂无备注'}</div>`
                   : '<div>点击“显示中文”查看释义与例句</div>'
               }
               <div style="font-size:0.85rem;color:var(--muted);">下次复习：${new Date(card.dueAt).toLocaleString()}</div>
@@ -3961,7 +4241,11 @@
           cues: [],
           autoScroll: true,
           selectedIndex: -1,
-          loop: { start: null, end: null, active: false }
+          loop: { start: null, end: null, active: false },
+          search: '',
+          lastToken: '',
+          lastCueIndex: -1,
+          cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 }
         },
         cefr: {
           responses: {}
@@ -3996,6 +4280,27 @@
         let loadUrlButton = null;
         /** @type {HTMLElement|null} */
         let wordPreview = null;
+        /** @type {HTMLInputElement|null} */
+        let searchInput = null;
+        /** @type {HTMLElement[]} */
+        let tabButtons = [];
+        /** @type {HTMLElement|null} */
+        let subtitlesPanel = null;
+        /** @type {HTMLElement|null} */
+        let cardsPanel = null;
+        /** @type {HTMLElement|null} */
+        let cardList = null;
+        /** @type {HTMLButtonElement|null} */
+        let addCardButton = null;
+        /** @type {HTMLElement|null} */
+        let modal = null;
+        /** @type {{phrase:HTMLTextAreaElement|null,zh:HTMLInputElement|null,note:HTMLTextAreaElement|null}} */
+        let modalFields = { phrase: null, zh: null, note: null };
+        /** @type {HTMLButtonElement|null} */
+        let modalSaveButton = null;
+        /** @type {HTMLButtonElement|null} */
+        let modalCancelButton = null;
+        let activeTab = 'subtitles';
         let currentCueIndex = -1;
         let loopRuntime = { mode: null, remaining: 0, total: 0 };
 
@@ -4010,7 +4315,16 @@
          *  fileInput: HTMLInputElement|null,
          *  urlInput: HTMLInputElement|null,
          *  loadUrlButton: HTMLButtonElement|null,
-         *  wordPreview: HTMLElement|null
+         *  wordPreview: HTMLElement|null,
+         *  searchInput?: HTMLInputElement|null,
+         *  tabButtons?: HTMLElement[]|null,
+         *  subtitlesPanel?: HTMLElement|null,
+         *  cardsPanel?: HTMLElement|null,
+         *  addCardButton?: HTMLButtonElement|null,
+         *  cardList?: HTMLElement|null,
+         *  modal?: HTMLElement|null,
+         *  modalFields?: { phrase?: HTMLTextAreaElement|null, zh?: HTMLInputElement|null, note?: HTMLTextAreaElement|null },
+         *  modalButtons?: { save?: HTMLButtonElement|null, cancel?: HTMLButtonElement|null }
          * }} elements
          */
         function init(elements) {
@@ -4024,6 +4338,20 @@
           loadUrlButton = elements.loadUrlButton || null;
           wordPreview = elements.wordPreview || null;
           playButton = toolbar?.querySelector('[data-action="video-toggle-play"]') || null;
+          searchInput = elements.searchInput || null;
+          tabButtons = Array.isArray(elements.tabButtons) ? elements.tabButtons : [];
+          subtitlesPanel = elements.subtitlesPanel || panel?.parentElement || null;
+          cardsPanel = elements.cardsPanel || null;
+          cardList = elements.cardList || null;
+          addCardButton = elements.addCardButton || null;
+          modal = elements.modal || null;
+          modalFields = {
+            phrase: elements.modalFields?.phrase || null,
+            zh: elements.modalFields?.zh || null,
+            note: elements.modalFields?.note || null
+          };
+          modalSaveButton = elements.modalButtons?.save || null;
+          modalCancelButton = elements.modalButtons?.cancel || null;
 
           if (panel) {
             panel.innerHTML = '<p style="margin:0;color:var(--muted);">请导入 .vtt 字幕文件或填写链接后加载字幕。</p>';
@@ -4042,6 +4370,20 @@
           panel?.addEventListener('mouseout', handleTokenLeave);
           fileInput?.addEventListener('change', handleFileChange);
           loadUrlButton?.addEventListener('click', handleUrlLoad);
+          searchInput?.addEventListener('input', handleSearchInput);
+          addCardButton?.addEventListener('click', handleAddCardClick);
+          tabButtons.forEach((button) => button.addEventListener('click', handleTabSwitch));
+          cardList?.addEventListener('click', handleCardListClick);
+          modalSaveButton?.addEventListener('click', saveModalCard);
+          modalCancelButton?.addEventListener('click', closeModal);
+
+          if (modal) {
+            modal.addEventListener('click', (event) => {
+              if (event.target === modal) {
+                closeModal();
+              }
+            });
+          }
 
           if (wordPreview) {
             wordPreview.dataset.default = wordPreview.textContent || '';
@@ -4050,6 +4392,7 @@
           updateAutoScrollButton();
           updateLoopStatus();
           updatePlayButton();
+          renderVideoCards();
         }
 
         function handleToolbarClick(event) {
@@ -4218,6 +4561,205 @@
             });
         }
 
+        function handleSearchInput() {
+          if (!panel) return;
+          state.video.search = searchInput?.value?.trim() || '';
+          renderCues(panel, state.video.cues, {
+            activeIndex: currentCueIndex,
+            selectedIndex: state.video.selectedIndex,
+            query: state.video.search
+          });
+          if (state.video.selectedIndex >= 0) {
+            setSelectedIndex(state.video.selectedIndex, false, false, true);
+          }
+          if (currentCueIndex >= 0) {
+            updateActiveCue(currentCueIndex);
+          }
+          if (state.video.search) {
+            scrollFirstMatchIntoView();
+          }
+        }
+
+        function handleTabSwitch(event) {
+          const button = event.currentTarget instanceof HTMLElement ? event.currentTarget : null;
+          if (!button) return;
+          const target = button.dataset.tab;
+          if (!target || target === activeTab) return;
+          activeTab = target;
+          tabButtons.forEach((btn) => {
+            const isActive = btn === button;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+          });
+          subtitlesPanel?.classList.toggle('active', target === 'subtitles');
+          cardsPanel?.classList.toggle('active', target === 'cards');
+          if (target === 'cards') {
+            renderVideoCards();
+          }
+        }
+
+        function handleAddCardClick() {
+          const selection = getSelectedCueText();
+          const fallbackIndex = state.video.selectedIndex >= 0 ? state.video.selectedIndex : state.video.lastCueIndex;
+          const fallbackCue = fallbackIndex >= 0 ? state.video.cues[fallbackIndex]?.text || '' : '';
+          const phrase = selection || state.video.lastToken || fallbackCue;
+          if (!phrase) {
+            userNotifier.notify('请先选择字幕句子或点击单词。', 'warning');
+            return;
+          }
+          state.video.cardDraft.phrase = phrase;
+          state.video.cardDraft.cueIndex = fallbackIndex;
+          openModal();
+        }
+
+        function handleCardListClick(event) {
+          const button = event.target instanceof HTMLElement ? event.target.closest('button[data-action="video-card-rate"]') : null;
+          if (!button) return;
+          const id = button.dataset.id;
+          const rating = button.dataset.rating;
+          if (!id || !rating) return;
+          srs.scheduleSubtitle(id, rating);
+          const label = rating === 'again' ? '忘记' : rating === 'good' ? '一般' : '容易';
+          showToast(`已记录“${label}”评价，系统会安排下次复习。`);
+          renderVideoCards();
+          updateProgressPanel();
+        }
+
+        function openModal() {
+          if (!modal) return;
+          if (modalFields.phrase) {
+            modalFields.phrase.value = state.video.cardDraft.phrase || '';
+          }
+          if (modalFields.zh) {
+            modalFields.zh.value = state.video.cardDraft.zh || '';
+          }
+          if (modalFields.note) {
+            modalFields.note.value = state.video.cardDraft.note || '';
+          }
+          modal.hidden = false;
+          requestAnimationFrame(() => {
+            modalFields.zh?.focus();
+          });
+        }
+
+        function closeModal() {
+          if (!modal) return;
+          if (modalFields.zh) {
+            state.video.cardDraft.zh = modalFields.zh.value;
+          }
+          if (modalFields.note) {
+            state.video.cardDraft.note = modalFields.note.value;
+          }
+          modal.hidden = true;
+        }
+
+        function saveModalCard() {
+          const phrase = modalFields.phrase?.value?.trim() || '';
+          const zh = modalFields.zh?.value?.trim() || '';
+          const note = modalFields.note?.value?.trim() || '';
+          if (!phrase || !zh) {
+            userNotifier.notify('请填写西语原句/词与中文释义。', 'warning');
+            return;
+          }
+          const created = srs.addCard({ phrase, zh, note, src: 'subtitle' });
+          if (created) {
+            showToast('学习卡片已保存，记得复习！');
+            if (modalFields.phrase) modalFields.phrase.value = '';
+            if (modalFields.zh) modalFields.zh.value = '';
+            if (modalFields.note) modalFields.note.value = '';
+            state.video.cardDraft = { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 };
+            closeModal();
+            updateCardsUI();
+          } else {
+            userNotifier.notify('该卡片已存在，无需重复添加。', 'info');
+          }
+        }
+
+        function getSelectedCueText() {
+          if (!panel || !window.getSelection) return '';
+          const selection = window.getSelection();
+          if (!selection || selection.rangeCount === 0) return '';
+          const text = selection.toString().trim();
+          if (!text) return '';
+          const range = selection.getRangeAt(0);
+          if (!panel.contains(range.commonAncestorContainer)) return '';
+          return text.replace(/\s+/g, ' ');
+        }
+
+        function scrollFirstMatchIntoView() {
+          if (!panel) return;
+          const target = panel.querySelector('.tok.match');
+          if (!target) return;
+          try {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (error) {
+            target.scrollIntoView({ block: 'center' });
+          }
+        }
+
+        function renderVideoCards() {
+          if (!cardList) return;
+          const cards = srs
+            .getCards()
+            .filter((card) => card.src === 'subtitle')
+            .sort((a, b) => a.dueAt - b.dueAt);
+          cardList.innerHTML = '';
+          if (!cards.length) {
+            cardList.innerHTML = '<div class="video-card-empty">暂无字幕学习卡片，点击字幕单词或选中句子后使用“+卡片”。</div>';
+            return;
+          }
+          const now = Date.now();
+          const due = cards.filter((card) => card.dueAt <= now);
+          const upcoming = cards.filter((card) => card.dueAt > now);
+          const ordered = [...due, ...upcoming];
+          ordered.forEach((card) => {
+            const item = document.createElement('article');
+            item.className = 'video-card-item';
+            if (card.dueAt <= now) {
+              item.classList.add('due');
+            }
+            const header = document.createElement('div');
+            header.className = 'video-card-header';
+            const title = document.createElement('strong');
+            title.textContent = card.phrase;
+            const meta = document.createElement('span');
+            meta.style.fontSize = '0.85rem';
+            meta.style.color = 'var(--muted)';
+            meta.textContent = card.dueAt <= now
+              ? '已到期，建议优先复习'
+              : `下次复习：${new Date(card.dueAt).toLocaleString()}`;
+            const metaWrap = document.createElement('div');
+            metaWrap.style.display = 'flex';
+            metaWrap.style.alignItems = 'center';
+            metaWrap.style.gap = '8px';
+            const level = document.createElement('span');
+            level.className = 'pill';
+            level.textContent = `Lv.${card.level || 1}`;
+            metaWrap.append(level, meta);
+            header.append(title, metaWrap);
+
+            const body = document.createElement('div');
+            body.innerHTML = `<div><strong>中文：</strong>${card.zh || '待补充'}</div>`;
+            if (card.note) {
+              const noteEl = document.createElement('div');
+              noteEl.style.color = 'var(--muted)';
+              noteEl.textContent = card.note;
+              body.appendChild(noteEl);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'video-card-actions';
+            actions.innerHTML = `
+              <button type="button" data-action="video-card-rate" data-rating="again" data-id="${card.id}" aria-label="标记为忘记，10 分钟后复习">忘记</button>
+              <button type="button" data-action="video-card-rate" data-rating="good" data-id="${card.id}" aria-label="标记为一般，1 天后复习">一般</button>
+              <button type="button" data-action="video-card-rate" data-rating="easy" data-id="${card.id}" aria-label="标记为容易，3 天后复习">容易</button>
+            `;
+
+            item.append(header, body, actions);
+            cardList.appendChild(item);
+          });
+        }
+
         /**
          * @param {string} text
          * @param {string} source
@@ -4233,8 +4775,20 @@
           currentCueIndex = -1;
           state.video.loop = { start: null, end: null, active: false };
           loopRuntime = { mode: null, remaining: 0, total: 0 };
+          state.video.lastToken = '';
+          state.video.cardDraft = {
+            phrase: '',
+            zh: state.video.cardDraft.zh || '',
+            note: state.video.cardDraft.note || '',
+            src: 'subtitle',
+            cueIndex: -1
+          };
           if (panel) {
-            renderCues(panel, cues, { activeIndex: -1, selectedIndex: state.video.selectedIndex });
+            renderCues(panel, cues, {
+              activeIndex: -1,
+              selectedIndex: state.video.selectedIndex,
+              query: state.video.search
+            });
             if (state.video.selectedIndex >= 0) {
               panel.setAttribute('aria-activedescendant', `cue-${state.video.selectedIndex}`);
             }
@@ -4248,6 +4802,9 @@
           if (state.video.selectedIndex >= 0) {
             setSelectedIndex(state.video.selectedIndex, false, false);
           }
+          if (state.video.search) {
+            scrollFirstMatchIntoView();
+          }
         }
 
         function handleCueClick(event) {
@@ -4255,7 +4812,18 @@
           if (!cueEl) return;
           const index = Number(cueEl.dataset.index);
           if (!Number.isInteger(index)) return;
+          const token = event.target.closest('.tok');
+          if (token) {
+            repeatSentence(index);
+            const phrase = token.dataset.t || '';
+            state.video.lastToken = phrase;
+            state.video.cardDraft.phrase = phrase;
+            state.video.cardDraft.cueIndex = index;
+            return;
+          }
+          state.video.lastToken = '';
           setSelectedIndex(index, true, true);
+          state.video.cardDraft.phrase = state.video.cues[index]?.text || state.video.cardDraft.phrase;
         }
 
         function handleCueDblClick(event) {
@@ -4362,6 +4930,7 @@
                 setSelectedIndex(index, false, false);
               }
             }
+            state.video.lastCueIndex = index;
           }
         }
 
@@ -4395,10 +4964,10 @@
           }
         }
 
-        function setSelectedIndex(index, shouldSeek, autoPlay) {
+        function setSelectedIndex(index, shouldSeek, autoPlay, force = false) {
           if (index < 0 || index >= state.video.cues.length) return;
           const previous = state.video.selectedIndex;
-          if (previous === index && !shouldSeek) return;
+          if (!force && previous === index && !shouldSeek) return;
           if (previous >= 0) {
             const prevEl = getCueElement(previous);
             if (prevEl) {
@@ -4416,6 +4985,10 @@
             panel?.setAttribute('aria-activedescendant', nextEl.id || '');
           }
           state.video.selectedIndex = index;
+          state.video.cardDraft.cueIndex = index;
+          state.video.cardDraft.phrase = state.video.cues[index]?.text || state.video.cardDraft.phrase || '';
+          state.video.lastCueIndex = index;
+          state.video.lastToken = '';
           if (shouldSeek) {
             const cue = state.video.cues[index];
             seekTo(player, cue.start);
@@ -4464,12 +5037,13 @@
           const template = DEFAULT_CARDS[index % DEFAULT_CARDS.length];
           return {
             id: `bulk-${index}`,
-            es: `${template.es}-${index}`,
+            phrase: `${template.phrase}-${index}`,
             zh: `${template.zh}（示例 ${index + 1}）`,
-            example: template.example,
+            note: template.note,
             level: (index % 6) + 1,
             intervalDays: (index % 5) + 1,
-            dueAt: now + (index % 30) * 3600000
+            dueAt: now + (index % 30) * 3600000,
+            src: 'stress-test'
           };
         });
       }
@@ -5074,9 +5648,10 @@
         mistakes.forEach((question) => {
           if (!question) return;
           const payload = {
-            es: question.answer,
+            phrase: question.answer,
             zh: question.prompt,
-            example: question.explanation
+            note: question.explanation,
+            src: 'practice'
           };
           if (srs.addCard(payload)) {
             added += 1;
@@ -5108,6 +5683,7 @@
       function updateCardsUI() {
         const cards = srs.getCards().sort((a, b) => a.dueAt - b.dueAt);
         render.cardSamples(cardSamples, cards);
+        videoLearning.refreshCards?.();
         updateProgressPanel();
       }
 
@@ -5165,9 +5741,10 @@
           const line = state.speaking.dialogueLines[index];
           if (!line) return;
           const added = srs.addCard({
-            es: line.es,
+            phrase: line.es,
             zh: line.zh || '来自情景对话练习',
-            example: line.zh ? line.zh : '对话场景摘录'
+            note: line.zh ? line.zh : '对话场景摘录',
+            src: 'dialogue'
           });
           if (added) {
             updateCardsUI();
@@ -5661,22 +6238,23 @@
               return;
             }
             const [esRaw, zhRaw, exampleRaw = ''] = cells;
-            const es = esRaw.trim();
+            const phrase = esRaw.trim();
             const zh = zhRaw.trim();
             const example = exampleRaw.trim();
-            if (!es || !zh) {
+            if (!phrase || !zh) {
               invalid += 1;
               return;
             }
-            const key = es.toLowerCase();
+            const key = phrase.toLowerCase();
             if (seen.has(key)) {
               duplicates += 1;
               return;
             }
             const created = srs.addCard({
-              es,
+              phrase,
               zh,
-              example: example || 'Sin ejemplo definido.'
+              note: example || 'Sin ejemplo definido.',
+              src: 'import-csv'
             });
             if (created) {
               added += 1;
@@ -5724,7 +6302,7 @@
         const cards = srs.getCards();
         const header = 'es,zh,example';
         const rows = cards.map((card) =>
-          [card.es, card.zh, card.example || '']
+          [card.phrase, card.zh, card.note || '']
             .map((value) => `"${String(value).replace(/"/g, '""')}"`)
             .join(',')
         );
@@ -5977,6 +6555,18 @@
       const vttUrlInput = document.getElementById('vtt-url');
       const vttLoadBtn = document.querySelector('[data-action="video-load-url"]');
       const wordPreview = document.getElementById('word-preview');
+      const subtitleSearch = document.getElementById('subtitle-search');
+      const videoTabButtons = document.querySelectorAll('[data-action="video-tab"]');
+      const videoCardList = document.getElementById('video-card-list');
+      const videoCardModal = document.getElementById('video-card-modal');
+      const videoCardPhrase = document.getElementById('video-card-phrase');
+      const videoCardZh = document.getElementById('video-card-zh');
+      const videoCardNote = document.getElementById('video-card-note');
+      const subtitlesPanelWrap = document.getElementById('video-panel-subtitles');
+      const videoCardsPanel = document.getElementById('video-panel-cards');
+      const addVideoCardBtn = document.querySelector('[data-action="video-add-card"]');
+      const videoCardSaveBtn = document.querySelector('[data-action="video-card-save"]');
+      const videoCardCancelBtn = document.querySelector('[data-action="video-card-cancel"]');
       const offlineTtsBlock = document.getElementById('offline-tts-block');
       const offlineTtsTip = document.getElementById('offline-tts-tip');
       const installButton = document.getElementById('install-app');
@@ -6137,9 +6727,10 @@
             return;
           }
           const card = srs.addCard({
-            es: esInput.value,
+            phrase: esInput.value,
             zh: zhInput.value,
-            example: exInput.value || 'Sin ejemplo definido.'
+            note: exInput.value || 'Sin ejemplo definido.',
+            src: 'manual'
           });
           if (card) {
             esInput.value = '';
@@ -6337,7 +6928,23 @@
           fileInput: vttFileInput,
           urlInput: vttUrlInput,
           loadUrlButton: vttLoadBtn,
-          wordPreview
+          wordPreview,
+          searchInput: subtitleSearch,
+          tabButtons: Array.from(videoTabButtons),
+          subtitlesPanel: subtitlesPanelWrap,
+          cardsPanel: videoCardsPanel,
+          addCardButton: addVideoCardBtn,
+          cardList: videoCardList,
+          modal: videoCardModal,
+          modalFields: {
+            phrase: videoCardPhrase,
+            zh: videoCardZh,
+            note: videoCardNote
+          },
+          modalButtons: {
+            save: videoCardSaveBtn,
+            cancel: videoCardCancelBtn
+          }
         });
         if (!sttSupported) {
           state.speaking.sttEnabled = false;
