@@ -560,12 +560,28 @@
         gap: 12px;
       }
 
-      #player {
-        width: 100%;
+      .video-player-wrapper {
+        position: relative;
         border-radius: 16px;
+        overflow: hidden;
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
         background: #000;
+      }
+
+      #player,
+      #cfPlayer {
+        width: 100%;
+        display: block;
+      }
+
+      #player {
+        border-radius: 16px;
+      }
+
+      #cfPlayer {
+        min-height: 220px;
+        border: none;
       }
 
       .video-toolbar {
@@ -1433,10 +1449,20 @@
         <p>通过视频精听与字幕联动练习，掌握真实语境中的西语表达。</p>
         <div class="video-layout">
           <div class="video-player-block">
-            <video id="player" controls preload="metadata" aria-label="西语学习视频">
-              <source src="demo/sample.mp4" type="video/mp4" />
-              您的浏览器不支持 HTML5 视频播放。
-            </video>
+            <div class="video-player-wrapper">
+              <iframe
+                id="cfPlayer"
+                title="Cloudflare Stream 视频播放器"
+                src="about:blank"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen
+                hidden
+              ></iframe>
+              <video id="player" controls preload="metadata" aria-label="西语学习视频">
+                <source src="demo/sample.mp4" type="video/mp4" />
+                您的浏览器不支持 HTML5 视频播放。
+              </video>
+            </div>
             <div class="video-toolbar" role="group" aria-label="视频播放工具">
               <button type="button" data-action="video-toggle-play" aria-label="播放或暂停视频">播放/暂停</button>
               <button type="button" data-action="video-speed-075" aria-label="设置 0.75 倍速">0.75x</button>
@@ -1659,6 +1685,32 @@
             </label>
           </div>
           <div class="settings-group">
+            <h3 style="margin:0;">视频播放（Cloudflare Stream，可选）</h3>
+            <p style="margin:0;color:var(--muted);font-size:0.9rem;">
+              配置 Cloudflare Stream 账号与视频 ID 后，将优先使用在线播放器。
+            </p>
+            <label>
+              Cloudflare Account ID
+              <input
+                type="text"
+                id="cf-account-id"
+                placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                autocomplete="off"
+                aria-label="输入 Cloudflare 账号 ID"
+              />
+            </label>
+            <label>
+              Stream Video ID
+              <input
+                type="text"
+                id="cf-stream-id"
+                placeholder="示例：e0a1b2c3d4e5f6g7"
+                autocomplete="off"
+                aria-label="输入 Cloudflare Stream 视频 ID"
+              />
+            </label>
+          </div>
+          <div class="settings-group">
             <h3 style="margin:0;">数据管理</h3>
             <p>导出/导入包含练习进度、词卡与口语记录的 JSON。</p>
             <div class="data-actions">
@@ -1774,7 +1826,9 @@
         openaiModel: 'gpt-4o-mini',
         aiExplain: false,
         aiDialogue: false,
-        aiCorrection: false
+        aiCorrection: false,
+        cloudflareAccountId: '',
+        streamVideoId: ''
       };
 
       const APP_VERSION = '1.4.0';
@@ -3788,7 +3842,13 @@
        */
       function seekTo(player, time) {
         if (!player || !Number.isFinite(time)) return;
-        player.currentTime = Math.max(time, 0);
+        if (typeof player.seekTo === 'function') {
+          player.seekTo(time);
+          return;
+        }
+        if ('currentTime' in player) {
+          player.currentTime = Math.max(time, 0);
+        }
       }
 
       /**
@@ -3806,26 +3866,40 @@
         }
         let completed = 0;
         const totalLoops = Number.isFinite(repeat) ? Math.max(1, Math.floor(repeat)) : Infinity;
-        const handle = () => {
-          if (player.currentTime >= end - 0.04) {
+        const subscribe = typeof player.onTimeUpdate === 'function'
+          ? player.onTimeUpdate.bind(player)
+          : typeof player.addEventListener === 'function'
+            ? (handler) => {
+                const wrapped = () => handler(player.currentTime || 0);
+                player.addEventListener('timeupdate', wrapped);
+                return () => player.removeEventListener('timeupdate', wrapped);
+              }
+            : null;
+        if (!subscribe) {
+          return { stop: () => {} };
+        }
+        const unsubscribe = subscribe((current) => {
+          const timeValue = Number.isFinite(current) ? current : player.currentTime || 0;
+          if (timeValue >= end - 0.04) {
             completed += 1;
             if (completed >= totalLoops) {
-              player.removeEventListener('timeupdate', handle);
+              unsubscribe();
               onComplete?.();
             } else {
               seekTo(player, start);
-              if (player.paused) {
+              if (typeof player.play === 'function') {
                 player.play().catch(() => {});
               }
             }
           }
-        };
-        player.addEventListener('timeupdate', handle);
+        });
         seekTo(player, start);
-        player.play().catch(() => {});
+        if (typeof player.play === 'function') {
+          player.play().catch(() => {});
+        }
         return {
           stop() {
-            player.removeEventListener('timeupdate', handle);
+            unsubscribe?.();
           }
         };
       }
@@ -4245,7 +4319,9 @@
           search: '',
           lastToken: '',
           lastCueIndex: -1,
-          cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 }
+          cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 },
+          cloudflareAccountId: '',
+          streamVideoId: ''
         },
         cefr: {
           responses: {}
@@ -4259,9 +4335,265 @@
         }
       };
 
+      /**
+       * @typedef {Object} PlayerAdapter
+       * @property {() => Promise<void>} play
+       * @property {() => void} pause
+       * @property {(time: number) => void} seekTo
+       * @property {(rate: number) => boolean} setRate
+       * @property {() => boolean} isPaused
+       * @property {() => Promise<number>} getCurrentTime
+       * @property {(handler: (time: number) => void) => () => void} onTimeUpdate
+       * @property {(handler: () => void) => () => void} onPlay
+       * @property {(handler: () => void) => () => void} onPause
+       * @property {() => void} destroy
+       */
+
+      /**
+       * 创建 HTML5 视频适配器
+       * @param {HTMLVideoElement|null} video
+       * @returns {PlayerAdapter|null}
+       */
+      function createHtml5Adapter(video) {
+        if (!video) return null;
+        return {
+          play: () => video.play(),
+          pause: () => video.pause(),
+          seekTo(time) {
+            if (!Number.isFinite(time)) return;
+            video.currentTime = Math.max(time, 0);
+          },
+          setRate(rate) {
+            if (!Number.isFinite(rate)) return false;
+            video.playbackRate = rate;
+            return true;
+          },
+          isPaused() {
+            return video.paused;
+          },
+          getCurrentTime() {
+            return Promise.resolve(video.currentTime || 0);
+          },
+          onTimeUpdate(handler) {
+            if (typeof handler !== 'function') return () => {};
+            const listener = () => handler(video.currentTime || 0);
+            video.addEventListener('timeupdate', listener);
+            return () => video.removeEventListener('timeupdate', listener);
+          },
+          onPlay(handler) {
+            if (typeof handler !== 'function') return () => {};
+            video.addEventListener('play', handler);
+            return () => video.removeEventListener('play', handler);
+          },
+          onPause(handler) {
+            if (typeof handler !== 'function') return () => {};
+            video.addEventListener('pause', handler);
+            return () => video.removeEventListener('pause', handler);
+          },
+          destroy() {
+            /* no-op for native video */
+          }
+        };
+      }
+
+      /**
+       * 创建 Cloudflare Stream 适配器
+       * @param {HTMLIFrameElement|null} frame
+       * @param {string} videoId
+       * @returns {PlayerAdapter|null}
+       */
+      function createCloudflareAdapter(frame, videoId) {
+        if (!frame || !videoId) return null;
+        const listeners = {
+          timeupdate: new Set(),
+          play: new Set(),
+          pause: new Set()
+        };
+        const pendingResolvers = [];
+        let destroyed = false;
+        let lastTime = 0;
+        let hasTime = false;
+        let paused = true;
+        let ready = false;
+
+        const ORIGIN_HINT = 'videodelivery.net';
+
+        /**
+         * @param {any} payload
+         */
+        function post(payload) {
+          if (destroyed) return;
+          try {
+            frame.contentWindow?.postMessage(payload, '*');
+          } catch (error) {
+            console.warn('无法向 Cloudflare 播放器发送消息', error);
+          }
+        }
+
+        function resolvePending(value) {
+          while (pendingResolvers.length) {
+            const resolve = pendingResolvers.shift();
+            try {
+              resolve?.(value);
+            } catch (error) {
+              console.warn('解析播放时间失败', error);
+            }
+          }
+        }
+
+        /**
+         * @param {any} data
+         */
+        function extractTime(data) {
+          const candidates = [
+            data?.currentTime,
+            data?.time,
+            data?.seconds,
+            data?.position,
+            data?.detail?.currentTime,
+            data?.player?.currentTime
+          ];
+          for (const value of candidates) {
+            const num = Number(value);
+            if (Number.isFinite(num)) return num;
+          }
+          return null;
+        }
+
+        /**
+         * @param {MessageEvent} event
+         */
+        function handleMessage(event) {
+          if (destroyed) return;
+          if (event.source !== frame.contentWindow) return;
+          if (event.origin && !event.origin.includes(ORIGIN_HINT)) return;
+          const data = event.data || {};
+          const type = data.type || data.event;
+          if (!type) return;
+          if (type === 'ready') {
+            ready = true;
+            post({ event: 'command', command: 'getState' });
+            return;
+          }
+          if (type === 'play' || type === 'playing') {
+            paused = false;
+            listeners.play.forEach((fn) => fn());
+            return;
+          }
+          if (type === 'pause' || type === 'paused') {
+            paused = true;
+            listeners.pause.forEach((fn) => fn());
+            return;
+          }
+          if (type === 'statechange') {
+            if (typeof data.paused === 'boolean') {
+              paused = data.paused;
+              const targetSet = paused ? listeners.pause : listeners.play;
+              targetSet.forEach((fn) => fn());
+            }
+            const time = extractTime(data);
+            if (Number.isFinite(time)) {
+              lastTime = time;
+              hasTime = true;
+              listeners.timeupdate.forEach((fn) => fn(lastTime));
+              resolvePending(lastTime);
+            }
+            return;
+          }
+          if (type === 'timeupdate' || type === 'progress') {
+            const time = extractTime(data);
+            if (Number.isFinite(time)) {
+              lastTime = time;
+              hasTime = true;
+              listeners.timeupdate.forEach((fn) => fn(lastTime));
+              resolvePending(lastTime);
+            }
+            if (typeof data.paused === 'boolean') {
+              paused = data.paused;
+            }
+          }
+        }
+
+        window.addEventListener('message', handleMessage);
+
+        const pollTimer = window.setInterval(() => {
+          if (destroyed) return;
+          const command = ready ? 'getCurrentTime' : 'getState';
+          post({ event: 'command', command });
+        }, 200);
+
+        return {
+          play() {
+            post({ event: 'command', command: 'play' });
+            paused = false;
+            return Promise.resolve();
+          },
+          pause() {
+            post({ event: 'command', command: 'pause' });
+            paused = true;
+          },
+          seekTo(time) {
+            if (!Number.isFinite(time)) return;
+            post({ event: 'command', command: 'seek', time });
+            lastTime = time;
+            hasTime = true;
+          },
+          setRate(rate) {
+            if (!Number.isFinite(rate)) return false;
+            post({ event: 'command', command: 'setPlaybackRate', playbackRate: rate, rate });
+            return true;
+          },
+          isPaused() {
+            return paused;
+          },
+          getCurrentTime() {
+            if (hasTime) return Promise.resolve(lastTime);
+            return new Promise((resolve) => {
+              pendingResolvers.push(resolve);
+              post({ event: 'command', command: 'getCurrentTime' });
+            });
+          },
+          onTimeUpdate(handler) {
+            if (typeof handler !== 'function') return () => {};
+            listeners.timeupdate.add(handler);
+            return () => listeners.timeupdate.delete(handler);
+          },
+          onPlay(handler) {
+            if (typeof handler !== 'function') return () => {};
+            listeners.play.add(handler);
+            return () => listeners.play.delete(handler);
+          },
+          onPause(handler) {
+            if (typeof handler !== 'function') return () => {};
+            listeners.pause.add(handler);
+            return () => listeners.pause.delete(handler);
+          },
+          destroy() {
+            destroyed = true;
+            window.clearInterval(pollTimer);
+            window.removeEventListener('message', handleMessage);
+            listeners.timeupdate.clear();
+            listeners.play.clear();
+            listeners.pause.clear();
+            resolvePending(lastTime);
+          }
+        };
+      }
+
       const videoLearning = (() => {
         /** @type {HTMLVideoElement|null} */
-        let player = null;
+        let html5Player = null;
+        /** @type {HTMLIFrameElement|null} */
+        let iframePlayer = null;
+        /** @type {PlayerAdapter|null} */
+        let adapter = null;
+        /** @type {(() => void)|null} */
+        let detachTimeUpdate = null;
+        /** @type {(() => void)|null} */
+        let detachPlay = null;
+        /** @type {(() => void)|null} */
+        let detachPause = null;
+        let currentStreamId = '';
         /** @type {HTMLElement|null} */
         let panel = null;
         /** @type {HTMLElement|null} */
@@ -4308,6 +4640,7 @@
          * 初始化视频学习模块
          * @param {{
          *  player: HTMLVideoElement|null,
+         *  iframe?: HTMLIFrameElement|null,
          *  panel: HTMLElement|null,
          *  toolbar: HTMLElement|null,
          *  autoScrollButton: HTMLButtonElement|null,
@@ -4328,7 +4661,8 @@
          * }} elements
          */
         function init(elements) {
-          player = elements.player || null;
+          html5Player = elements.player || null;
+          iframePlayer = elements.iframe || null;
           panel = elements.panel || null;
           toolbar = elements.toolbar || null;
           autoScrollButton = elements.autoScrollButton || null;
@@ -4359,9 +4693,6 @@
           }
 
           toolbar?.addEventListener('click', handleToolbarClick);
-          player?.addEventListener('timeupdate', handleTimeUpdate);
-          player?.addEventListener('play', updatePlayButton);
-          player?.addEventListener('pause', updatePlayButton);
           panel?.addEventListener('click', handleCueClick);
           panel?.addEventListener('dblclick', handleCueDblClick);
           panel?.addEventListener('keydown', handlePanelKeyDown);
@@ -4389,6 +4720,7 @@
             wordPreview.dataset.default = wordPreview.textContent || '';
           }
 
+          refreshPlayerAdapter();
           updateAutoScrollButton();
           updateLoopStatus();
           updatePlayButton();
@@ -4432,45 +4764,62 @@
           }
         }
 
-        function togglePlay() {
-          if (!player) return;
-          if (player.paused) {
-            player.play().catch(() => {
-              userNotifier.notify('视频无法播放，请检查文件或浏览器兼容性。', 'error');
-            });
-          } else {
-            player.pause();
+        async function togglePlay() {
+          if (!adapter) {
+            userNotifier.notify('播放器尚未就绪。', 'warning');
+            return;
           }
+          if (adapter.isPaused()) {
+            try {
+              await adapter.play();
+            } catch (error) {
+              userNotifier.notify('视频无法播放，请检查文件或浏览器兼容性。', 'error');
+            }
+          } else {
+            adapter.pause();
+          }
+          updatePlayButton();
         }
 
         function setSpeed(rate) {
-          if (!player) return;
-          player.playbackRate = rate;
+          if (!adapter) {
+            userNotifier.notify('播放器尚未就绪。', 'warning');
+            return;
+          }
+          const ok = adapter.setRate(rate);
+          if (!ok) {
+            userNotifier.notify('当前播放器暂不支持倍速调整。', 'warning');
+            return;
+          }
           showToast(`播放速度已设置为 ${rate.toFixed(2)}x`);
         }
 
         /**
          * @param {'A'|'B'} point
          */
-        function setLoopPoint(point) {
-          if (!player) return;
-          const updated = toggleAB(state.video.loop, point, player.currentTime);
+        async function setLoopPoint(point) {
+          if (!adapter) {
+            userNotifier.notify('播放器尚未就绪。', 'warning');
+            return;
+          }
+          const currentTime = await adapter.getCurrentTime().catch(() => 0);
+          const updated = toggleAB(state.video.loop, point, currentTime);
           const invalidRange = updated.start !== null && updated.end !== null && updated.end <= updated.start;
           if (point === 'B' && invalidRange) {
             userNotifier.notify('B 点需要晚于 A 点，请重新选择。', 'warning');
           }
           state.video.loop = updated;
           if (point === 'A') {
-            showToast(`A 点已标记：${formatSeconds(updated.start ?? player.currentTime)}`);
+            showToast(`A 点已标记：${formatSeconds(updated.start ?? currentTime)}`);
           } else if (point === 'B' && !invalidRange) {
             showToast(updated.active ? 'AB 循环已启动。' : 'B 点已标记。');
           }
           if (updated.active) {
             loopRuntime = { mode: 'ab', remaining: Infinity, total: 0 };
             if (updated.start !== null) {
-              seekTo(player, updated.start);
+              adapter.seekTo(updated.start);
             }
-            player.play().catch(() => {});
+            adapter.play().catch(() => {});
           }
           updateLoopStatus();
         }
@@ -4482,7 +4831,7 @@
         }
 
         function repeatSentence(targetIndex) {
-          if (!player || !state.video.cues.length) {
+          if (!adapter || !state.video.cues.length) {
             userNotifier.notify('请先加载字幕并选择句子。', 'warning');
             return;
           }
@@ -4896,19 +5245,31 @@
           return panel?.querySelector(`.cue[data-index="${index}"]`) || null;
         }
 
-        function handleTimeUpdate() {
-          if (!player || !state.video.cues.length) return;
-          const time = player.currentTime;
+        function handleTimeUpdate(time) {
+          if (!state.video.cues.length) return;
+          let current = Number(time);
+          if (!Number.isFinite(current) && adapter) {
+            adapter
+              .getCurrentTime()
+              .then((value) => {
+                if (Number.isFinite(value)) {
+                  handleTimeUpdate(value);
+                }
+              })
+              .catch(() => {});
+            return;
+          }
+          if (!Number.isFinite(current)) return;
           let targetIndex = -1;
           for (let i = 0; i < state.video.cues.length; i += 1) {
             const cue = state.video.cues[i];
-            if (time >= cue.start && time < cue.end) {
+            if (current >= cue.start && current < cue.end) {
               targetIndex = i;
               break;
             }
           }
           updateActiveCue(targetIndex);
-          enforceLoop(time);
+          enforceLoop(current);
         }
 
         function updateActiveCue(index) {
@@ -4944,22 +5305,22 @@
 
         function enforceLoop(currentTime) {
           const loop = state.video.loop;
-          if (!loop.active || loop.start === null || loop.end === null || !player) return;
+          if (!loop.active || loop.start === null || loop.end === null || !adapter) return;
           if (currentTime < loop.end - 0.04) return;
           if (loopRuntime.mode === 'repeat') {
             if (loopRuntime.remaining > 0) {
               loopRuntime.remaining -= 1;
-              seekTo(player, loop.start);
-              player.play().catch(() => {});
+              adapter.seekTo(loop.start);
+              adapter.play().catch(() => {});
               updateLoopStatus();
             } else {
-              player.pause();
+              adapter.pause();
               clearLoop();
             }
           } else if (loopRuntime.mode === 'ab') {
-            seekTo(player, loop.start);
-            if (player.paused) {
-              player.play().catch(() => {});
+            adapter.seekTo(loop.start);
+            if (adapter.isPaused()) {
+              adapter.play().catch(() => {});
             }
           }
         }
@@ -4989,11 +5350,11 @@
           state.video.cardDraft.phrase = state.video.cues[index]?.text || state.video.cardDraft.phrase || '';
           state.video.lastCueIndex = index;
           state.video.lastToken = '';
-          if (shouldSeek) {
+          if (shouldSeek && adapter) {
             const cue = state.video.cues[index];
-            seekTo(player, cue.start);
+            adapter.seekTo(cue.start);
             if (autoPlay) {
-              player?.play().catch(() => {});
+              adapter.play().catch(() => {});
             }
           }
         }
@@ -5014,11 +5375,81 @@
         }
 
         function updatePlayButton() {
-          if (!playButton || !player) return;
-          playButton.textContent = player.paused ? '播放' : '暂停';
+          if (!playButton) return;
+          if (!adapter) {
+            playButton.textContent = '播放';
+            return;
+          }
+          playButton.textContent = adapter.isPaused() ? '播放' : '暂停';
         }
 
-        return { init };
+        function detachAdapter() {
+          detachTimeUpdate?.();
+          detachTimeUpdate = null;
+          detachPlay?.();
+          detachPlay = null;
+          detachPause?.();
+          detachPause = null;
+          adapter?.destroy?.();
+          adapter = null;
+        }
+
+        function refreshPlayerAdapter() {
+          detachAdapter();
+          const streamId = (state.video.streamVideoId || '').trim();
+          const useCloudflare = Boolean(streamId && iframePlayer);
+          if (useCloudflare) {
+            if (html5Player) {
+              html5Player.pause();
+              html5Player.setAttribute('hidden', '');
+            }
+            if (iframePlayer) {
+              iframePlayer.hidden = false;
+              if (currentStreamId !== streamId) {
+                iframePlayer.src = `https://iframe.videodelivery.net/${streamId}`;
+                currentStreamId = streamId;
+              }
+            }
+            adapter = createCloudflareAdapter(iframePlayer, streamId);
+            if (!adapter) {
+              userNotifier.notify('Cloudflare 播放器初始化失败，已回退至本地视频。', 'warning');
+              if (iframePlayer) {
+                iframePlayer.hidden = true;
+                iframePlayer.src = 'about:blank';
+              }
+              if (html5Player) {
+                html5Player.removeAttribute('hidden');
+              }
+              adapter = createHtml5Adapter(html5Player);
+            }
+          } else {
+            currentStreamId = '';
+            if (iframePlayer) {
+              iframePlayer.hidden = true;
+              iframePlayer.src = 'about:blank';
+            }
+            if (html5Player) {
+              html5Player.removeAttribute('hidden');
+            }
+            adapter = createHtml5Adapter(html5Player);
+          }
+
+          if (adapter) {
+            detachTimeUpdate = adapter.onTimeUpdate((time) => handleTimeUpdate(time));
+            detachPlay = adapter.onPlay(() => updatePlayButton());
+            detachPause = adapter.onPause(() => updatePlayButton());
+            adapter.getCurrentTime().then((time) => handleTimeUpdate(time)).catch(() => {});
+          }
+          updatePlayButton();
+        }
+
+        function updateStreamSource({ accountId = '', videoId = '' } = {}) {
+          state.video.cloudflareAccountId = accountId;
+          state.video.streamVideoId = videoId;
+          refreshPlayerAdapter();
+        }
+
+        return { init, updateStreamSource, refreshPlayerAdapter };
       })();
 
       function cloneCardsWithSchedule(baseCards, startTime = Date.now()) {
@@ -5958,6 +6389,8 @@
           dialogue: Boolean(saved.aiDialogue),
           correction: Boolean(saved.aiCorrection)
         };
+        state.video.cloudflareAccountId = saved.cloudflareAccountId || '';
+        state.video.streamVideoId = saved.streamVideoId || '';
         if (openaiKeyInput) {
           openaiKeyInput.value = state.ai.apiKey;
         }
@@ -5973,6 +6406,16 @@
         if (aiCorrectionToggle) {
           aiCorrectionToggle.checked = state.ai.correction;
         }
+        if (cfAccountInput) {
+          cfAccountInput.value = state.video.cloudflareAccountId;
+        }
+        if (cfStreamInput) {
+          cfStreamInput.value = state.video.streamVideoId;
+        }
+        videoLearning.updateStreamSource({
+          accountId: state.video.cloudflareAccountId,
+          videoId: state.video.streamVideoId
+        });
         updateAiStatus();
       }
 
@@ -6061,6 +6504,10 @@
           dialogue: aiDialogueValue,
           correction: aiCorrectionValue
         };
+        const accountId = cfAccountInput ? cfAccountInput.value.trim() : state.video.cloudflareAccountId;
+        const streamIdValue = cfStreamInput ? cfStreamInput.value.trim() : state.video.streamVideoId;
+        state.video.cloudflareAccountId = accountId;
+        state.video.streamVideoId = streamIdValue;
         const existing = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
         storage.save(STORAGE_KEYS.settings, {
           ...existing,
@@ -6072,8 +6519,11 @@
           openaiModel: modelValue,
           aiExplain: aiExplainValue,
           aiDialogue: aiDialogueValue,
-          aiCorrection: aiCorrectionValue
+          aiCorrection: aiCorrectionValue,
+          cloudflareAccountId: accountId,
+          streamVideoId: streamIdValue
         });
+        videoLearning.updateStreamSource({ accountId, videoId: streamIdValue });
         updateAiStatus();
       }
 
@@ -6547,6 +6997,7 @@
       const grammarList = document.getElementById('grammar-list');
       const grammarSearch = document.getElementById('grammar-search');
       const videoPlayer = document.getElementById('player');
+      const cloudflareFrame = document.getElementById('cfPlayer');
       const subtitlePanel = document.getElementById('subsPanel');
       const videoToolbar = document.querySelector('.video-toolbar');
       const videoAutoScrollBtn = document.querySelector('[data-action="video-toggle-scroll"]');
@@ -6578,6 +7029,8 @@
       const aiExplainToggle = document.getElementById('ai-explain');
       const aiDialogueToggle = document.getElementById('ai-dialogue');
       const aiCorrectionToggle = document.getElementById('ai-correction');
+      const cfAccountInput = document.getElementById('cf-account-id');
+      const cfStreamInput = document.getElementById('cf-stream-id');
       const aiDialogueTheme = document.getElementById('ai-dialogue-theme');
       const aiDialogueLevel = document.getElementById('ai-dialogue-level');
       const aiDialogueLength = document.getElementById('ai-dialogue-length');
@@ -6793,6 +7246,16 @@
             saveSettings();
           });
         }
+        if (cfAccountInput) {
+          cfAccountInput.addEventListener('change', () => {
+            saveSettings();
+          });
+        }
+        if (cfStreamInput) {
+          cfStreamInput.addEventListener('change', () => {
+            saveSettings();
+          });
+        }
         [aiExplainToggle, aiDialogueToggle, aiCorrectionToggle].forEach((toggle) => {
           if (!toggle) return;
           toggle.addEventListener('change', () => {
@@ -6921,6 +7384,7 @@
         initSettings();
         videoLearning.init({
           player: videoPlayer,
+          iframe: cloudflareFrame,
           panel: subtitlePanel,
           toolbar: videoToolbar,
           autoScrollButton: videoAutoScrollBtn,
