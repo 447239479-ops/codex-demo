@@ -1870,6 +1870,9 @@
                 aria-label="输入 Supabase 匿名密钥"
               />
             </label>
+            <label>
+              <input type="checkbox" id="cloud-sync-cards" /> 启用词卡云同步（实验）
+            </label>
           </div>
           <div class="settings-group">
             <h3 style="margin:0;">数据管理</h3>
@@ -1975,7 +1978,9 @@
         practice: 'es-app:practice',
         speaking: 'es-app:speaking',
         questions: 'es-app:question-bank',
-        stats: 'es-app:stats'
+        stats: 'es-app:stats',
+        ops: 'es-app:ops',
+        device: 'es-app:deviceId'
       };
 
       const DEFAULT_SETTINGS = {
@@ -1991,10 +1996,11 @@
         cloudflareAccountId: '',
         streamVideoId: '',
         supabaseUrl: '',
-        supabaseAnonKey: ''
+        supabaseAnonKey: '',
+        cloudSyncCards: false
       };
 
-      const APP_VERSION = '1.4.0';
+      const APP_VERSION = '1.5.0';
 
       const userNotifier = (() => {
         let handler = (message, tone = 'info') => {
@@ -2024,6 +2030,35 @@
           }
         };
       })();
+
+      /**
+       * 生成 UUID
+       * @returns {string}
+       */
+      function generateUuid() {
+        if (window.crypto?.randomUUID) {
+          return window.crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+          const r = Math.random() * 16 | 0;
+          const v = char === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+
+      /**
+       * 确保生成并缓存设备 ID
+       * @returns {string}
+       */
+      function ensureDeviceId() {
+        let stored = storage.load(STORAGE_KEYS.device, '');
+        if (typeof stored !== 'string' || !stored) {
+          stored = generateUuid();
+          storage.save(STORAGE_KEYS.device, stored);
+        }
+        state.identity.deviceId = stored;
+        return stored;
+      }
 
       let diagnosticsLogged = false;
 
@@ -3056,6 +3091,7 @@
 
       const srs = (() => {
         let cards = [];
+        let syncHandler = null;
 
         /**
          * 规范化卡片数据
@@ -3076,7 +3112,8 @@
           const src = raw.src || (raw.es && !raw.phrase ? 'legacy' : 'custom');
           const intervalDaysRaw = Number.isFinite(Number(raw.intervalDays)) ? Number(raw.intervalDays) : 1;
           const intervalDays = Math.max(1, Math.round(intervalDaysRaw));
-          return { id, phrase, zh, note, level, dueAt: dueAtRaw, src, intervalDays };
+          const cloudId = typeof raw.cloudId === 'string' && raw.cloudId ? raw.cloudId : null;
+          return { id, phrase, zh, note, level, dueAt: dueAtRaw, src, intervalDays, cloudId };
         }
 
         /**
@@ -3108,6 +3145,20 @@
         }
 
         /**
+         * 通知云端同步处理器
+         * @param {any} card
+         * @param {string} reason
+         */
+        function notifySync(card, reason) {
+          if (typeof syncHandler !== 'function') return;
+          try {
+            syncHandler({ ...card }, reason);
+          } catch (error) {
+            console.warn('词卡同步回调异常', error);
+          }
+        }
+
+        /**
          * 获取所有词卡
          * @returns {Array}
          */
@@ -3135,6 +3186,7 @@
           };
           cards.push(newCard);
           persist();
+          notifySync(newCard, 'insert');
           return { ...newCard };
         }
 
@@ -3164,6 +3216,7 @@
           card.intervalDays = interval;
           card.dueAt = Date.now() + interval * 24 * 60 * 60 * 1000;
           persist();
+          notifySync(card, 'schedule');
         }
 
         /**
@@ -3187,6 +3240,7 @@
           }
           card.intervalDays = Math.max(1, Math.round((card.dueAt - now) / (24 * 60 * 60 * 1000)));
           persist();
+          notifySync(card, 'schedule');
         }
 
         /**
@@ -3203,7 +3257,27 @@
           persist();
         }
 
-        return { init, getCards, addCard, schedule, scheduleSubtitle, updateCards };
+        /**
+         * 绑定云端 ID
+         * @param {string} id
+         * @param {string} cloudId
+         */
+        function setCloudId(id, cloudId) {
+          const card = cards.find((item) => item.id === id);
+          if (!card) return;
+          card.cloudId = cloudId;
+          persist();
+        }
+
+        /**
+         * 注册同步处理器
+         * @param {(card:any, reason:string) => void} handler
+         */
+        function setSyncHandler(handler) {
+          syncHandler = typeof handler === 'function' ? handler : null;
+        }
+
+        return { init, getCards, addCard, schedule, scheduleSubtitle, updateCards, setCloudId, setSyncHandler };
       })();
 
       const diffUtil = (() => {
@@ -4516,7 +4590,8 @@
           lastCueIndex: -1,
           cardDraft: { phrase: '', zh: '', note: '', src: 'subtitle', cueIndex: -1 },
           cloudflareAccountId: '',
-          streamVideoId: ''
+          streamVideoId: '',
+          durationHint: 0
         },
         library: {
           items: [],
@@ -4528,11 +4603,13 @@
           hasMore: false,
           search: '',
           topic: 'all',
-          level: 'all'
+          level: 'all',
+          current: null
         },
         remote: {
           supabaseUrl: '',
-          supabaseAnonKey: ''
+          supabaseAnonKey: '',
+          cloudSyncCards: false
         },
         cefr: {
           responses: {}
@@ -4543,6 +4620,10 @@
           explain: false,
           dialogue: false,
           correction: false
+        },
+        identity: {
+          deviceId: '',
+          userId: ''
         }
       };
 
@@ -4559,6 +4640,217 @@
        * @property {(handler: () => void) => () => void} onPause
        * @property {() => void} destroy
        */
+
+      const syncQueue = (() => {
+        /** @type {Array<{type:string,payload:any,ts:number}>} */
+        let queue = [];
+        let retryDelay = 2000;
+        let timer = 0;
+        let flushing = false;
+        let warned = false;
+
+        function isValid(op) {
+          return op && typeof op === 'object' && typeof op.type === 'string';
+        }
+
+        function normalize(op) {
+          const base = {
+            type: op.type,
+            payload: op.payload || {},
+            ts: Number.isFinite(op.ts) ? Number(op.ts) : Date.now()
+          };
+          return base;
+        }
+
+        function persist() {
+          storage.save(STORAGE_KEYS.ops, queue);
+        }
+
+        function load() {
+          const stored = storage.load(STORAGE_KEYS.ops, []);
+          if (Array.isArray(stored)) {
+            queue = stored.filter(isValid).map(normalize);
+          } else {
+            queue = [];
+          }
+        }
+
+        function scheduleFlush(immediate = false) {
+          if (timer) {
+            window.clearTimeout(timer);
+            timer = 0;
+          }
+          const delay = immediate ? 0 : retryDelay;
+          timer = window.setTimeout(() => {
+            flush();
+          }, delay);
+        }
+
+        async function processOperation(op) {
+          if (!op || typeof op !== 'object') return true;
+          if (op.type === 'progress') {
+            if (!op.payload?.userId || !op.payload?.videoId) {
+              return true;
+            }
+            if (!window.supabaseManager?.upsertProgress) {
+              return false;
+            }
+            const result = await window.supabaseManager.upsertProgress(op.payload);
+            return !result || !result.error;
+          }
+          if (op.type === 'card') {
+            if (!op.payload?.id) {
+              return true;
+            }
+            if (!state.remote.cloudSyncCards) {
+              return true;
+            }
+            if (!window.supabaseManager?.upsertCard) {
+              return false;
+            }
+            const result = await window.supabaseManager.upsertCard(op.payload);
+            return !result || !result.error;
+          }
+          if (op.type === 'redeem') {
+            return true;
+          }
+          return true;
+        }
+
+        async function flush(force = false) {
+          if (flushing) return;
+          if (!queue.length) {
+            retryDelay = 2000;
+            warned = false;
+            return;
+          }
+          const ready = navigator.onLine && window.supabaseManager?.isReady?.();
+          if (!force && !ready) {
+            scheduleFlush();
+            return;
+          }
+          flushing = true;
+          try {
+            while (queue.length) {
+              const current = queue[0];
+              // eslint-disable-next-line no-await-in-loop
+              const ok = await processOperation(current);
+              if (!ok) {
+                throw new Error('operation_failed');
+              }
+              queue.shift();
+              persist();
+            }
+            retryDelay = 2000;
+            warned = false;
+          } catch (error) {
+            retryDelay = Math.min(retryDelay * 2, 60000);
+            if (!warned) {
+              userNotifier.notify('云端同步暂时失败，稍后将自动重试。', 'warning');
+              warned = true;
+            }
+          } finally {
+            flushing = false;
+            if (queue.length) {
+              scheduleFlush();
+            }
+          }
+        }
+
+        function enqueue(op) {
+          if (!isValid(op)) return;
+          const normalized = normalize({ ...op, ts: Date.now() });
+          if (normalized.type === 'progress' && normalized.payload?.userId && normalized.payload?.videoId) {
+            queue = queue.filter(
+              (item) =>
+                !(
+                  item.type === 'progress' &&
+                  item.payload?.userId === normalized.payload.userId &&
+                  item.payload?.videoId === normalized.payload.videoId
+                )
+            );
+          }
+          if (normalized.type === 'card' && normalized.payload?.id) {
+            queue = queue.filter((item) => !(item.type === 'card' && item.payload?.id === normalized.payload.id));
+          }
+          queue.push(normalized);
+          persist();
+          scheduleFlush(true);
+        }
+
+        function init() {
+          load();
+          scheduleFlush();
+        }
+
+        return {
+          enqueue,
+          flush,
+          init,
+          scheduleFlush,
+          getSnapshot() {
+            return queue.slice();
+          }
+        };
+      })();
+
+      const cloudSync = (() => {
+        function queueProgress({ userId, videoId, lastSec = 0, completed = false, updatedAt, streak }) {
+          if (!userId || !videoId) return;
+          const payload = {
+            userId,
+            videoId,
+            lastSec: Number.isFinite(lastSec) ? Number(lastSec) : 0,
+            completed: Boolean(completed),
+            updatedAt: updatedAt || new Date().toISOString()
+          };
+          if (Number.isFinite(streak)) {
+            payload.streak = streak;
+          }
+          syncQueue.enqueue({ type: 'progress', payload });
+        }
+
+        function ensureCloudId(card) {
+          if (card.cloudId) return card.cloudId;
+          const cloudId = generateUuid();
+          srs.setCloudId(card.id, cloudId);
+          card.cloudId = cloudId;
+          return cloudId;
+        }
+
+        function queueCard(card) {
+          if (!state.remote.cloudSyncCards) return;
+          if (!card || !card.id) return;
+          const cloudId = ensureCloudId(card);
+          const payload = {
+            id: cloudId,
+            phrase: card.phrase,
+            zh: card.zh || '',
+            note: card.note || '',
+            level: Number.isFinite(card.level) ? Number(card.level) : 1,
+            tags: card.src ? [card.src] : null
+          };
+          syncQueue.enqueue({ type: 'card', payload });
+        }
+
+        function init() {
+          syncQueue.init();
+        }
+
+        function schedule(immediate = false) {
+          syncQueue.scheduleFlush(immediate);
+        }
+
+        return { init, queueProgress, queueCard, schedule };
+      })();
+
+      window.addEventListener('online', () => {
+        syncQueue.scheduleFlush(true);
+      });
+
+      srs.setSyncHandler((card) => {
+        cloudSync.queueCard(card);
+      });
 
       /**
        * 创建 HTML5 视频适配器
@@ -4846,6 +5138,7 @@
         let activeTab = 'subtitles';
         let currentCueIndex = -1;
         let loopRuntime = { mode: null, remaining: 0, total: 0 };
+        const progressTracker = { lastTime: 0, lastSubmitAt: 0 };
 
         /**
          * 初始化视频学习模块
@@ -4897,6 +5190,14 @@
           };
           modalSaveButton = elements.modalButtons?.save || null;
           modalCancelButton = elements.modalButtons?.cancel || null;
+
+          if (html5Player) {
+            html5Player.addEventListener('loadedmetadata', () => {
+              if (Number.isFinite(html5Player.duration) && html5Player.duration > (state.video.durationHint || 0)) {
+                state.video.durationHint = html5Player.duration;
+              }
+            });
+          }
 
           if (panel) {
             panel.innerHTML = '<p style="margin:0;color:var(--muted);">请导入 .vtt 字幕文件或填写链接后加载字幕。</p>';
@@ -5343,6 +5644,14 @@
             return;
           }
           state.video.cues = cues;
+          const maxCueEnd = cues.reduce((max, cue) => {
+            const endValue = Number(cue.end);
+            return Number.isFinite(endValue) ? Math.max(max, endValue) : max;
+          }, 0);
+          if (Number.isFinite(maxCueEnd) && maxCueEnd > (state.video.durationHint || 0)) {
+            state.video.durationHint = maxCueEnd;
+          }
+          resetProgressTracker();
           state.video.selectedIndex = cues.length ? 0 : -1;
           currentCueIndex = -1;
           state.video.loop = { start: null, end: null, active: false };
@@ -5483,6 +5792,8 @@
             return;
           }
           if (!Number.isFinite(current)) return;
+          progressTracker.lastTime = current;
+          commitProgress(false);
           let targetIndex = -1;
           for (let i = 0; i < state.video.cues.length; i += 1) {
             const cue = state.video.cues[i];
@@ -5597,6 +5908,41 @@
           }
         }
 
+        function resetProgressTracker() {
+          progressTracker.lastTime = 0;
+          progressTracker.lastSubmitAt = 0;
+        }
+
+        function estimateDuration() {
+          const videoDuration = html5Player && Number.isFinite(html5Player.duration) ? html5Player.duration : 0;
+          const hint = Number.isFinite(state.video.durationHint) ? state.video.durationHint : 0;
+          return Math.max(videoDuration, hint);
+        }
+
+        function commitProgress(force = false) {
+          const currentVideo = state.library.current;
+          if (!currentVideo || currentVideo.source !== 'supabase') return;
+          const userId = state.identity.deviceId || ensureDeviceId();
+          if (!userId) return;
+          const now = Date.now();
+          if (!force && now - progressTracker.lastSubmitAt < 10000) {
+            return;
+          }
+          const time = Number.isFinite(progressTracker.lastTime) ? progressTracker.lastTime : 0;
+          const duration = estimateDuration();
+          const completed = duration > 0 && time >= duration * 0.8;
+          const streak = typeof statsTracker?.getSummary === 'function' ? statsTracker.getSummary().streak : undefined;
+          cloudSync.queueProgress({
+            userId,
+            videoId: currentVideo.id,
+            lastSec: time,
+            completed,
+            updatedAt: new Date().toISOString(),
+            streak
+          });
+          progressTracker.lastSubmitAt = now;
+        }
+
         function updatePlayButton() {
           if (!playButton) return;
           if (!adapter) {
@@ -5660,7 +6006,10 @@
           if (adapter) {
             detachTimeUpdate = adapter.onTimeUpdate((time) => handleTimeUpdate(time));
             detachPlay = adapter.onPlay(() => updatePlayButton());
-            detachPause = adapter.onPause(() => updatePlayButton());
+            detachPause = adapter.onPause(() => {
+              updatePlayButton();
+              commitProgress(true);
+            });
             adapter.getCurrentTime().then((time) => handleTimeUpdate(time)).catch(() => {});
           }
           updatePlayButton();
@@ -6776,6 +7125,9 @@
           userNotifier.notify('未找到对应视频条目。', 'warning');
           return;
         }
+        state.library.current = { ...target };
+        state.video.durationHint = 0;
+        resetProgressTracker();
         showToast(`已切换到《${target.title}》，正在准备字幕…`);
         if (target.stream_id) {
           state.video.streamVideoId = target.stream_id;
@@ -6886,6 +7238,7 @@
         state.video.streamVideoId = saved.streamVideoId || '';
         state.remote.supabaseUrl = saved.supabaseUrl || '';
         state.remote.supabaseAnonKey = saved.supabaseAnonKey || '';
+        state.remote.cloudSyncCards = Boolean(saved.cloudSyncCards);
         if (openaiKeyInput) {
           openaiKeyInput.value = state.ai.apiKey;
         }
@@ -6912,6 +7265,16 @@
         }
         if (supabaseKeyInput) {
           supabaseKeyInput.value = state.remote.supabaseAnonKey;
+        }
+        if (cloudSyncToggle) {
+          cloudSyncToggle.checked = state.remote.cloudSyncCards;
+          cloudSyncToggle.addEventListener('change', () => {
+            state.remote.cloudSyncCards = !!cloudSyncToggle.checked;
+            saveSettings();
+            if (state.remote.cloudSyncCards) {
+              cloudSync.schedule(true);
+            }
+          });
         }
         videoLearning.updateStreamSource({
           accountId: state.video.cloudflareAccountId,
@@ -7015,6 +7378,7 @@
         const streamIdValue = cfStreamInput ? cfStreamInput.value.trim() : state.video.streamVideoId;
         const supabaseUrlValue = supabaseUrlInput ? supabaseUrlInput.value.trim() : state.remote.supabaseUrl;
         const supabaseAnonValue = supabaseKeyInput ? supabaseKeyInput.value.trim() : state.remote.supabaseAnonKey;
+        const cloudSyncEnabled = !!cloudSyncToggle?.checked;
         state.video.cloudflareAccountId = accountId;
         state.video.streamVideoId = streamIdValue;
         const supabaseChanged =
@@ -7022,6 +7386,7 @@
           supabaseAnonValue !== state.remote.supabaseAnonKey;
         state.remote.supabaseUrl = supabaseUrlValue;
         state.remote.supabaseAnonKey = supabaseAnonValue;
+        state.remote.cloudSyncCards = cloudSyncEnabled;
         const existing = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
         storage.save(STORAGE_KEYS.settings, {
           ...existing,
@@ -7037,7 +7402,8 @@
           cloudflareAccountId: accountId,
           streamVideoId: streamIdValue,
           supabaseUrl: supabaseUrlValue,
-          supabaseAnonKey: supabaseAnonValue
+          supabaseAnonKey: supabaseAnonValue,
+          cloudSyncCards: cloudSyncEnabled
         });
         videoLearning.updateStreamSource({ accountId, videoId: streamIdValue });
         if (window.supabaseManager?.setConfig) {
@@ -7045,6 +7411,9 @@
         }
         if (supabaseChanged) {
           refreshVideoLibrary(true);
+          cloudSync.schedule(true);
+        } else if (cloudSyncEnabled) {
+          cloudSync.schedule();
         }
         updateAiStatus();
       }
@@ -7399,6 +7768,7 @@
         if (!diagnosticsLogged) {
           diagnosticsLogged = true;
           console.groupCollapsed(`AI Español v${APP_VERSION} 自检`);
+          console.info('设备 ID：', state.identity.deviceId || '未生成');
           console.info('可用语音：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
           console.info('STT 支持：', sttSupported ? '可用' : '不可用');
           console.info('localStorage 估算：', `${usageKb.toFixed(2)} KB`);
@@ -7558,6 +7928,7 @@
       const cfStreamInput = document.getElementById('cf-stream-id');
       const supabaseUrlInput = document.getElementById('supabase-url');
       const supabaseKeyInput = document.getElementById('supabase-key');
+      const cloudSyncToggle = document.getElementById('cloud-sync-cards');
       const aiDialogueTheme = document.getElementById('ai-dialogue-theme');
       const aiDialogueLevel = document.getElementById('ai-dialogue-level');
       const aiDialogueLength = document.getElementById('ai-dialogue-length');
@@ -7898,6 +8269,7 @@
       const practiceLevel = document.getElementById('practice-level');
 
       function initApp() {
+        ensureDeviceId();
         initTestDataUI();
         speech.init();
         if (typeof speech.onVoicesChange === 'function') {
@@ -7926,6 +8298,7 @@
         srs.init();
         updateCardsUI();
         initSettings();
+        cloudSync.init();
         videoLearning.init({
           player: videoPlayer,
           iframe: cloudflareFrame,

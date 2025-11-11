@@ -167,5 +167,79 @@
     }
   };
 
+  manager.upsertProgress = async function upsertProgress({
+    userId,
+    videoId,
+    lastSec = 0,
+    completed = false,
+    updatedAt,
+    streak
+  } = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!userId || !videoId) {
+      return { error: new Error('missing_identifiers') };
+    }
+    try {
+      const payload = {
+        user_id: userId,
+        video_id: videoId,
+        last_sec: Number.isFinite(lastSec) ? Number(lastSec) : 0,
+        completed: Boolean(completed),
+        updated_at: updatedAt || new Date().toISOString()
+      };
+      if (Number.isFinite(streak)) {
+        payload.streak = Math.max(0, Math.floor(streak));
+      }
+      const { error } = await client
+        .from('user_progress')
+        .upsert(payload, { onConflict: 'user_id,video_id' });
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('写入 Supabase 学习进度失败', error);
+      return { error };
+    }
+  };
+
+  manager.upsertCard = async function upsertCard({
+    id,
+    phrase,
+    zh,
+    note,
+    level,
+    tags
+  } = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    if (!id || !phrase) {
+      return { error: new Error('invalid_payload') };
+    }
+    try {
+      const payload = {
+        id,
+        phrase,
+        zh: zh || null,
+        note: note || null,
+        level: Number.isFinite(level) ? Number(level) : null,
+        tags: Array.isArray(tags) ? tags : null
+      };
+      const { error } = await client.from('cards').upsert(payload, { onConflict: 'id' });
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('写入 Supabase 词卡失败', error);
+      return { error };
+    }
+  };
+
   global.supabaseManager = manager;
 })(window);
