@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AI Español - 西班牙语智能学习</title>
+    <meta name="theme-color" content="#ff6b6b" />
+    <link rel="manifest" href="manifest.json" />
     <style>
       :root {
         color-scheme: light;
@@ -71,6 +73,23 @@
         align-items: center;
         gap: 16px;
         position: relative;
+      }
+
+      .install-app-btn {
+        background: transparent;
+        border: 1px dashed var(--brand);
+        border-radius: 999px;
+        padding: 6px 14px;
+        color: var(--brand);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+
+      .install-app-btn:hover,
+      .install-app-btn:focus-visible {
+        background: rgba(255, 107, 107, 0.12);
+        color: var(--brand-dark);
       }
 
       .nav-menu {
@@ -405,6 +424,34 @@
         margin-top: 12px;
       }
 
+      .offline-tts {
+        margin-top: 12px;
+        background: rgba(255, 214, 102, 0.18);
+        padding: 12px 16px;
+        border-radius: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .offline-tts p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--text);
+      }
+
+      .offline-tts button {
+        background: var(--brand);
+        color: #fff;
+      }
+
+      .offline-tts button.secondary {
+        background: transparent;
+        color: var(--brand);
+        border: 1px solid rgba(255, 107, 107, 0.4);
+      }
+
       .stt-result {
         padding: 12px;
         border-radius: 10px;
@@ -660,6 +707,38 @@
         display: block;
       }
 
+      .report-export {
+        margin-top: 20px;
+        border-top: 1px dashed var(--border);
+        padding-top: 16px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .report-group {
+        display: grid;
+        gap: 8px;
+      }
+
+      .report-group h4 {
+        margin: 0;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .report-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .report-buttons button {
+        font-size: 0.85rem;
+        padding: 6px 12px;
+      }
+
       .sr-only {
         position: absolute;
         width: 1px;
@@ -732,6 +811,16 @@
             aria-label="打开我的进度面板"
           >
             我的进度
+          </button>
+          <button
+            id="install-app"
+            class="install-app-btn"
+            type="button"
+            data-action="install-app"
+            aria-label="添加到主屏幕"
+            hidden
+          >
+            添加到主屏幕
           </button>
           <button
             class="nav-toggle"
@@ -821,7 +910,7 @@
           </div>
         </div>
         <div id="practice-container" aria-live="polite"></div>
-        <div class="practice-summary" id="practice-summary" hidden></div>
+        <div class="practice-summary" id="practice-summary" role="status" aria-live="polite" hidden></div>
       </section>
 
       <section id="cards" aria-labelledby="cards-title">
@@ -912,6 +1001,10 @@
                 aria-label="停止录音"
               >停止</button>
               <span id="speech-status" class="pill">语音功能检测中…</span>
+            </div>
+            <div id="offline-tts-block" class="offline-tts" hidden>
+              <p id="offline-tts-tip">未检测到西语语音包，请在系统语音设置中添加西语语音后重试。</p>
+              <button type="button" data-action="play-sample-pack" aria-label="播放离线示例音频">播放 MP3 示例包</button>
             </div>
             <div class="stt-result" id="stt-result" hidden></div>
           </div>
@@ -1124,6 +1217,26 @@
           <h4 style="margin:0 0 8px;">最近 7 天学习趋势</h4>
           <canvas id="progress-chart" width="320" height="180" aria-label="最近 7 天学习趋势图"></canvas>
         </div>
+        <div id="progress-reports" class="report-export">
+          <div class="report-group" data-range="week">
+            <h4>学习周报</h4>
+            <div class="report-buttons">
+              <button type="button" data-action="copy-report" data-range="week" data-format="markdown" aria-label="复制学习周报 Markdown">复制 Markdown</button>
+              <button type="button" data-action="copy-report" data-range="week" data-format="html" aria-label="复制学习周报 HTML">复制 HTML</button>
+              <button type="button" data-action="download-report" data-range="week" data-format="md" aria-label="导出学习周报 Markdown">导出 .md</button>
+              <button type="button" data-action="download-report" data-range="week" data-format="html" aria-label="导出学习周报 HTML">导出 .html</button>
+            </div>
+          </div>
+          <div class="report-group" data-range="day">
+            <h4>学习日报</h4>
+            <div class="report-buttons">
+              <button type="button" data-action="copy-report" data-range="day" data-format="markdown" aria-label="复制学习日报 Markdown">复制 Markdown</button>
+              <button type="button" data-action="copy-report" data-range="day" data-format="html" aria-label="复制学习日报 HTML">复制 HTML</button>
+              <button type="button" data-action="download-report" data-range="day" data-format="md" aria-label="导出学习日报 Markdown">导出 .md</button>
+              <button type="button" data-action="download-report" data-range="day" data-format="html" aria-label="导出学习日报 HTML">导出 .html</button>
+            </div>
+          </div>
+        </div>
       </aside>
     </div>
 
@@ -1150,6 +1263,17 @@
         aiDialogue: false,
         aiCorrection: false
       };
+
+      const SAMPLE_MP3_DATA =
+        '//uQZAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAAAACAAADSAAAAAEAAADSAAAAAQAAAEdUUkMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
+
+      const OFFLINE_SAMPLE_PACK = [
+        { id: 'sample-hola', text: 'Hola, ¿cómo estás?', src: `data:audio/mpeg;base64,${SAMPLE_MP3_DATA}` },
+        { id: 'sample-gracias', text: 'Muchas gracias por tu ayuda.', src: `data:audio/mpeg;base64,${SAMPLE_MP3_DATA}` },
+        { id: 'sample-directions', text: '¿Dónde está la estación de metro?', src: `data:audio/mpeg;base64,${SAMPLE_MP3_DATA}` },
+        { id: 'sample-order', text: 'Quisiera una taza de café, por favor.', src: `data:audio/mpeg;base64,${SAMPLE_MP3_DATA}` },
+        { id: 'sample-time', text: 'La clase empieza a las nueve en punto.', src: `data:audio/mpeg;base64,${SAMPLE_MP3_DATA}` }
+      ];
 
       const QUESTION_BANK = {
         travel: {
@@ -2084,7 +2208,18 @@
           return series;
         }
 
-        return { init, recordPractice, recordSpeaking, getSummary, getSeries };
+        function getDailySnapshot() {
+          const snapshot = {};
+          Object.entries(data.daily || {}).forEach(([key, value]) => {
+            snapshot[key] = {
+              practice: value?.practice || 0,
+              speaking: value?.speaking || 0
+            };
+          });
+          return snapshot;
+        }
+
+        return { init, recordPractice, recordSpeaking, getSummary, getSeries, getDailySnapshot };
       })();
 
       const srs = (() => {
@@ -2230,6 +2365,7 @@
 
       const speech = (() => {
         let voices = [];
+        const voiceListeners = [];
         let recognition;
         let recognitionActive = false;
 
@@ -2237,6 +2373,7 @@
           if ('speechSynthesis' in window) {
             const handleVoices = () => {
               voices = window.speechSynthesis.getVoices().filter((voice) => /es/i.test(voice.lang));
+              notifyVoiceChange();
             };
             handleVoices();
             window.speechSynthesis.onvoiceschanged = handleVoices;
@@ -2249,6 +2386,16 @@
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
           }
+        }
+
+        function notifyVoiceChange() {
+          voiceListeners.forEach((listener) => {
+            try {
+              listener({ voices, hasSpanish: voices.length > 0 });
+            } catch (error) {
+              console.warn('Voice listener error', error);
+            }
+          });
         }
 
         /**
@@ -2304,7 +2451,18 @@
           }
         }
 
-        return { init, speak, start, stop };
+        function onVoicesChange(listener) {
+          if (typeof listener === 'function') {
+            voiceListeners.push(listener);
+            listener({ voices, hasSpanish: voices.length > 0 });
+          }
+        }
+
+        function hasSpanishVoice() {
+          return voices.length > 0;
+        }
+
+        return { init, speak, start, stop, onVoicesChange, hasSpanishVoice };
       })();
 
       const aiService = (() => {
@@ -2499,6 +2657,371 @@
           })
           .filter((item) => item.es);
       }
+
+      const DAY_MS = 24 * 60 * 60 * 1000;
+
+      function formatDateKeySimple(date) {
+        const copy = new Date(date.getTime());
+        copy.setHours(0, 0, 0, 0);
+        return copy.toISOString().slice(0, 10);
+      }
+
+      function formatCompactDate(date) {
+        return formatDateKeySimple(date).replace(/-/g, '');
+      }
+
+      function formatReadableDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}年${month}月${day}日`;
+      }
+
+      function describeDueAt(timestamp) {
+        if (!timestamp) return '待安排';
+        const now = Date.now();
+        const diff = timestamp - now;
+        if (Math.abs(diff) < DAY_MS) {
+          return '今日复习';
+        }
+        if (diff > 0) {
+          const days = Math.ceil(diff / DAY_MS);
+          return `${days} 天后`;
+        }
+        const overdue = Math.ceil(Math.abs(diff) / DAY_MS);
+        return `已过期 ${overdue} 天`;
+      }
+
+      function buildReportData(range) {
+        const end = new Date();
+        end.setHours(0, 0, 0, 0);
+        const start = new Date(end);
+        if (range === 'week') {
+          start.setDate(start.getDate() - 6);
+        }
+        const rangeEnd = new Date(end);
+        rangeEnd.setHours(23, 59, 59, 999);
+        const history = Array.isArray(state.practice.history) ? state.practice.history : [];
+        const filtered = history.filter((session) => {
+          const ts = Number(session.timestamp) || 0;
+          return ts >= start.getTime() && ts <= rangeEnd.getTime();
+        });
+        let totalQuestions = 0;
+        let correctQuestions = 0;
+        let scoreSum = 0;
+        filtered.forEach((session) => {
+          const total = Number(session.total) || 0;
+          const score = Number(session.score) || 0;
+          totalQuestions += total;
+          scoreSum += score;
+          if (total > 0) {
+            const correct = Math.min(total, Math.round((score / 100) * total));
+            correctQuestions += correct;
+          }
+        });
+        const accuracy = totalQuestions
+          ? Math.min(100, Math.round((correctQuestions / totalQuestions) * 1000) / 10)
+          : 0;
+        const dailyStats = statsTracker.getDailySnapshot();
+        let speakingCount = 0;
+        for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+          const key = formatDateKeySimple(cursor);
+          const entry = dailyStats[key];
+          if (entry) {
+            speakingCount += Number(entry.speaking) || 0;
+          }
+        }
+        const cards = srs
+          .getCards()
+          .slice()
+          .sort((a, b) => (a.dueAt || 0) - (b.dueAt || 0))
+          .slice(0, 10)
+          .map((card) => {
+            const dueText = describeDueAt(card.dueAt);
+            return `${card.es} - ${card.zh}${dueText ? `（${dueText}）` : ''}`;
+          });
+        const mistakeMap = new Map();
+        filtered.forEach((session) => {
+          const details = Array.isArray(session.mistakeDetails) ? session.mistakeDetails : [];
+          details.forEach((detail) => {
+            const key = detail?.prompt || detail?.explanation || '未标注知识点';
+            if (!mistakeMap.has(key)) {
+              mistakeMap.set(key, {
+                prompt: detail?.prompt || key,
+                explanation: detail?.explanation || '',
+                count: 0
+              });
+            }
+            const record = mistakeMap.get(key);
+            record.count += 1;
+          });
+        });
+        const topMistakes = Array.from(mistakeMap.values())
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+        const displayRange = range === 'week'
+          ? `${formatReadableDate(start)} - ${formatReadableDate(end)}`
+          : formatReadableDate(end);
+        return {
+          range,
+          start,
+          end,
+          rangeEnd,
+          totalQuestions,
+          correctQuestions,
+          accuracy,
+          speakingCount,
+          cards,
+          topMistakes,
+          displayRange,
+          filenameRange: `${formatCompactDate(start)}-${formatCompactDate(end)}`,
+          averageScore: filtered.length ? Math.round((scoreSum / filtered.length) * 10) / 10 : 0
+        };
+      }
+
+      let samplePlayback = null;
+
+      function stopSamplePlayback() {
+        if (samplePlayback?.audio) {
+          try {
+            samplePlayback.audio.pause();
+          } catch (error) {
+            // ignore pause errors
+          }
+        }
+        samplePlayback = null;
+      }
+
+      function playSamplePack() {
+        if (!OFFLINE_SAMPLE_PACK.length) return;
+        stopSamplePlayback();
+        let index = 0;
+        const next = () => {
+          if (index >= OFFLINE_SAMPLE_PACK.length) {
+            samplePlayback = null;
+            if (speechStatus && !speechStatus.textContent.includes('录音')) {
+              speechStatus.textContent = '示例音频播放完成，可继续练习。';
+            }
+            return;
+          }
+          const current = OFFLINE_SAMPLE_PACK[index];
+          const audio = new Audio(current.src);
+          samplePlayback = { audio };
+          if (speechStatus) {
+            speechStatus.textContent = `播放示例：${current.text}`;
+          }
+          audio.onended = () => {
+            index += 1;
+            next();
+          };
+          audio.onerror = () => {
+            index += 1;
+            next();
+          };
+          audio.play().catch(() => {
+            index += 1;
+            next();
+          });
+        };
+        showToast('正在播放离线示例音频…');
+        next();
+      }
+
+      function updateVoiceAvailability(info) {
+        const available = info?.hasSpanish;
+        if (offlineTtsBlock) {
+          offlineTtsBlock.hidden = Boolean(available);
+        }
+        if (offlineTtsTip && !available) {
+          offlineTtsTip.textContent = '未检测到西语语音包，请在系统语音设置中添加西语语音后重试，或先使用示例音频。';
+        }
+        if (speechStatus && speechStatus.textContent.includes('检测中')) {
+          speechStatus.textContent = available
+            ? '已检测到西语语音，可直接播放练习。'
+            : '语音包缺失，可使用下方示例音频体验。';
+        }
+      }
+
+      function buildMarkdownReport(range, report) {
+        const title = range === 'week' ? 'AI Español 学习周报' : 'AI Español 学习日报';
+        const accuracyText = `${report.accuracy.toFixed(1).replace(/\.0$/, '')}%`;
+        const lines = [
+          `# ${title}`,
+          '',
+          `- 日期范围：${report.displayRange}`,
+          `- 完成题数：${report.totalQuestions}`,
+          `- 平均正确率：${accuracyText}`,
+          `- 口语练习次数：${report.speakingCount}`,
+          ''
+        ];
+        lines.push('## Top 10 词卡');
+        if (report.cards.length) {
+          report.cards.forEach((card, index) => {
+            lines.push(`${index + 1}. ${card}`);
+          });
+        } else {
+          lines.push('暂无词卡统计。');
+        }
+        lines.push('');
+        lines.push('## 错题知识点 Top 5');
+        if (report.topMistakes.length) {
+          report.topMistakes.forEach((item, index) => {
+            const detail = item.explanation ? `｜${item.explanation}` : '';
+            lines.push(`${index + 1}. ${item.prompt}${detail}（${item.count} 次）`);
+          });
+        } else {
+          lines.push('本周期未出现错题，继续保持！');
+        }
+        lines.push('');
+        lines.push('_由 AI Español 自动生成，欢迎分享到你的学习圈。_');
+        return lines.join('\n');
+      }
+
+      function buildHtmlReport(range, report) {
+        const title = range === 'week' ? 'AI Español 学习周报' : 'AI Español 学习日报';
+        const accuracyText = `${report.accuracy.toFixed(1).replace(/\.0$/, '')}%`;
+        const cardsHtml = report.cards.length
+          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.cards
+              .map((card) => `<li>${escapeHtml(card)}</li>`)
+              .join('')}</ol>`
+          : '<p style="margin:0 0 12px;">暂无词卡统计。</p>';
+        const mistakesHtml = report.topMistakes.length
+          ? `<ol style="margin:0 0 12px;padding-left:20px;">${report.topMistakes
+              .map((item) => {
+                const detail = item.explanation ? `｜${item.explanation}` : '';
+                return `<li>${escapeHtml(`${item.prompt}${detail}`)}（${item.count} 次）</li>`;
+              })
+              .join('')}</ol>`
+          : '<p style="margin:0 0 12px;">本周期未出现错题，继续保持！</p>';
+        return `
+<div style="font-family:'PingFang SC','Segoe UI','Microsoft YaHei',sans-serif;line-height:1.6;color:#1f2933;">
+  <h1 style="font-size:20px;color:#d94848;margin:0 0 12px;">${escapeHtml(title)}</h1>
+  <p style="margin:4px 0;">日期范围：<strong>${escapeHtml(report.displayRange)}</strong></p>
+  <p style="margin:4px 0;">完成题数：<strong>${report.totalQuestions}</strong>｜平均正确率：<strong>${accuracyText}</strong></p>
+  <p style="margin:4px 0;">口语练习次数：<strong>${report.speakingCount}</strong></p>
+  <h2 style="font-size:18px;margin:16px 0 8px;">Top 10 词卡</h2>
+  ${cardsHtml}
+  <h2 style="font-size:18px;margin:16px 0 8px;">错题知识点 Top 5</h2>
+  ${mistakesHtml}
+  <p style="margin:16px 0 0;font-size:0.9rem;color:#6b7280;">由 AI Español 自动生成，粘贴到公众号也很好看。</p>
+</div>`;
+      }
+
+      async function copyTextToClipboard(text) {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+        } catch (error) {
+          // ignore and fallback
+        }
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', 'true');
+        textarea.style.position = 'absolute';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+      }
+
+      function downloadTextFile(content, filename, mime = 'text/plain;charset=utf-8') {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = filename;
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+
+      async function handleCopyReport(range, format = 'markdown') {
+        const report = buildReportData(range);
+        const content = format === 'html' ? buildHtmlReport(range, report) : buildMarkdownReport(range, report);
+        const ok = await copyTextToClipboard(content);
+        if (ok) {
+          showToast(`${format === 'html' ? 'HTML' : 'Markdown'} 已复制，快去分享吧！`);
+        } else {
+          showToast('复制失败，请尝试导出文件。');
+        }
+      }
+
+      function handleDownloadReport(range, format = 'md') {
+        const report = buildReportData(range);
+        const content = format === 'html' ? buildHtmlReport(range, report) : buildMarkdownReport(range, report);
+        const baseName = range === 'week' ? 'ES_学习周报' : 'ES_学习日报';
+        const ext = format === 'html' ? 'html' : 'md';
+        const mime = format === 'html' ? 'text/html;charset=utf-8' : 'text/markdown;charset=utf-8';
+        const filename = `${baseName}_${report.filenameRange}.${ext}`;
+        downloadTextFile(content, filename, mime);
+        showToast(`已导出${range === 'week' ? '周报' : '日报'}文件。`);
+      }
+
+      const pwaManager = (() => {
+        let deferredPrompt = null;
+        let installBtn = null;
+
+        function init(button) {
+          installBtn = button || null;
+          if (!('serviceWorker' in navigator)) {
+            if (installBtn) installBtn.hidden = true;
+            return;
+          }
+          navigator.serviceWorker
+            .register('service-worker.js')
+            .catch((error) => console.warn('Service worker 注册失败', error));
+          window.addEventListener('beforeinstallprompt', (event) => {
+            event.preventDefault();
+            deferredPrompt = event;
+            updateButton(true);
+          });
+          window.addEventListener('appinstalled', () => {
+            deferredPrompt = null;
+            updateButton(false);
+            showToast('已添加到主屏幕，开启离线学习模式！');
+          });
+          if (installBtn) {
+            installBtn.addEventListener('click', handleInstallClick);
+          }
+          const media = window.matchMedia('(display-mode: standalone)');
+          if (media?.addEventListener) {
+            media.addEventListener('change', () => updateButton(Boolean(deferredPrompt)));
+          }
+          updateButton(false);
+        }
+
+        function handleInstallClick(event) {
+          event?.preventDefault();
+          if (!deferredPrompt) {
+            showToast('请在支持的浏览器或 HTTPS 环境下尝试安装。');
+            return;
+          }
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice
+            .then((choice) => {
+              if (choice.outcome === 'accepted') {
+                showToast('感谢添加到主屏幕，祝学习顺利！');
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              deferredPrompt = null;
+              updateButton(false);
+            });
+        }
+
+        function updateButton(available) {
+          if (!installBtn) return;
+          const isStandalone =
+            window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+          installBtn.hidden = !(available && !isStandalone);
+        }
+
+        return { init };
+      })();
 
       const render = (() => {
         /**
@@ -2940,13 +3463,19 @@
         `;
         practiceSummary.hidden = false;
         if (!state.practice.history) state.practice.history = [];
+        const mistakeDetails = mistakes.map((item) => ({
+          prompt: item.question.prompt,
+          answer: item.question.answer,
+          explanation: item.question.explanation
+        }));
         state.practice.history.push({
           theme: state.practice.theme,
           level: state.practice.level,
           score,
           total: questions.length,
           mistakes: mistakes.length,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          mistakeDetails
         });
         state.practice.history = state.practice.history.slice(-20);
         storage.save(STORAGE_KEYS.practice, state.practice);
@@ -3816,6 +4345,9 @@
       const sttResult = document.getElementById('stt-result');
       const grammarList = document.getElementById('grammar-list');
       const grammarSearch = document.getElementById('grammar-search');
+      const offlineTtsBlock = document.getElementById('offline-tts-block');
+      const offlineTtsTip = document.getElementById('offline-tts-tip');
+      const installButton = document.getElementById('install-app');
       const ttsRate = document.getElementById('tts-rate');
       const sttEnabled = document.getElementById('stt-enabled');
       const aiStatus = document.getElementById('ai-status');
@@ -3833,6 +4365,7 @@
       const cardCsvInput = document.getElementById('card-csv-input');
       const questionJsonInput = document.getElementById('question-json-input');
       const contentReport = document.getElementById('content-report');
+      const progressReports = document.getElementById('progress-reports');
       const progressDrawer = document.getElementById('progress-drawer');
       const progressStreak = document.getElementById('progress-streak');
       const progressPractice = document.getElementById('progress-practice');
@@ -3955,6 +4488,7 @@
         document.querySelector('[data-action="tts-dialogue"]').addEventListener('click', playDialogue);
         document.querySelector('[data-action="start-record"]').addEventListener('click', startRecording);
         document.querySelector('[data-action="stop-record"]').addEventListener('click', stopRecording);
+        document.querySelector('[data-action="play-sample-pack"]').addEventListener('click', playSamplePack);
 
         grammarSearch.addEventListener('input', (event) => {
           filterGrammar(event.target.value);
@@ -4072,6 +4606,18 @@
             document.querySelector('[data-action="toggle-menu"]').setAttribute('aria-expanded', 'false');
           }
         });
+
+        progressReports?.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const range = button.dataset.range;
+          if (!range) return;
+          if (button.dataset.action === 'copy-report') {
+            handleCopyReport(range, button.dataset.format || 'markdown');
+          } else if (button.dataset.action === 'download-report') {
+            handleDownloadReport(range, button.dataset.format || 'md');
+          }
+        });
       }
 
       const practiceTheme = document.getElementById('practice-theme');
@@ -4079,6 +4625,13 @@
 
       function initApp() {
         speech.init();
+        if (typeof speech.onVoicesChange === 'function') {
+          speech.onVoicesChange(updateVoiceAvailability);
+          const initial = typeof speech.hasSpanishVoice === 'function'
+            ? speech.hasSpanishVoice()
+            : false;
+          updateVoiceAvailability({ hasSpanish: initial });
+        }
         const speechSupported = 'speechSynthesis' in window;
         const sttSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
         if (!speechSupported) {
@@ -4086,7 +4639,7 @@
         } else if (!sttSupported) {
           speechStatus.textContent = '语音识别不可用：请使用支持 Web Speech API 的浏览器。';
         } else {
-          speechStatus.textContent = '语音功能已就绪。如未听到西语语音，请在系统中安装西语语音包。';
+          speechStatus.textContent = '语音功能检测中…';
         }
         questionRepo.init();
         statsTracker.init();
@@ -4108,6 +4661,7 @@
         setupEventListeners();
         setActiveTopic(state.speaking.topic);
         updateProgressPanel();
+        pwaManager.init(installButton);
         window.addEventListener('resize', () => {
           drawProgressChart(statsTracker.getSummary().series);
         });
