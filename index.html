@@ -214,6 +214,24 @@
         transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
       }
 
+      .mobile-action-bar {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        z-index: 30;
+      }
+
+      .mobile-action-bar button {
+        min-width: 56px;
+        border-radius: 999px;
+        padding: 12px 16px;
+        box-shadow: 0 12px 24px rgba(255, 107, 107, 0.3);
+        font-size: 0.95rem;
+      }
+
       button:hover,
       button:focus-visible {
         transform: translateY(-1px);
@@ -324,6 +342,29 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+      }
+
+      .grid-two.virtualized {
+        display: block;
+      }
+
+      .virtual-card-hint {
+        margin: 0 0 12px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      .virtual-card-viewport {
+        position: relative;
+        max-height: 320px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: var(--surface);
+      }
+
+      .virtual-card-content {
+        position: relative;
       }
 
       .card-item strong {
@@ -539,6 +580,30 @@
         flex-wrap: wrap;
         gap: 12px;
         align-items: center;
+      }
+
+      .test-data-panel {
+        margin-top: 8px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .test-data-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .test-data-controls[hidden] {
+        display: none;
+      }
+
+      .test-data-panel select {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: #fff;
       }
 
       .badge {
@@ -765,6 +830,10 @@
           display: block;
         }
 
+        body {
+          padding-bottom: 120px;
+        }
+
         .nav-menu {
           position: absolute;
           top: 100%;
@@ -792,6 +861,10 @@
         .nav-progress {
           font-size: 0.9rem;
           padding: 8px 12px;
+        }
+
+        .mobile-action-bar {
+          display: flex;
         }
       }
     </style>
@@ -824,6 +897,7 @@
           </button>
           <button
             class="nav-toggle"
+            type="button"
             aria-expanded="false"
             aria-controls="global-menu"
             data-action="toggle-menu"
@@ -902,6 +976,7 @@
           <div style="align-self: flex-end;">
             <button
               id="generate-practice"
+              type="button"
               aria-label="生成练习"
               data-action="generate-practice"
             >
@@ -930,6 +1005,7 @@
             <div class="question-actions">
               <button
                 class="secondary"
+                type="button"
                 data-action="show-translation"
                 id="reveal-translation"
                 aria-label="显示中文释义"
@@ -937,18 +1013,22 @@
                 显示中文
               </button>
               <button
+                type="button"
                 data-action="rate-0"
                 aria-label="标记为忘记"
               >忘记</button>
               <button
+                type="button"
                 data-action="rate-1"
                 aria-label="标记为困难"
               >困难</button>
               <button
+                type="button"
                 data-action="rate-2"
                 aria-label="标记为一般"
               >一般</button>
               <button
+                type="button"
                 data-action="rate-3"
                 aria-label="标记为容易"
               >容易</button>
@@ -969,6 +1049,7 @@
               <textarea id="custom-card-example" rows="3" placeholder="Ejemplo"></textarea>
             </label>
             <button
+              type="button"
               data-action="add-custom-card"
               aria-label="添加词卡"
             >加入词卡</button>
@@ -987,16 +1068,19 @@
             <div class="dialogue-script" id="dialogue-script" aria-live="polite"></div>
             <div class="dialogue-tools">
               <button
+                type="button"
                 data-action="tts-dialogue"
                 aria-label="朗读当前对话"
               >跟读播放</button>
               <button
                 class="secondary"
+                type="button"
                 data-action="start-record"
                 aria-label="开始录音"
               >开始录音</button>
               <button
                 class="secondary"
+                type="button"
                 data-action="stop-record"
                 aria-label="停止录音"
               >停止</button>
@@ -1171,11 +1255,27 @@
             <h3 style="margin:0;">数据管理</h3>
             <p>导出/导入包含练习进度、词卡与口语记录的 JSON。</p>
             <div class="data-actions">
-              <button data-action="export-data" aria-label="导出数据">导出</button>
-              <button data-action="import-data" class="secondary" aria-label="导入数据">
+              <button type="button" data-action="export-data" aria-label="导出数据">导出</button>
+              <button type="button" data-action="import-data" class="secondary" aria-label="导入数据">
                 导入
               </button>
               <input type="file" id="import-input" accept="application/json" hidden />
+            </div>
+            <div class="test-data-panel">
+              <label>
+                <input type="checkbox" id="test-data-toggle" /> 加载测试数据（调试用）
+              </label>
+              <div class="test-data-controls" id="test-data-controls" hidden>
+                <select id="test-data-select" aria-label="选择测试数据集"></select>
+                <button
+                  type="button"
+                  class="secondary"
+                  data-action="apply-test-data"
+                  aria-label="应用测试数据示例"
+                >
+                  应用示例
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1240,6 +1340,12 @@
       </aside>
     </div>
 
+    <div class="mobile-action-bar" id="mobile-action-bar" aria-label="移动端快速操作">
+      <button type="button" data-action="open-progress" aria-label="打开我的进度">进度</button>
+      <button type="button" data-action="generate-practice" aria-label="重新生成练习">新练习</button>
+      <button type="button" data-action="start-record" aria-label="开始口语录音">录音</button>
+    </div>
+
     <div id="toast" class="toast" role="status" aria-live="assertive"></div>
 
     <script>
@@ -1263,6 +1369,39 @@
         aiDialogue: false,
         aiCorrection: false
       };
+
+      const APP_VERSION = '1.4.0';
+
+      const userNotifier = (() => {
+        let handler = (message, tone = 'info') => {
+          console.info(`[${tone}] ${message}`);
+        };
+        return {
+          /**
+           * 触发用户提示
+           * @param {string} message
+           * @param {'info'|'error'|'success'|'warning'} [tone]
+           */
+          notify(message, tone = 'info') {
+            try {
+              handler(message, tone);
+            } catch (error) {
+              console.info(`[${tone}] ${message}`);
+            }
+          },
+          /**
+           * 设置提示处理函数
+           * @param {(message: string, tone?: string) => void} fn
+           */
+          setHandler(fn) {
+            if (typeof fn === 'function') {
+              handler = fn;
+            }
+          }
+        };
+      })();
+
+      let diagnosticsLogged = false;
 
       const SAMPLE_MP3_DATA =
         '//uQZAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAACAAACcQCAAAACAAADSAAAAAEAAADSAAAAAQAAAEdUUkMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
@@ -1867,6 +2006,7 @@
             return JSON.parse(raw);
           } catch (error) {
             console.warn('读取 localStorage 失败', error);
+            userNotifier.notify('读取本地数据时出现问题，已使用默认值。', 'error');
             return fallback;
           }
         }
@@ -1875,16 +2015,52 @@
          * 保存 JSON 数据
          * @param {string} key
          * @param {unknown} value
+         * @returns {boolean}
          */
         function save(key, value) {
           try {
             localStorage.setItem(key, JSON.stringify(value));
+            return true;
           } catch (error) {
             console.warn('写入 localStorage 失败', error);
+            const message =
+              error && typeof error === 'object' && 'name' in error && error.name === 'QuotaExceededError'
+                ? '本地存储空间已满，请导出数据后清理空间。'
+                : '写入本地数据失败，请稍后重试。';
+            userNotifier.notify(message, 'error');
+            return false;
           }
         }
 
-        return { load, save };
+        /**
+         * 删除指定键
+         * @param {string} key
+         */
+        function remove(key) {
+          localStorage.removeItem(key);
+        }
+
+        /**
+         * 估算当前 localStorage 使用字节
+         * @returns {number}
+         */
+        function estimateUsage() {
+          try {
+            let total = 0;
+            for (let i = 0; i < localStorage.length; i += 1) {
+              const key = localStorage.key(i);
+              if (!key) continue;
+              const value = localStorage.getItem(key) || '';
+              total += key.length + value.length;
+            }
+            return total;
+          } catch (error) {
+            console.warn('无法估算 localStorage 使用量', error);
+            return 0;
+          }
+        }
+
+        return { load, save, remove, estimateUsage };
       })();
 
       const questionRepo = (() => {
@@ -2225,6 +2401,10 @@
       const srs = (() => {
         let cards = [];
 
+        /**
+         * 初始化词卡数据
+         * @returns {Array}
+         */
         function init() {
           const stored = storage.load(STORAGE_KEYS.cards, null);
           if (Array.isArray(stored) && stored.length) {
@@ -2241,6 +2421,9 @@
           return cards;
         }
 
+        /**
+         * 持久化词卡
+         */
         function persist() {
           storage.save(STORAGE_KEYS.cards, cards);
         }
@@ -2302,6 +2485,10 @@
           persist();
         }
 
+        /**
+         * 覆盖当前词卡集合
+         * @param {Array} nextCards
+         */
         function updateCards(nextCards) {
           cards = nextCards;
           persist();
@@ -2369,6 +2556,9 @@
         let recognition;
         let recognitionActive = false;
 
+        /**
+         * 初始化语音模块
+         */
         function init() {
           if ('speechSynthesis' in window) {
             const handleVoices = () => {
@@ -2402,16 +2592,21 @@
          * 朗读文本
          * @param {string} text
          * @param {number} rate
+         * @returns {{ok: boolean, message?: string}}
          */
         function speak(text, rate) {
           if (!('speechSynthesis' in window)) {
-            return { ok: false, message: '当前浏览器不支持语音合成，请改用支持 Speech Synthesis API 的浏览器。' };
+            const message = '当前浏览器不支持语音合成，请改用支持 Speech Synthesis API 的浏览器。';
+            userNotifier.notify(message, 'error');
+            return { ok: false, message };
           }
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = 'es-ES';
           utterance.rate = rate || 1;
           if (voices.length) {
             utterance.voice = voices[0];
+          } else {
+            userNotifier.notify('未检测到西语语音包，建议先安装后再试。', 'warning');
           }
           window.speechSynthesis.cancel();
           window.speechSynthesis.speak(utterance);
@@ -2422,10 +2617,13 @@
          * 开始识别
          * @param {(result: string) => void} onResult
          * @param {(error: string) => void} onError
+         * @returns {void}
          */
         function start(onResult, onError) {
           if (!recognition) {
-            onError('当前浏览器不支持语音识别。');
+            const message = '当前浏览器不支持语音识别。';
+            onError(message);
+            userNotifier.notify(message, 'error');
             return;
           }
           if (recognitionActive) return;
@@ -2437,7 +2635,9 @@
           };
           recognition.onerror = (event) => {
             recognitionActive = false;
-            onError(event.error || '语音识别出现问题');
+            const errorText = event.error || '语音识别出现问题';
+            onError(errorText);
+            userNotifier.notify(`语音识别失败：${errorText}`, 'error');
           };
           recognition.onend = () => {
             recognitionActive = false;
@@ -2445,12 +2645,19 @@
           recognition.start();
         }
 
+        /**
+         * 停止识别
+         */
         function stop() {
           if (recognition && recognitionActive) {
             recognition.stop();
           }
         }
 
+        /**
+         * 注册语音包监听
+         * @param {(info: {voices: SpeechSynthesisVoice[], hasSpanish: boolean}) => void} listener
+         */
         function onVoicesChange(listener) {
           if (typeof listener === 'function') {
             voiceListeners.push(listener);
@@ -2458,6 +2665,10 @@
           }
         }
 
+        /**
+         * 检查是否有西语语音包
+         * @returns {boolean}
+         */
         function hasSpanishVoice() {
           return voices.length > 0;
         }
@@ -2474,14 +2685,27 @@
           correction: false
         };
 
+        /**
+         * 检查是否在安全环境
+         * @returns {boolean}
+         */
         function isSecure() {
           return window.location.protocol === 'https:';
         }
 
+        /**
+         * 更新配置
+         * @param {Partial<typeof config>} partial
+         */
         function setConfig(partial) {
           config = { ...config, ...partial };
         }
 
+        /**
+         * 检查某功能可用性
+         * @param {'explain'|'dialogue'|'correction'} [feature]
+         * @returns {{ok: boolean, reason?: string}}
+         */
         function availability(feature) {
           if (!isSecure()) {
             return { ok: false, reason: 'secure' };
@@ -2498,6 +2722,10 @@
           return { ok: true };
         }
 
+        /**
+         * 构造请求头
+         * @returns {HeadersInit}
+         */
         function buildHeaders() {
           return {
             'Content-Type': 'application/json',
@@ -2505,10 +2733,20 @@
           };
         }
 
+        /**
+         * 解析文本内容
+         * @param {any} response
+         * @returns {string}
+         */
         function parseText(response) {
           return response?.choices?.[0]?.message?.content?.trim?.() || '';
         }
 
+        /**
+         * 尝试解析 JSON
+         * @param {string} text
+         * @returns {any}
+         */
         function parseJson(text) {
           if (!text) return null;
           try {
@@ -2526,29 +2764,49 @@
           }
         }
 
+        /**
+         * 发起 AI 请求
+         * @param {'explain'|'dialogue'|'correction'} feature
+         * @param {Array} payload
+         * @param {{signal?: AbortSignal, maxTokens?: number, temperature?: number}} [options]
+         */
         async function request(feature, payload, { signal, maxTokens = 600, temperature = 0.7 } = {}) {
           const check = availability(feature);
           if (!check.ok) {
             throw new Error(check.reason || 'unavailable');
           }
-          const response = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: buildHeaders(),
-            body: JSON.stringify({
-              model: config.model,
-              messages: payload,
-              temperature,
-              max_tokens: maxTokens
-            }),
-            signal
-          });
+          let response;
+          try {
+            response = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: buildHeaders(),
+              body: JSON.stringify({
+                model: config.model,
+                messages: payload,
+                temperature,
+                max_tokens: maxTokens
+              }),
+              signal
+            });
+          } catch (error) {
+            userNotifier.notify('AI 请求发送失败，请检查网络或稍后再试。', 'error');
+            throw error;
+          }
           if (!response.ok) {
             const text = await response.text();
+            userNotifier.notify('AI 服务返回错误，请稍后重试。', 'error');
             throw new Error(text || response.statusText || 'request_failed');
           }
           return response.json();
         }
 
+        /**
+         * 请求 AI 讲解
+         * @param {string} question
+         * @param {string} userAnswer
+         * @param {string} correctAnswer
+         * @returns {Promise<string>}
+         */
         async function explainQuestion(question, userAnswer, correctAnswer) {
           const messages = [
             {
@@ -2566,8 +2824,12 @@
           return content ? content.slice(0, 120) : '';
         }
 
+        /**
+         * 生成情景对话
+         * @param {{theme: string, level: string, length: number}} params
+         * @returns {Promise<Array<{es:string, zh:string, slowRead?:string}>>}
+         */
         async function generateDialogue({ theme, level, length }) {
-          const controller = new AbortController();
           const messages = [
             {
               role: 'system',
@@ -2579,7 +2841,7 @@
               content: `生成主题为 ${theme}，难度 ${level}，共 ${length} 句的情景对话。请只返回 JSON 数组。`
             }
           ];
-          const data = await request('dialogue', messages, { maxTokens: 600, temperature: 0.7, signal: controller.signal });
+          const data = await request('dialogue', messages, { maxTokens: 600, temperature: 0.7 });
           const content = parseText(data);
           const parsed = parseJson(content);
           if (!Array.isArray(parsed)) {
@@ -2594,6 +2856,13 @@
             .filter((item) => item.es);
         }
 
+        /**
+         * AI 口语纠错
+         * @param {string} reference
+         * @param {string} attempt
+         * @param {number} timeoutMs
+         * @returns {Promise<any>}
+         */
         async function correctSpeech(reference, attempt, timeoutMs = 8000) {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -3071,10 +3340,12 @@
             const actionRow = document.createElement('div');
             actionRow.className = 'question-actions';
             const checkBtn = document.createElement('button');
+            checkBtn.type = 'button';
             checkBtn.textContent = '检查';
             checkBtn.dataset.action = 'check-question';
             checkBtn.setAttribute('aria-label', '检查答案');
             const explainBtn = document.createElement('button');
+            explainBtn.type = 'button';
             explainBtn.textContent = '查看解析';
             explainBtn.dataset.action = 'show-explanation';
             explainBtn.className = 'secondary';
@@ -3093,7 +3364,58 @@
          * @param {Array} cards
          */
         function cardSamples(container, cards) {
+          if (!container) return;
+          container.classList.remove('virtualized');
           container.innerHTML = '';
+          if (!Array.isArray(cards) || !cards.length) {
+            container.innerHTML = '<p class="virtual-card-hint">暂无词卡，快去添加吧！</p>';
+            return;
+          }
+          if (cards.length > 2000) {
+            container.classList.add('virtualized');
+            const hint = document.createElement('p');
+            hint.className = 'virtual-card-hint';
+            hint.textContent = `词卡较多（${cards.length} 条），已启用性能优化列表。`;
+            const viewport = document.createElement('div');
+            viewport.className = 'virtual-card-viewport';
+            viewport.setAttribute('aria-label', '词卡快速浏览列表');
+            viewport.setAttribute('tabindex', '0');
+            const content = document.createElement('div');
+            content.className = 'virtual-card-content';
+            viewport.appendChild(content);
+            container.append(hint, viewport);
+            const rowHeight = 108;
+            const buffer = 6;
+            const renderSlice = () => {
+              const scrollTop = viewport.scrollTop;
+              const viewportHeight = viewport.clientHeight || 1;
+              const start = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+              const visibleCount = Math.ceil(viewportHeight / rowHeight) + buffer * 2;
+              const end = Math.min(cards.length, start + visibleCount);
+              content.style.height = `${cards.length * rowHeight}px`;
+              content.innerHTML = '';
+              for (let i = start; i < end; i += 1) {
+                const card = cards[i];
+                const item = document.createElement('div');
+                item.className = 'card-item';
+                item.style.position = 'absolute';
+                item.style.left = '12px';
+                item.style.right = '12px';
+                item.style.top = `${i * rowHeight + 12}px`;
+                const title = document.createElement('strong');
+                title.textContent = `${card.es}`;
+                const zh = document.createElement('div');
+                zh.textContent = card.zh;
+                const example = document.createElement('div');
+                example.textContent = card.example;
+                item.append(title, zh, example);
+                content.appendChild(item);
+              }
+            };
+            viewport.addEventListener('scroll', renderSlice, { passive: true });
+            renderSlice();
+            return;
+          }
           cards.slice(0, 4).forEach((card) => {
             const item = document.createElement('div');
             item.className = 'card-item';
@@ -3248,6 +3570,389 @@
         }
       };
 
+      function cloneCardsWithSchedule(baseCards, startTime = Date.now()) {
+        return baseCards.map((card, index) => ({
+          ...card,
+          id: card.id || `card-${index}`,
+          level: card.level || 1,
+          intervalDays: card.intervalDays || 1,
+          dueAt: startTime + index * 60000
+        }));
+      }
+
+      function generateBulkCards(count) {
+        const now = Date.now();
+        return Array.from({ length: count }, (_, index) => {
+          const template = DEFAULT_CARDS[index % DEFAULT_CARDS.length];
+          return {
+            id: `bulk-${index}`,
+            es: `${template.es}-${index}`,
+            zh: `${template.zh}（示例 ${index + 1}）`,
+            example: template.example,
+            level: (index % 6) + 1,
+            intervalDays: (index % 5) + 1,
+            dueAt: now + (index % 30) * 3600000
+          };
+        });
+      }
+
+      function buildQuestionSet(theme, level, count, seed = 'test') {
+        const fallback = QUESTION_BANK.travel?.A1 || [];
+        const themed = QUESTION_BANK[theme]?.[level] || [];
+        const pool = themed.length ? themed.slice() : fallback.slice();
+        if (!pool.length) return [];
+        while (pool.length < count) {
+          pool.push(pool[pool.length % pool.length]);
+        }
+        return pool.slice(0, count).map((item, index) => ({
+          ...item,
+          id: `${item.id || `${theme}-${level}-${index}`}-${seed}-${index}`
+        }));
+      }
+
+      function buildStatsSample({ streak = 1, practice = 0, speaking = 0, history = [] } = {}) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const daily = {};
+        history.forEach((item, offset) => {
+          const date = new Date(today.getTime());
+          date.setDate(date.getDate() - (offset + 1));
+          const key = date.toISOString().slice(0, 10);
+          daily[key] = { practice: item.practice, speaking: item.speaking };
+        });
+        const todayKey = today.toISOString().slice(0, 10);
+        daily[todayKey] = { practice, speaking };
+        return { lastActiveDate: todayKey, streakCount: streak, daily };
+      }
+
+      const TEST_DATASETS = [
+        {
+          id: 'empty',
+          label: '1. 空记录（重置数据）',
+          apply() {
+            const cards = cloneCardsWithSchedule(DEFAULT_CARDS);
+            srs.updateCards(cards);
+            questionRepo.replaceCustom({});
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'travel',
+              level: 'A1',
+              questions: [],
+              answers: {},
+              results: {},
+              finished: false,
+              history: []
+            });
+            storage.save(STORAGE_KEYS.stats, { lastActiveDate: null, streakCount: 0, daily: {} });
+            storage.save(STORAGE_KEYS.speaking, []);
+            const currentSettings = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+            storage.save(STORAGE_KEYS.settings, { ...currentSettings, sttEnabled: true });
+            return '空记录示例已加载。';
+          }
+        },
+        {
+          id: 'a1-master',
+          label: '2. A1 满分练习记录',
+          apply() {
+            const questions = buildQuestionSet('travel', 'A1', 10, 'a1');
+            const answers = {};
+            const results = {};
+            questions.forEach((question) => {
+              answers[question.id] = question.answer;
+              results[question.id] = { correct: true, answer: question.answer, explanation: question.explanation };
+            });
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'travel',
+              level: 'A1',
+              questions,
+              answers,
+              results,
+              finished: true,
+              history: [
+                {
+                  theme: 'travel',
+                  level: 'A1',
+                  score: 100,
+                  total: questions.length,
+                  mistakes: 0,
+                  timestamp: Date.now() - 3600 * 1000,
+                  mistakeDetails: []
+                }
+              ]
+            });
+            const stats = buildStatsSample({
+              streak: 5,
+              practice: 10,
+              speaking: 3,
+              history: [
+                { practice: 8, speaking: 1 },
+                { practice: 6, speaking: 2 },
+                { practice: 10, speaking: 0 }
+              ]
+            });
+            storage.save(STORAGE_KEYS.stats, stats);
+            storage.save(STORAGE_KEYS.speaking, [
+              { timestamp: Date.now() - 2000, topic: 'travel', similarity: 92 },
+              { timestamp: Date.now() - 4000, topic: 'travel', similarity: 96 }
+            ]);
+            return '已加载 A1 满分练习示例。';
+          }
+        },
+        {
+          id: 'mixed-level',
+          label: '3. 混合难度与错题记录',
+          apply() {
+            const questions = buildQuestionSet('restaurant', 'B1', 10, 'mix');
+            const answers = {};
+            const results = {};
+            questions.forEach((question, index) => {
+              const correct = index < 5;
+              const userAnswer = correct ? question.answer : '';
+              answers[question.id] = userAnswer;
+              results[question.id] = {
+                correct,
+                answer: userAnswer,
+                explanation: question.explanation,
+                aiExplanation: correct ? undefined : '请关注虚拟式变化，主语变化需调整词尾。'
+              };
+            });
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'restaurant',
+              level: 'B1',
+              questions,
+              answers,
+              results,
+              finished: true,
+              history: [
+                {
+                  theme: 'restaurant',
+                  level: 'B1',
+                  score: 50,
+                  total: questions.length,
+                  mistakes: 5,
+                  timestamp: Date.now() - 7200 * 1000,
+                  mistakeDetails: questions.slice(5).map((item) => ({
+                    prompt: item.prompt,
+                    answer: item.answer,
+                    explanation: item.explanation
+                  }))
+                }
+              ]
+            });
+            const stats = buildStatsSample({
+              streak: 2,
+              practice: 5,
+              speaking: 1,
+              history: [
+                { practice: 3, speaking: 2 },
+                { practice: 4, speaking: 1 }
+              ]
+            });
+            storage.save(STORAGE_KEYS.stats, stats);
+            const speakingLog = Array.from({ length: 5 }, (_, index) => ({
+              timestamp: Date.now() - index * 600000,
+              topic: index % 2 === 0 ? 'restaurant' : 'shopping',
+              similarity: 60 + index * 5,
+              aiSimilarity: 55 + index * 5,
+              mistakes: index % 3
+            }));
+            storage.save(STORAGE_KEYS.speaking, speakingLog);
+            return '混合难度与错题示例已准备。';
+          }
+        },
+        {
+          id: 'duplicate-import',
+          label: '4. 导入重复题库示例',
+          apply() {
+            const payload = {
+              travel: {
+                A1: [
+                  {
+                    id: 'dup-travel-1',
+                    type: 'choice',
+                    prompt: '重复测试：选择表示“酒店”的单词。',
+                    options: ['hotel', 'tren', 'colegio'],
+                    answer: 'hotel',
+                    explanation: 'hotel = 酒店。'
+                  },
+                  {
+                    id: 'dup-travel-1',
+                    type: 'choice',
+                    prompt: '重复测试：请选择“机场”的西语。',
+                    options: ['aeropuerto', 'mercado', 'escuela'],
+                    answer: 'aeropuerto',
+                    explanation: 'aeropuerto = 机场。'
+                  }
+                ]
+              }
+            };
+            questionRepo.replaceCustom(payload);
+            srs.updateCards(cloneCardsWithSchedule(DEFAULT_CARDS));
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'travel',
+              level: 'A1',
+              questions: buildQuestionSet('travel', 'A1', 10, 'dup'),
+              answers: {},
+              results: {},
+              finished: false,
+              history: []
+            });
+            return '已载入含重复题目的内容库。';
+          }
+        },
+        {
+          id: 'stt-disabled',
+          label: '5. 浏览器禁用麦克风',
+          apply() {
+            const settings = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+            storage.save(STORAGE_KEYS.settings, { ...settings, sttEnabled: false });
+            storage.save(STORAGE_KEYS.speaking, [
+              { timestamp: Date.now() - 1000, topic: 'daily', similarity: 48 },
+              { timestamp: Date.now() - 2000, topic: 'daily', similarity: 52 }
+            ]);
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'daily',
+              level: 'A2',
+              questions: buildQuestionSet('daily', 'A2', 10, 'stt'),
+              answers: {},
+              results: {},
+              finished: false,
+              history: []
+            });
+            return '已模拟禁用麦克风的环境。';
+          }
+        },
+        {
+          id: 'heavy-cards',
+          label: '6. 2400 张词卡性能测试',
+          apply() {
+            const bulkCards = generateBulkCards(2400);
+            srs.updateCards(bulkCards);
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'shopping',
+              level: 'A1',
+              questions: buildQuestionSet('shopping', 'A1', 10, 'bulk'),
+              answers: {},
+              results: {},
+              finished: false,
+              history: []
+            });
+            return '已生成 2400 张词卡用于性能测试。';
+          }
+        },
+        {
+          id: 'ai-fallback',
+          label: '7. AI 开启但无密钥',
+          apply() {
+            const settings = storage.load(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+            storage.save(STORAGE_KEYS.settings, {
+              ...settings,
+              aiExplain: true,
+              aiDialogue: true,
+              aiCorrection: true,
+              openaiKey: ''
+            });
+            const questions = buildQuestionSet('work', 'B1', 10, 'ai');
+            const answers = {};
+            const results = {};
+            questions.forEach((question, index) => {
+              const userAnswer = index % 2 === 0 ? question.answer : '';
+              answers[question.id] = userAnswer;
+              results[question.id] = {
+                correct: index % 2 === 0,
+                answer: userAnswer,
+                explanation: question.explanation
+              };
+            });
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'work',
+              level: 'B1',
+              questions,
+              answers,
+              results,
+              finished: false,
+              history: []
+            });
+            return '已开启 AI 选项（无密钥），可测试降级逻辑。';
+          }
+        },
+        {
+          id: 'speaking-week',
+          label: '8. 语音练习周报示例',
+          apply() {
+            const speakingLog = Array.from({ length: 20 }, (_, index) => ({
+              timestamp: Date.now() - index * 43200000,
+              topic: index % 2 === 0 ? 'travel' : 'restaurant',
+              similarity: 50 + (index % 5) * 10,
+              aiSimilarity: 48 + (index % 5) * 10,
+              mistakes: index % 3
+            }));
+            storage.save(STORAGE_KEYS.speaking, speakingLog);
+            const stats = buildStatsSample({
+              streak: 7,
+              practice: 12,
+              speaking: 6,
+              history: Array.from({ length: 6 }, (_, index) => ({
+                practice: 6 + index,
+                speaking: 2 + (index % 3)
+              }))
+            });
+            storage.save(STORAGE_KEYS.stats, stats);
+            storage.save(STORAGE_KEYS.practice, {
+              theme: 'travel',
+              level: 'A2',
+              questions: buildQuestionSet('travel', 'A2', 10, 'speak'),
+              answers: {},
+              results: {},
+              finished: false,
+              history: []
+            });
+            return '语音练习统计样本已载入。';
+          }
+        }
+      ];
+
+      function initTestDataUI() {
+        if (testDataSelect) {
+          testDataSelect.innerHTML = '';
+          TEST_DATASETS.forEach((dataset) => {
+            const option = document.createElement('option');
+            option.value = dataset.id;
+            option.textContent = dataset.label;
+            testDataSelect.appendChild(option);
+          });
+          testDataSelect.disabled = !(testDataToggle?.checked);
+        }
+        if (testDataControls) {
+          testDataControls.hidden = !testDataToggle?.checked;
+        }
+        if (applyTestDataBtn) {
+          applyTestDataBtn.disabled = !(testDataToggle?.checked);
+        }
+      }
+
+      function applyTestDataset(id) {
+        const dataset = TEST_DATASETS.find((item) => item.id === id);
+        if (!dataset) {
+          userNotifier.notify('请选择有效的测试数据集。', 'warning');
+          return;
+        }
+        try {
+          const message = dataset.apply() || '测试数据已应用。';
+          questionRepo.init();
+          srs.init();
+          statsTracker.init();
+          loadPracticeFromStorage();
+          updateCardsUI();
+          prepareReview();
+          initSettings();
+          updateProgressPanel();
+          userNotifier.notify(message, 'success');
+        } catch (error) {
+          console.error('apply test dataset failed', error);
+          userNotifier.notify('加载测试数据失败，请稍后再试。', 'error');
+        }
+      }
+
       /**
        * 从题库抽取 10 道题
        * @param {string} theme
@@ -3300,6 +4005,7 @@
         if (!document.getElementById('submit-practice')) {
           const submitBtn = document.createElement('button');
           submitBtn.id = 'submit-practice';
+          submitBtn.type = 'button';
           submitBtn.textContent = '提交练习';
           submitBtn.dataset.action = 'submit-practice';
           submitBtn.setAttribute('aria-label', '提交练习获得成绩');
@@ -3423,6 +4129,7 @@
             feedback.textContent = `【解析】${question.explanation}`;
             if (force) {
               showToast('AI 讲解暂不可用，已展示本地解析。');
+              userNotifier.notify('AI 讲解暂不可用，已展示本地解析。', 'warning');
             }
           })
           .finally(() => {
@@ -3453,7 +4160,7 @@
           })
           .join('');
         const addButton = mistakes.length
-          ? '<button data-action="add-mistakes" aria-label="把错题加入词卡">加入词卡</button>'
+          ? '<button type="button" data-action="add-mistakes" aria-label="把错题加入词卡">加入词卡</button>'
           : '';
         practiceSummary.innerHTML = `
           <h3>本次得分：${score} / 100</h3>
@@ -3646,6 +4353,7 @@
         const message = speech.speak(lines.join('\n'), rate);
         if (!message.ok) {
           speechStatus.textContent = message.message;
+          userNotifier.notify(message.message, 'error');
         } else {
           speechStatus.textContent = '已播放，请跟读。';
         }
@@ -3654,6 +4362,7 @@
       function startRecording() {
         if (!state.speaking.sttEnabled) {
           speechStatus.textContent = '已关闭语音识别，可在设置中启用。';
+          userNotifier.notify('语音识别已关闭，可在设置中启用。', 'warning');
           return;
         }
         speechStatus.textContent = '正在录音，请朗读选中句子…';
@@ -3664,6 +4373,7 @@
           },
           (error) => {
             speechStatus.textContent = `语音识别不可用：${error}`;
+            userNotifier.notify(`语音识别不可用：${error}`, 'error');
           }
         );
       }
@@ -3728,6 +4438,7 @@
               if (aiBlock) {
                 aiBlock.textContent = 'AI 纠错失败，已显示本地匹配结果。';
               }
+              userNotifier.notify('AI 纠错失败，已展示本地相似度。', 'warning');
             });
         } else if (aiBlock) {
           aiBlock.textContent = getAiUnavailableMessage('correction', availability.reason);
@@ -4020,6 +4731,10 @@
         }, 3200);
       }
 
+      userNotifier.setHandler((message) => {
+        showToast(message);
+      });
+
       function updateContentReport(message, type = 'info') {
         if (!contentReport) return;
         contentReport.textContent = message;
@@ -4242,6 +4957,36 @@
         drawProgressChart(summary.series);
       }
 
+      function logDiagnostics(voiceInfo) {
+        const voices = Array.isArray(voiceInfo?.voices)
+          ? voiceInfo.voices
+          : window.speechSynthesis?.getVoices?.() || [];
+        const voiceNames = voices.map((voice) => `${voice.name} (${voice.lang})`);
+        const sttSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+        const usageChars = storage.estimateUsage();
+        const usageKb = (usageChars * 2) / 1024;
+        if (!diagnosticsLogged) {
+          diagnosticsLogged = true;
+          console.groupCollapsed(`AI Español v${APP_VERSION} 自检`);
+          console.info('可用语音：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
+          console.info('STT 支持：', sttSupported ? '可用' : '不可用');
+          console.info('localStorage 估算：', `${usageKb.toFixed(2)} KB`);
+          console.groupEnd();
+          if (navigator.storage?.estimate) {
+            navigator.storage
+              .estimate()
+              .then((info) => {
+                const quotaMb = info.quota ? (info.quota / (1024 * 1024)).toFixed(2) : '未知';
+                const usedMb = info.usage ? (info.usage / (1024 * 1024)).toFixed(2) : '未知';
+                console.info(`Storage 配额约 ${quotaMb} MB，已用 ${usedMb} MB。`);
+              })
+              .catch(() => {});
+          }
+        } else if (voiceInfo) {
+          console.info('语音列表更新：', voiceNames.length ? voiceNames.join(', ') : '未检测到语音包');
+        }
+      }
+
       function openProgressDrawer() {
         if (!progressDrawer) return;
         progressDrawer.classList.add('open');
@@ -4377,6 +5122,11 @@
       const cefrPanel = document.getElementById('cefr-panel');
       const cefrQuestions = document.getElementById('cefr-questions');
       const cefrResult = document.getElementById('cefr-result');
+      const testDataToggle = document.getElementById('test-data-toggle');
+      const testDataControls = document.getElementById('test-data-controls');
+      const testDataSelect = document.getElementById('test-data-select');
+      const applyTestDataBtn = document.querySelector('[data-action="apply-test-data"]');
+      const mobileActionBar = document.getElementById('mobile-action-bar');
 
       function loadPracticeFromStorage() {
         const stored = storage.load(STORAGE_KEYS.practice, null);
@@ -4430,10 +5180,49 @@
           }
         });
 
+        testDataToggle?.addEventListener('change', () => {
+          const enabled = testDataToggle.checked;
+          if (testDataControls) {
+            testDataControls.hidden = !enabled;
+          }
+          if (testDataSelect) {
+            testDataSelect.disabled = !enabled;
+          }
+          if (applyTestDataBtn) {
+            applyTestDataBtn.disabled = !enabled;
+          }
+        });
+
+        applyTestDataBtn?.addEventListener('click', () => {
+          if (!testDataToggle?.checked) {
+            userNotifier.notify('请先勾选“加载测试数据”。', 'warning');
+            return;
+          }
+          const value = testDataSelect?.value;
+          if (value) {
+            applyTestDataset(value);
+          } else {
+            userNotifier.notify('请选择要加载的测试数据集。', 'warning');
+          }
+        });
+
         document.getElementById('generate-practice').addEventListener('click', () => {
           const theme = practiceTheme.value;
           const level = practiceLevel.value;
           buildPractice(theme, level);
+        });
+
+        mobileActionBar?.addEventListener('click', (event) => {
+          const button = event.target.closest('button[data-action]');
+          if (!button) return;
+          const action = button.dataset.action;
+          if (action === 'open-progress') {
+            openProgressDrawer();
+          } else if (action === 'generate-practice') {
+            buildPractice(practiceTheme.value, practiceLevel.value);
+          } else if (action === 'start-record') {
+            startRecording();
+          }
         });
 
         practiceContainer.addEventListener('click', (event) => {
@@ -4624,20 +5413,26 @@
       const practiceLevel = document.getElementById('practice-level');
 
       function initApp() {
+        initTestDataUI();
         speech.init();
         if (typeof speech.onVoicesChange === 'function') {
-          speech.onVoicesChange(updateVoiceAvailability);
+          speech.onVoicesChange((info) => {
+            updateVoiceAvailability(info);
+            logDiagnostics(info);
+          });
           const initial = typeof speech.hasSpanishVoice === 'function'
             ? speech.hasSpanishVoice()
             : false;
-          updateVoiceAvailability({ hasSpanish: initial });
+          updateVoiceAvailability({ hasSpanish: initial, voices: window.speechSynthesis?.getVoices?.() || [] });
         }
         const speechSupported = 'speechSynthesis' in window;
         const sttSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
         if (!speechSupported) {
           speechStatus.textContent = '语音朗读不可用：缺少 Speech Synthesis 支持。';
+          userNotifier.notify('语音朗读不可用：缺少 Speech Synthesis 支持。', 'warning');
         } else if (!sttSupported) {
           speechStatus.textContent = '语音识别不可用：请使用支持 Web Speech API 的浏览器。';
+          userNotifier.notify('语音识别不可用：请使用支持 Web Speech API 的浏览器。', 'warning');
         } else {
           speechStatus.textContent = '语音功能检测中…';
         }
@@ -4662,6 +5457,7 @@
         setActiveTopic(state.speaking.topic);
         updateProgressPanel();
         pwaManager.init(installButton);
+        logDiagnostics();
         window.addEventListener('resize', () => {
           drawProgressChart(statsTracker.getSummary().series);
         });
