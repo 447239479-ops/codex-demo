@@ -2173,9 +2173,22 @@
                 />
                 <button
                   type="button"
+                  class="btn"
                   data-action="video-add-card"
                   aria-label="将选中内容加入学习卡片"
                 >+卡片</button>
+                <button
+                  type="button"
+                  class="btn"
+                  data-action="mk-quiz"
+                  aria-label="从当前字幕生成检索题"
+                >生成检索题</button>
+                <button
+                  type="button"
+                  class="btn"
+                  data-action="open-quiz-center"
+                  aria-label="打开检索练习中心"
+                >练习中心</button>
                 <button
                   type="button"
                   id="cue-note-indicator"
@@ -2207,6 +2220,23 @@
                   <p style="margin:0;color:var(--muted);">暂无精读内容，点击字幕右上方的“添加到精读”按钮即可记录重点。</p>
                 </div>
               </aside>
+              <div id="quizPanel" class="card pad" style="display:none">
+                <div class="modal-head">
+                  <div class="section-title">检索练习</div>
+                  <button class="close btn" type="button" data-action="quiz-close" aria-label="关闭检索练习">关闭</button>
+                </div>
+                <div class="hr"></div>
+                <div id="quizStem" class="section-title" style="font-size:18px"></div>
+                <div id="quizOptions"></div>
+                <div id="quizHistory" class="quiz-history scroll-y" style="max-height:200px;display:none"></div>
+                <div class="hr"></div>
+                <div class="flex-row" style="display:flex;gap:12px;flex-wrap:wrap">
+                  <button class="btn btn-primary" type="button" data-action="quiz-submit" aria-label="提交答案">提交</button>
+                  <button class="btn" type="button" data-action="quiz-show" aria-label="显示答案">显示答案</button>
+                  <button class="btn" type="button" data-action="quiz-next" aria-label="下一题">下一题</button>
+                  <span class="badge" id="quizMeta" aria-live="polite">—</span>
+                </div>
+              </div>
             </div>
             <div
               id="video-panel-cards"
@@ -2741,7 +2771,9 @@
         device: 'es-app:deviceId',
         profile: 'es-app:profile',
         entitlement: 'es-app:entitlement',
-        notes: 'es-app:study-notes'
+        notes: 'es-app:study-notes',
+        retrieval: 'es-app:retrieval',
+        retrievalLog: 'es-app:retrieval-log'
       };
 
       const DEFAULT_SETTINGS = {
@@ -5732,6 +5764,34 @@
         return tokens.filter(Boolean);
       }
 
+      function mergeTokensWithHints(tokens) {
+        if (!Array.isArray(tokens) || tokens.length <= 1) return Array.isArray(tokens) ? tokens.slice() : [];
+        if (!phraseHintSet || phraseHintSet.size === 0) return tokens.slice();
+        const result = [];
+        let index = 0;
+        const maxWindow = Math.min(4, tokens.length);
+        while (index < tokens.length) {
+          let matched = '';
+          let matchedLength = 0;
+          for (let size = Math.min(maxWindow, tokens.length - index); size > 1; size -= 1) {
+            const phrase = tokens.slice(index, index + size).join(' ');
+            if (phraseHintSet.has(phrase.toLowerCase())) {
+              matched = phrase;
+              matchedLength = size;
+              break;
+            }
+          }
+          if (matched) {
+            result.push(matched);
+            index += matchedLength;
+          } else {
+            result.push(tokens[index]);
+            index += 1;
+          }
+        }
+        return result;
+      }
+
       function normalizeCueTime(value) {
         if (typeof value === 'number') {
           return Number.isFinite(value) ? value : NaN;
@@ -5895,6 +5955,8 @@
         return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
       }
 
+      let phraseHintSet = new Set();
+
       /**
        * 渲染字幕面板
        * @param {HTMLElement} container
@@ -5925,6 +5987,11 @@
           item.dataset.index = String(index);
           item.dataset.start = String(cue.start);
           item.dataset.end = String(cue.end);
+          if (cue.id) {
+            item.dataset.cueId = String(cue.id);
+          } else {
+            item.removeAttribute('data-cue-id');
+          }
           item.id = `cue-${index}`;
           item.setAttribute('role', 'option');
           item.setAttribute('aria-selected', index === selectedIndex ? 'true' : 'false');
@@ -5945,11 +6012,12 @@
           let words = Array.isArray(cue.words) ? cue.words.slice() : [];
           if (!words.length) {
             words = splitCueTokens(cue.l2 || cue.text || '');
-            cue.words = words.slice();
           }
+          words = mergeTokensWithHints(words);
+          cue.words = words.slice();
           if (showL2) {
             const l2Line = document.createElement('div');
-            l2Line.className = 'cue-line-l2';
+            l2Line.className = 'cue-line-l2 l2';
             if (words.length) {
               words.forEach((word, wordIndex) => {
                 const span = document.createElement('span');
@@ -5971,7 +6039,7 @@
           }
           if (showL1 && (cue.l1 || resolvedMode === 'l1')) {
             const l1Line = document.createElement('div');
-            l1Line.className = 'cue-line-l1';
+            l1Line.className = 'cue-line-l1 l1';
             if (cue.l1) {
               l1Line.textContent = cue.l1;
             } else {
@@ -6522,6 +6590,10 @@
           remoteByVideo: {},
           groups: []
         },
+        retrieval: {
+          items: [],
+          currentId: ''
+        },
         cefr: {
           responses: {}
         },
@@ -6655,6 +6727,13 @@
               return { success: true };
             }
             const result = await window.supabaseManager.upsertSpeakingLog(op.payload);
+            return result && result.error ? { success: false, error: result.error } : { success: true };
+          }
+          if (op.type === 'retrieval') {
+            if (!window.supabaseManager?.upsertRetrievalLog) {
+              return { success: true };
+            }
+            const result = await window.supabaseManager.upsertRetrievalLog(op.payload);
             return result && result.error ? { success: false, error: result.error } : { success: true };
           }
           if (op.type === 'redeem') {
@@ -7216,6 +7295,7 @@
 
           toolbar?.addEventListener('click', handleToolbarClick);
           panel?.addEventListener('click', handleCueClick);
+          panel?.addEventListener('contextmenu', handleCueContextMenu);
           panel?.addEventListener('dblclick', handleCueDblClick);
           panel?.addEventListener('keydown', handlePanelKeyDown);
           panel?.addEventListener('focus', handlePanelFocus, true);
@@ -8229,9 +8309,36 @@
           repeatSentence(index);
         }
 
+        function handleCueContextMenu(event) {
+          const cueEl = event.target.closest('.cue');
+          if (!cueEl) return;
+          event.preventDefault();
+          const index = Number(cueEl.dataset.index);
+          if (!Number.isInteger(index)) return;
+          const token = event.target.closest('.tok');
+          state.video.lastToken = token ? token.dataset.t || token.textContent || '' : '';
+          setSelectedIndex(index, false, false, true);
+          try {
+            makeRetrievalFromCurrent();
+          } catch (error) {
+            console.warn('右键生成检索题失败', error);
+          }
+        }
+
         function handlePanelKeyDown(event) {
           if (event.target === panel) {
             if (!state.video.cues.length) return;
+            const keyLower = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+            if (keyLower === 'q') {
+              event.preventDefault();
+              makeRetrievalFromCurrent();
+              return;
+            }
+            if (event.key === 'Enter' && quizPanel && quizPanel.style.display !== 'none') {
+              event.preventDefault();
+              submitCurrentQuiz();
+              return;
+            }
             if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
               const initial = state.video.selectedIndex >= 0 ? state.video.selectedIndex : 0;
@@ -8244,6 +8351,17 @@
           if (!cueEl) return;
           const index = Number(cueEl.dataset.index);
           if (!Number.isInteger(index)) return;
+          const lowerKey = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+          if (lowerKey === 'q') {
+            event.preventDefault();
+            makeRetrievalFromCurrent();
+            return;
+          }
+          if (event.key === 'Enter' && quizPanel && quizPanel.style.display !== 'none') {
+            event.preventDefault();
+            submitCurrentQuiz();
+            return;
+          }
           if (event.key === 'ArrowDown') {
             event.preventDefault();
             const next = Math.min(state.video.cues.length - 1, index + 1);
@@ -8936,19 +9054,53 @@
         const button = event.target.closest('button[data-action]');
         if (!button) return;
         const action = button.dataset.action;
-        if (action === 'shadowing-toggle') {
-          event.preventDefault();
-          try {
-            await shadowingController.toggle();
-          } catch (error) {
-            console.warn('切换影子跟读失败', error);
-          }
-          return;
-        }
-        if (action === 'repeat3') {
-          event.preventDefault();
-          shadowingController.repeatThree();
-          return;
+        switch (action) {
+          case 'shadowing-toggle':
+            event.preventDefault();
+            try {
+              await shadowingController.toggle();
+            } catch (error) {
+              console.warn('切换影子跟读失败', error);
+            }
+            return;
+          case 'repeat3':
+            event.preventDefault();
+            shadowingController.repeatThree();
+            return;
+          case 'mk-quiz':
+            event.preventDefault();
+            makeRetrievalFromCurrent();
+            return;
+          case 'open-quiz-center':
+            event.preventDefault();
+            openQuizCenter();
+            return;
+          case 'quiz-close':
+            event.preventDefault();
+            closeQuizPanel();
+            return;
+          case 'quiz-submit':
+            event.preventDefault();
+            submitCurrentQuiz();
+            return;
+          case 'quiz-show':
+            event.preventDefault();
+            revealQuizAnswer();
+            return;
+          case 'quiz-next':
+            event.preventDefault();
+            loadNextQuiz();
+            return;
+          case 'quiz-option':
+            event.preventDefault();
+            selectQuizOption(button);
+            return;
+          case 'quiz-history-item':
+            event.preventDefault();
+            openQuizFromHistory(button.dataset.rid || '');
+            return;
+          default:
+            break;
         }
       });
 
@@ -9991,6 +10143,23 @@
         alert(added ? `成功加入 ${added} 条词卡，稍后记得复习哦！` : '词卡已存在，无需重复添加。');
       }
 
+      function refreshPhraseHints() {
+        try {
+          const hints = new Set();
+          const cards = srs.getCards();
+          cards.forEach((card) => {
+            const phrase = String(card.phrase || '').trim();
+            if (!phrase) return;
+            if (phrase.includes(' ')) {
+              hints.add(phrase.toLowerCase());
+            }
+          });
+          phraseHintSet = hints;
+        } catch (error) {
+          console.warn('刷新词块提示失败', error);
+        }
+      }
+
       function prepareReview() {
         const cards = srs.getCards();
         const dueCards = cards
@@ -10014,6 +10183,7 @@
       }
 
       function updateCardsUI() {
+        refreshPhraseHints();
         const cards = srs.getCards().sort((a, b) => a.dueAt - b.dueAt);
         render.cardSamples(cardSamples, cards);
         videoLearning.refreshCards?.();
@@ -11122,7 +11292,9 @@
           settings: { ...rawSettings, openaiKey: '', supabaseAnonKey: '', cloudflareToken: '' },
           speaking: storage.load(STORAGE_KEYS.speaking, []),
           customQuestions: questionRepo.getCustom(),
-          stats: statsData
+          stats: statsData,
+          retrieval: storage.load(STORAGE_KEYS.retrieval, []),
+          retrievalLog: storage.load(STORAGE_KEYS.retrievalLog, [])
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const date = new Date();
@@ -11167,6 +11339,13 @@
             if (Array.isArray(data.speaking)) {
               storage.save(STORAGE_KEYS.speaking, data.speaking.slice(-20));
             }
+            if (Array.isArray(data.retrieval)) {
+              storage.save(STORAGE_KEYS.retrieval, data.retrieval);
+              state.retrieval.items = data.retrieval.slice();
+            }
+            if (Array.isArray(data.retrievalLog)) {
+              storage.save(STORAGE_KEYS.retrievalLog, data.retrievalLog);
+            }
             if (data.customQuestions) {
               questionRepo.replaceCustom(data.customQuestions);
             }
@@ -11181,6 +11360,7 @@
             refreshVideoLibrary(true);
             loadPracticeFromStorage();
             updateProgressPanel();
+            renderQuizHistory(false);
             showToast('导入完成，欢迎继续学习！');
           } catch (error) {
             alert('导入失败：JSON 格式不正确。');
@@ -11715,6 +11895,11 @@
       const progressMastered = document.getElementById('progress-mastered');
       const progressChart = document.getElementById('progress-chart');
       const toastEl = document.getElementById('toast');
+      const quizPanel = document.getElementById('quizPanel');
+      const quizStem = document.getElementById('quizStem');
+      const quizOptions = document.getElementById('quizOptions');
+      const quizMeta = document.getElementById('quizMeta');
+      const quizHistory = document.getElementById('quizHistory');
       const studyNotesList = document.getElementById('study-notes-list');
       const studyNotesSearch = document.getElementById('study-note-search');
       const noteModalEl = document.getElementById('note-modal');
@@ -11762,6 +11947,11 @@
         }
         practiceTheme.value = state.practice.theme;
         practiceLevel.value = state.practice.level;
+      }
+
+      function loadRetrievalFromStorage() {
+        const stored = storage.load(STORAGE_KEYS.retrieval, []);
+        state.retrieval.items = Array.isArray(stored) ? stored.slice() : [];
       }
 
       function setupEventListeners() {
@@ -12099,6 +12289,8 @@
         contentAdmin.init({ section: adminSectionEl, link: adminNavLink });
         srs.init();
         updateCardsUI();
+        loadRetrievalFromStorage();
+        renderQuizHistory(false);
         initSettings();
         cloudSync.init();
         videoLearning.init({
@@ -12344,6 +12536,574 @@
         }
       }
 
+      function stripHtml(input) {
+        if (!input) return '';
+        const container = document.createElement('div');
+        container.innerHTML = input;
+        return container.textContent || container.innerText || '';
+      }
+
+      function renderQuizHistory(showList = false) {
+        if (!quizHistory) return;
+        if (!showList) {
+          quizHistory.style.display = 'none';
+          quizHistory.innerHTML = '';
+          return;
+        }
+        const items = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        if (!items.length) {
+          quizHistory.style.display = 'block';
+          quizHistory.innerHTML = '<p style="margin:0;color:var(--muted);">暂无检索练习，先生成一题吧。</p>';
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        items.slice(0, 30).forEach((entry) => {
+          if (!entry || !entry.id) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn';
+          button.dataset.action = 'quiz-history-item';
+          button.dataset.rid = entry.id;
+          button.style.width = '100%';
+          button.style.display = 'flex';
+          button.style.flexDirection = 'column';
+          button.style.alignItems = 'flex-start';
+          button.style.gap = '4px';
+          const title = document.createElement('div');
+          const summarySource = entry.phrase || stripHtml(entry.stem || '') || stripHtml(entry.l2 || '');
+          const summary = summarySource && summarySource.length > 80 ? `${summarySource.slice(0, 77)}…` : summarySource;
+          title.textContent = summary || '未命名题目';
+          title.style.fontWeight = '600';
+          const meta = document.createElement('div');
+          meta.style.fontSize = '12px';
+          meta.style.color = 'var(--muted)';
+          const seen = entry.stats?.seen || 0;
+          const correct = entry.stats?.correct || 0;
+          const rate = seen ? Math.round((correct / seen) * 100) : 0;
+          const label = entry.type === 'choice' ? '选择题' : '填空题';
+          meta.textContent = `${label} ｜ 成功率 ${rate}% ｜ 练习 ${seen} 次`;
+          button.append(title, meta);
+          fragment.appendChild(button);
+        });
+        quizHistory.innerHTML = '';
+        quizHistory.appendChild(fragment);
+        quizHistory.style.display = 'block';
+      }
+
+      function openQuizCenter() {
+        if (!quizPanel) {
+          showToast('检索练习面板不可用');
+          return;
+        }
+        loadRetrievalFromStorage();
+        quizPanel.style.display = 'block';
+        quizPanel.dataset.mode = 'center';
+        quizPanel.dataset.currentRid = '';
+        quizPanel.dataset.startedAt = '';
+        if (quizStem) {
+          quizStem.textContent = '检索练习';
+        }
+        if (quizOptions) {
+          quizOptions.innerHTML = '<p style="margin:0;color:var(--muted);">从下方列表选择一题开始检索练习。</p>';
+        }
+        renderQuizHistory(true);
+        if (quizMeta) {
+          const total = Array.isArray(state.retrieval.items) ? state.retrieval.items.length : 0;
+          quizMeta.className = 'badge';
+          quizMeta.textContent = total
+            ? `已保存 ${total} 题，点击列表复习。`
+            : '暂无练习，先生成一题吧。';
+        }
+      }
+
+      function closeQuizPanel() {
+        if (!quizPanel) return;
+        quizPanel.style.display = 'none';
+        quizPanel.dataset.mode = '';
+        quizPanel.dataset.currentRid = '';
+        quizPanel.dataset.startedAt = '';
+        if (quizMeta) {
+          quizMeta.className = 'badge';
+          quizMeta.textContent = '—';
+        }
+        renderQuizHistory(false);
+      }
+
+      function selectQuizOption(button) {
+        if (!button || !quizOptions) return;
+        const options = quizOptions.querySelectorAll('button[data-action="quiz-option"]');
+        options.forEach((option) => {
+          if (option === button) {
+            option.dataset.picked = '1';
+            option.classList.add('btn-primary');
+          } else {
+            option.dataset.picked = '0';
+            option.classList.remove('btn-primary');
+          }
+        });
+      }
+
+      function openQuizFromHistory(rid) {
+        if (!rid) {
+          showToast('请选择有效题目');
+          return;
+        }
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        const target = list.find((entry) => entry.id === rid);
+        if (!target) {
+          showToast('未找到对应练习，可能已被删除');
+          return;
+        }
+        openQuizPanel(target);
+      }
+
+      function revealQuizAnswer() {
+        const item = getCurrentQuiz();
+        if (!item) {
+          showToast('无当前题目');
+          return;
+        }
+        if (quizMeta) {
+          quizMeta.className = 'badge badge-warn';
+          quizMeta.textContent = `正确答案：${item.answer} ｜ 提示：${item.explain || '参考原句理解语境'}`;
+        }
+      }
+
+      function loadNextQuiz() {
+        const current = getCurrentQuiz();
+        const next = getNextQuiz(current?.id || '');
+        if (!next) {
+          showToast('今日练习完成，明天继续！');
+          return;
+        }
+        openQuizPanel(next);
+      }
+
+      /** 从当前 active cue 或右键目标生成一道检索题，并展示到 #quizPanel */
+      function makeRetrievalFromCurrent() {
+        let cue = null;
+        if (typeof videoLearning.getActiveCue === 'function') {
+          const active = videoLearning.getActiveCue();
+          if (active) cue = { ...active };
+        }
+        if (!cue) {
+          const fallback = getActiveCue?.();
+          if (fallback) cue = { ...fallback };
+        }
+        if (!cue) {
+          showToast('未选中字幕');
+          return;
+        }
+        if (cue.id) {
+          const detailed = state.video.cues.find((entry) => entry.id === cue.id);
+          if (detailed) {
+            cue = { ...detailed };
+          }
+        }
+        const phrase = pickPhraseFromCue(cue);
+        if (!phrase) {
+          showToast('未找到可用词/短语');
+          return;
+        }
+        if (isRetrievalExistsToday(cue, phrase)) {
+          showToast('今天该句该词已生成过练习');
+          return;
+        }
+        const videoId = getCurrentVideoId();
+        if (isVideoQuotaReachedToday(videoId)) {
+          showToast('本视频今日练习已达上限');
+          return;
+        }
+        const stem = buildClozeStem(cue, phrase);
+        if (!stem) {
+          showToast('生成题目失败，请尝试选择其他词');
+          return;
+        }
+        const rid = `r_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+        const item = {
+          id: rid,
+          video_id: videoId || '',
+          video_title: state.video?.videoTitle || '',
+          cue_id: cue.id || `cue-${Math.round((cue.start || 0) * 1000)}`,
+          phrase,
+          stem: stem.promptHTML,
+          type: stem.options ? 'choice' : 'cloze',
+          options: stem.options ? stem.options.slice() : null,
+          answer: stem.answer,
+          explain: stem.explain,
+          stats: { seen: 0, correct: 0 },
+          created_at: Date.now(),
+          l1: cue.l1 || '',
+          l2: cue.l2 || cue.text || ''
+        };
+        upsertRetrievalItem(item);
+        renderQuizHistory(quizPanel?.dataset.mode === 'center');
+        openQuizPanel(item);
+        showToast('检索题已生成，请尝试回忆！');
+      }
+
+      /** 取当前 cue 的目标词/短语：优先用户选择 -> 已高亮词块 -> 自动选取 */
+      function pickPhraseFromCue(cue) {
+        if (!cue) return '';
+        const selection = typeof window.getSelection === 'function' ? window.getSelection().toString().trim() : '';
+        if (selection && selection.split(/\s+/).length <= 4) {
+          return selection;
+        }
+        if (state.video.lastToken && state.video.lastToken.trim()) {
+          return state.video.lastToken.trim();
+        }
+        if (Array.isArray(cue.collocations) && cue.collocations.length) {
+          const collocation = String(cue.collocations[0] || '').trim();
+          if (collocation) return collocation;
+        }
+        const tokens = Array.isArray(cue.words) && cue.words.length ? cue.words : splitCueTokens(cue.l2 || cue.text || '');
+        const sanitized = tokens
+          .map((word) => String(word || '').replace(/[¡!¿?.,;:"'()]/g, '').trim())
+          .filter(Boolean);
+        const stop = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'a', 'y', 'o', 'que', 'en', 'con', 'por', 'para', 'se', 'es', 'al', 'lo']);
+        const content = sanitized.filter((word) => word.length >= 3 && !stop.has(word.toLowerCase()));
+        if (content.length > 1) {
+          for (let i = 0; i < content.length - 1; i += 1) {
+            const first = content[i];
+            const second = content[i + 1];
+            const phrase = `${first} ${second}`.trim();
+            if (phrase.split(' ').every((part) => part.length >= 3)) {
+              return phrase;
+            }
+          }
+        }
+        if (content.length) {
+          return content.sort((a, b) => b.length - a.length)[0];
+        }
+        return sanitized[0] || String(cue.l2 || cue.text || '').trim();
+      }
+
+      /** 构造 cloze 题干（返回 HTML 文本与答案/解释；若可构造干扰项则附 options 数组） */
+      function buildClozeStem(cue, phrase) {
+        if (!cue || !phrase) return null;
+        const rawL2 = String(cue.l2 || cue.text || '');
+        if (!rawL2) return null;
+        const rawL1 = String(cue.l1 || '');
+        const escaped = escapeRegExp(phrase);
+        const wordRegex = new RegExp(`\\b${escaped}\\b`, 'i');
+        let masked = rawL2;
+        if (wordRegex.test(rawL2)) {
+          masked = rawL2.replace(wordRegex, '_____');
+        } else {
+          const fallback = new RegExp(escaped, 'i');
+          if (!fallback.test(rawL2)) {
+            return null;
+          }
+          masked = rawL2.replace(fallback, '_____');
+        }
+        const cards = srs.getCards();
+        const existingCard = cards.find((card) => String(card.phrase || '').toLowerCase() === phrase.toLowerCase());
+        let explain = rawL1 ? `提示：${rawL1.slice(0, 60)}` : '提示：根据上下文回忆该表达';
+        if (existingCard) {
+          const hint = [existingCard.zh, existingCard.note].filter(Boolean).join('；').trim();
+          if (hint) {
+            explain = `提示：${hint.slice(0, 60)}`;
+          }
+        }
+        const tokens = Array.isArray(cue.words) && cue.words.length ? cue.words : splitCueTokens(rawL2);
+        const candidateSet = new Set();
+        tokens.forEach((token, index) => {
+          const cleaned = String(token || '').trim();
+          if (!cleaned || cleaned.toLowerCase() === phrase.toLowerCase()) return;
+          if (Math.abs(cleaned.length - phrase.length) <= 3) {
+            candidateSet.add(cleaned);
+          }
+          if (index < tokens.length - 1) {
+            const combo = `${cleaned} ${tokens[index + 1]}`.trim();
+            if (combo && Math.abs(combo.length - phrase.length) <= 3) {
+              candidateSet.add(combo);
+            }
+          }
+        });
+        phraseHintSet?.forEach((hint) => {
+          if (hint && Math.abs(hint.length - phrase.length) <= 3 && hint !== phrase.toLowerCase()) {
+            candidateSet.add(hint);
+          }
+        });
+        const uniqueOptions = [];
+        candidateSet.forEach((option) => {
+          if (!option) return;
+          const trimmed = option.trim();
+          if (!trimmed) return;
+          if (uniqueOptions.some((value) => value.toLowerCase() === trimmed.toLowerCase())) return;
+          uniqueOptions.push(trimmed);
+        });
+        const choices = [phrase];
+        uniqueOptions.forEach((option) => {
+          if (choices.length < 4) {
+            choices.push(option);
+          }
+        });
+        const finalOptions = choices.length >= 3 ? choices.sort(() => Math.random() - 0.5) : null;
+        const promptHTML = `
+    <div style="line-height:1.8">
+      <div><strong>中文理解：</strong>${rawL1 || '（无中文释义）'}</div>
+      <div><strong>填空句子：</strong>${masked}</div>
+    </div>`.trim();
+        return { promptHTML, answer: phrase, explain, options: finalOptions };
+      }
+
+      /** 写入与读取 */
+      function upsertRetrievalItem(item) {
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items.slice() : [];
+        const index = list.findIndex((entry) => entry.id === item.id);
+        if (index >= 0) {
+          list[index] = { ...list[index], ...item };
+        } else {
+          list.unshift(item);
+        }
+        const saved = storage.save(STORAGE_KEYS.retrieval, list);
+        if (!saved) {
+          showToast('存储空间不足，请清理历史练习或导出备份');
+          loadRetrievalFromStorage();
+          return;
+        }
+        state.retrieval.items = list;
+      }
+
+      /** 展示题目到 #quizPanel */
+      function openQuizPanel(item) {
+        if (!quizPanel || !item) return;
+        quizPanel.style.display = 'block';
+        quizPanel.dataset.mode = 'quiz';
+        quizPanel.dataset.currentRid = item.id;
+        quizPanel.dataset.startedAt = String(Date.now());
+        state.retrieval.currentId = item.id;
+        if (quizStem) {
+          quizStem.innerHTML = item.stem || '';
+        }
+        if (quizOptions) {
+          quizOptions.innerHTML = '';
+          if (item.type === 'cloze') {
+            const input = document.createElement('input');
+            input.className = 'input';
+            input.placeholder = '在此输入你回忆的词/短语';
+            input.id = 'quizInput';
+            input.setAttribute('aria-label', '请输入回忆答案');
+            quizOptions.appendChild(input);
+            window.setTimeout(() => input.focus(), 50);
+          } else if (Array.isArray(item.options) && item.options.length) {
+            const displayOptions = item.options.slice().sort(() => Math.random() - 0.5);
+            displayOptions.forEach((option) => {
+              const optButton = document.createElement('button');
+              optButton.type = 'button';
+              optButton.className = 'btn';
+              optButton.dataset.action = 'quiz-option';
+              optButton.dataset.opt = option;
+              optButton.textContent = option;
+              quizOptions.appendChild(optButton);
+            });
+          }
+        }
+        if (quizMeta) {
+          const seen = item.stats?.seen || 0;
+          const correct = item.stats?.correct || 0;
+          const rate = seen ? Math.round((correct / seen) * 100) : 0;
+          quizMeta.className = 'badge';
+          quizMeta.textContent = `类型：${item.type === 'choice' ? '选择' : '填空'} ｜ 已练 ${seen} 次 ｜ 成功率 ${rate}%`;
+        }
+        renderQuizHistory(false);
+      }
+
+      /** 读取当前题 */
+      function getCurrentQuiz() {
+        const rid = quizPanel?.dataset?.currentRid;
+        if (!rid) return null;
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        return list.find((entry) => entry.id === rid) || null;
+      }
+
+      /** 提交答题，打分、SRS 挂钩、日志写入、下一题 */
+      function submitCurrentQuiz() {
+        const item = getCurrentQuiz();
+        if (!item) {
+          showToast('无当前题目');
+          return;
+        }
+        let userAns = '';
+        if (item.type === 'cloze') {
+          const input = document.getElementById('quizInput');
+          userAns = input ? input.value.trim() : '';
+        } else if (quizOptions) {
+          const picked = quizOptions.querySelector('button[data-action="quiz-option"][data-picked="1"]');
+          userAns = picked?.dataset?.opt ? picked.dataset.opt.trim() : '';
+        }
+        if (!userAns) {
+          showToast(item.type === 'choice' ? '请选择一个选项' : '请输入你的答案');
+          return;
+        }
+        const now = Date.now();
+        const startedAt = Number(quizPanel?.dataset?.startedAt || now);
+        const latency = Math.max(0, Math.round(now - (Number.isFinite(startedAt) ? startedAt : now)));
+        const ok = userAns.toLowerCase() === String(item.answer || '').toLowerCase();
+        item.stats = item.stats || { seen: 0, correct: 0 };
+        item.stats.seen += 1;
+        if (ok) {
+          item.stats.correct += 1;
+        }
+        upsertRetrievalItem(item);
+        renderQuizHistory(quizPanel?.dataset.mode === 'center');
+        if (quizMeta) {
+          quizMeta.className = ok ? 'badge badge-success' : 'badge badge-warn';
+          quizMeta.textContent = `${ok ? '✅ 回忆正确' : '❌ 回忆错误'} ｜ 正确答案：${item.answer} ｜ 提示：${item.explain || '参考原句理解语境'}`;
+        }
+        hookSRSWithRetrieval(item.phrase, ok, item);
+        logRetrieval(item.id, ok, latency);
+        statsTracker.recordPractice(1);
+        updateProgressPanel();
+        showToast(ok ? '太棒了！已加强记忆间隔' : '别急，再看一眼句子');
+      }
+
+      /** SRS 挂钩：更新/创建卡片 */
+      function hookSRSWithRetrieval(phrase, ok, item) {
+        const normalized = String(phrase || '').trim();
+        if (!normalized) return;
+        const cards = srs.getCards();
+        const now = Date.now();
+        const idx = cards.findIndex((card) => String(card.phrase || '').toLowerCase() === normalized.toLowerCase());
+        if (idx >= 0) {
+          const updated = { ...cards[idx] };
+          if (ok) {
+            updated.level = Math.max(1, (updated.level || 1) + 1);
+            const currentInterval = Math.max(24 * 60 * 60 * 1000, (updated.dueAt || now) - now);
+            const nextInterval = Math.max(24 * 60 * 60 * 1000, Math.round(currentInterval * 1.6));
+            updated.dueAt = now + nextInterval;
+            updated.intervalDays = Math.max(1, Math.round(nextInterval / (24 * 60 * 60 * 1000)));
+          } else {
+            updated.level = Math.max(1, (updated.level || 1) - 1);
+            updated.dueAt = now + 10 * 60 * 1000;
+            updated.intervalDays = 1;
+          }
+          cards[idx] = updated;
+          srs.updateCards(cards);
+          updateCardsUI();
+          return;
+        }
+        if (ok) {
+          const created = srs.addCard({
+            phrase: normalized,
+            zh: item?.l1 || '',
+            note: (item?.explain || '来自检索练习').replace(/^提示：/, ''),
+            src: 'retrieval',
+            videoId: item?.video_id || getCurrentVideoId(),
+            cueId: item?.cue_id || '',
+            videoTitle: item?.video_title || state.video?.videoTitle || ''
+          });
+          if (created) {
+            const refreshed = srs.getCards();
+            const newIndex = refreshed.findIndex((card) => card.id === created.id);
+            if (newIndex >= 0) {
+              const newCard = { ...refreshed[newIndex] };
+              newCard.dueAt = now + 24 * 60 * 60 * 1000;
+              newCard.intervalDays = 1;
+              refreshed[newIndex] = newCard;
+              srs.updateCards(refreshed);
+            }
+            updateCardsUI();
+            showToast('已将该表达加入词卡复习。');
+          }
+          return;
+        }
+        if (window.confirm('未找到该词卡，要加入复习吗？')) {
+          const created = srs.addCard({
+            phrase: normalized,
+            zh: item?.l1 || '',
+            note: '来自检索练习',
+            src: 'retrieval',
+            videoId: item?.video_id || getCurrentVideoId(),
+            cueId: item?.cue_id || ''
+          });
+          if (created) {
+            const refreshed = srs.getCards();
+            const newIndex = refreshed.findIndex((card) => card.id === created.id);
+            if (newIndex >= 0) {
+              const newCard = { ...refreshed[newIndex] };
+              newCard.dueAt = now + 10 * 60 * 1000;
+              newCard.intervalDays = 1;
+              refreshed[newIndex] = newCard;
+              srs.updateCards(refreshed);
+            }
+            updateCardsUI();
+            showToast('已加入词卡，稍后别忘记复习。');
+          }
+        }
+      }
+
+      /** 检索日志与离线队列 */
+      function logRetrieval(rid, success, latency) {
+        const stored = storage.load(STORAGE_KEYS.retrievalLog, []);
+        const list = Array.isArray(stored) ? stored.slice() : [];
+        list.push({ rid, success, latency, ts: Date.now() });
+        const saved = storage.save(STORAGE_KEYS.retrievalLog, list.slice(-200));
+        if (!saved) {
+          showToast('存储空间不足，请清理历史练习或导出备份');
+        }
+        try {
+          syncQueue.enqueue({ type: 'retrieval', payload: { rid, success, latency, ts: Date.now() } });
+        } catch (error) {
+          console.warn('检索练习记录入队失败', error);
+        }
+      }
+
+      /** 当日去重与配额 */
+      function isRetrievalExistsToday(cue, phrase) {
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        if (!list.length) return false;
+        const day = new Date();
+        day.setHours(0, 0, 0, 0);
+        const start = day.getTime();
+        const cueId = cue?.id || `cue-${Math.round((cue?.start || 0) * 1000)}`;
+        const targetPhrase = String(phrase || '').toLowerCase();
+        return list.some((entry) =>
+          entry.created_at >= start &&
+          String(entry.cue_id || '').toLowerCase() === String(cueId).toLowerCase() &&
+          String(entry.phrase || '').toLowerCase() === targetPhrase
+        );
+      }
+
+      function isVideoQuotaReachedToday(videoId) {
+        if (!videoId) return false;
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        if (!list.length) return false;
+        const day = new Date();
+        day.setHours(0, 0, 0, 0);
+        const start = day.getTime();
+        const count = list.filter((entry) => entry.created_at >= start && entry.video_id === videoId).length;
+        return count >= 5;
+      }
+
+      /** 简单题库导航：取下一题（最近未正确的项优先） */
+      function getNextQuiz(excludeId = '') {
+        const list = Array.isArray(state.retrieval.items) ? state.retrieval.items : [];
+        if (!list.length) return null;
+        let candidates = list.filter((entry) => entry && entry.id !== excludeId);
+        if (!candidates.length && excludeId) {
+          candidates = list.filter((entry) => entry && entry.id === excludeId);
+        }
+        if (!candidates.length) return null;
+        const scored = candidates
+          .map((entry) => {
+            const seen = entry.stats?.seen || 0;
+            const correct = entry.stats?.correct || 0;
+            const rate = seen ? correct / seen : 0;
+            return { entry, seen, rate };
+          })
+          .sort((a, b) => {
+            if (a.seen === 0 && b.seen > 0) return -1;
+            if (a.seen > 0 && b.seen === 0) return 1;
+            if (a.rate === b.rate) {
+              return (a.entry.created_at || 0) - (b.entry.created_at || 0);
+            }
+            return a.rate - b.rate;
+          });
+        return scored[0]?.entry || null;
+      }
+
       function getActiveCue() {
         if (typeof videoLearning.getActiveCue === 'function') {
           const cue = videoLearning.getActiveCue();
@@ -12359,7 +13119,12 @@
           id: stored?.id || active.id || '',
           start: Number.isFinite(start) ? start : stored?.start || 0,
           end: Number.isFinite(end) ? end : stored?.end || 0,
-          text: stored?.text || active.textContent || ''
+          text: stored?.text || active.textContent || '',
+          l2: stored?.l2 || stored?.text || active.textContent || '',
+          l1: stored?.l1 || '',
+          words: Array.isArray(stored?.words)
+            ? stored.words.slice()
+            : splitCueTokens(stored?.l2 || stored?.text || active.textContent || '')
         };
       }
 
