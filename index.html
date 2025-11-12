@@ -2081,15 +2081,26 @@
               </video>
             </div>
             <div class="video-toolbar" role="group" aria-label="视频播放工具">
-              <button type="button" data-action="video-toggle-play" aria-label="播放或暂停视频">播放/暂停</button>
-              <button type="button" data-action="video-speed-075" aria-label="设置 0.75 倍速">0.75x</button>
-              <button type="button" data-action="video-speed-100" aria-label="设置正常速度">1x</button>
-              <button type="button" data-action="video-speed-125" aria-label="设置 1.25 倍速">1.25x</button>
-              <button type="button" data-action="video-set-a" aria-label="设置循环起点 A">标记 A 点</button>
-              <button type="button" data-action="video-set-b" aria-label="设置循环终点 B">标记 B 点</button>
-              <button type="button" data-action="video-clear-loop" aria-label="清除 AB 循环">清除循环</button>
-              <button type="button" data-action="video-repeat-sentence" aria-label="当前句子重复三遍">句子×3遍复读</button>
-              <button type="button" data-action="video-toggle-scroll" aria-label="切换字幕自动滚动">自动滚动：开</button>
+              <button type="button" class="btn" data-action="video-toggle-play" aria-label="播放或暂停视频">播放/暂停</button>
+              <button type="button" class="btn" data-action="video-speed-075" aria-label="设置 0.75 倍速">0.75x</button>
+              <button type="button" class="btn" data-action="video-speed-100" aria-label="设置正常速度">1x</button>
+              <button type="button" class="btn" data-action="video-speed-125" aria-label="设置 1.25 倍速">1.25x</button>
+              <button type="button" class="btn" data-action="video-set-a" aria-label="设置循环起点 A">标记 A 点</button>
+              <button type="button" class="btn" data-action="video-set-b" aria-label="设置循环终点 B">标记 B 点</button>
+              <button type="button" class="btn" data-action="video-clear-loop" aria-label="清除 AB 循环">清除循环</button>
+              <button
+                type="button"
+                class="btn"
+                data-action="shadowing-toggle"
+                aria-label="开启或关闭影子跟读"
+              >影子跟读（关）</button>
+              <button
+                type="button"
+                class="btn"
+                data-action="repeat3"
+                aria-label="当前句复读3遍"
+              >复读×3</button>
+              <button type="button" class="btn" data-action="video-toggle-scroll" aria-label="切换字幕自动滚动">自动滚动：开</button>
               <span id="ab-status" class="status" aria-live="polite">未设置循环</span>
             </div>
             <div class="subtitle-import">
@@ -2207,6 +2218,14 @@
               <div id="video-card-list" class="video-card-list" aria-live="polite"></div>
             </div>
           </div>
+        </div>
+        <div id="shadowingPanel" class="card pad" style="display:none">
+          <div class="section-title">影子跟读</div>
+          <div class="hr"></div>
+          <canvas id="wave" height="64" style="width:100%"></canvas>
+          <div class="hr"></div>
+          <div class="badge" id="shadowingStatus" aria-live="polite">等待开始</div>
+          <div class="badge" id="shadowingScore">相似度：—</div>
         </div>
       </section>
 
@@ -6523,6 +6542,27 @@
         }
       };
 
+      const shadowing = {
+        enabled: false,
+        offset: 0.4,
+        looping: false,
+        currentCue: null,
+        loops: 0,
+        media: {
+          stream: null,
+          mediaRecorder: null,
+          analyser: null,
+          audioCtx: null,
+          data: [],
+          wave: null,
+          reference: {}
+        },
+        timers: {
+          record: 0
+        },
+        score: null
+      };
+
       /**
        * @typedef {Object} PlayerAdapter
        * @property {() => Promise<void>} play
@@ -6605,6 +6645,16 @@
               return { success: false, error: new Error('client_unavailable') };
             }
             const result = await window.supabaseManager.upsertCard(op.payload);
+            return result && result.error ? { success: false, error: result.error } : { success: true };
+          }
+          if (op.type === 'speaking') {
+            if (!op.payload?.video_id) {
+              return { success: true };
+            }
+            if (!window.supabaseManager?.upsertSpeakingLog) {
+              return { success: true };
+            }
+            const result = await window.supabaseManager.upsertSpeakingLog(op.payload);
             return result && result.error ? { success: false, error: result.error } : { success: true };
           }
           if (op.type === 'redeem') {
@@ -7006,6 +7056,8 @@
         let playButton = null;
         /** @type {HTMLButtonElement|null} */
         let autoScrollButton = null;
+        /** @type {HTMLButtonElement|null} */
+        let shadowingToggleButton = null;
         /** @type {HTMLElement|null} */
         let abStatus = null;
         /** @type {HTMLInputElement|null} */
@@ -7052,9 +7104,15 @@
         let noteSidebar = null;
         /** @type {HTMLElement|null} */
         let noteSidebarBody = null;
+        /** @type {HTMLElement|null} */
+        let shadowingPanelEl = null;
+        /** @type {HTMLElement|null} */
+        let shadowingStatusEl = null;
+        /** @type {HTMLElement|null} */
+        let shadowingScoreEl = null;
         let activeTab = 'subtitles';
         let currentCueIndex = -1;
-        let loopRuntime = { mode: null, remaining: 0, total: 0 };
+        let loopRuntime = { mode: null, remaining: 0, total: 0, restoreAutoScroll: null };
         const progressTracker = { lastTime: 0, lastSubmitAt: 0, lastRecordedTime: 0 };
 
         /**
@@ -7099,6 +7157,7 @@
           loadUrlButton = elements.loadUrlButton || null;
           wordPreview = elements.wordPreview || null;
           playButton = toolbar?.querySelector('[data-action="video-toggle-play"]') || null;
+          shadowingToggleButton = toolbar?.querySelector('[data-action="shadowing-toggle"]') || null;
           searchInput = elements.searchInput || null;
           modeButtons = elements.modeButtons
             ? Array.from(elements.modeButtons).filter((btn) => btn instanceof HTMLButtonElement)
@@ -7129,6 +7188,18 @@
           noteIndicatorButton = elements.noteIndicator || null;
           noteSidebar = elements.noteSidebar || null;
           noteSidebarBody = elements.noteSidebarBody || null;
+          shadowingPanelEl = document.getElementById('shadowingPanel');
+          shadowingStatusEl = document.getElementById('shadowingStatus');
+          shadowingScoreEl = document.getElementById('shadowingScore');
+
+          if (window.shadowingController?.bindElements) {
+            window.shadowingController.bindElements({
+              toggle: shadowingToggleButton,
+              panel: shadowingPanelEl,
+              status: shadowingStatusEl,
+              score: shadowingScoreEl
+            });
+          }
 
           if (html5Player) {
             html5Player.addEventListener('loadedmetadata', () => {
@@ -7232,9 +7303,6 @@
             case 'video-clear-loop':
               clearLoop();
               break;
-            case 'video-repeat-sentence':
-              repeatSentence();
-              break;
             case 'video-toggle-scroll':
               toggleAutoScroll();
               break;
@@ -7304,16 +7372,27 @@
         }
 
         function clearLoop() {
+          if (loopRuntime.mode === 'repeat' && typeof loopRuntime.restoreAutoScroll === 'boolean') {
+            const shouldRestore = loopRuntime.restoreAutoScroll;
+            if (state.video.autoScroll !== shouldRestore) {
+              state.video.autoScroll = shouldRestore;
+              updateAutoScrollButton();
+            }
+          }
           state.video.loop = { start: null, end: null, active: false };
-          loopRuntime = { mode: null, remaining: 0, total: 0 };
+          loopRuntime = { mode: null, remaining: 0, total: 0, restoreAutoScroll: null };
+          if (typeof shadowing === 'object' && shadowing) {
+            shadowing.looping = false;
+          }
           updateLoopStatus();
         }
 
-        function repeatSentence(targetIndex) {
+        function repeatSentence(targetIndex, options = {}) {
           if (!adapter || !state.video.cues.length) {
             userNotifier.notify('请先加载字幕并选择句子。', 'warning');
-            return;
+            return false;
           }
+          const disableAutoScroll = Boolean(options.disableAutoScroll);
           const index = typeof targetIndex === 'number' && targetIndex >= 0
             ? targetIndex
             : state.video.selectedIndex >= 0
@@ -7321,19 +7400,34 @@
               : currentCueIndex;
           if (index < 0 || index >= state.video.cues.length) {
             userNotifier.notify('请先选择需要复读的字幕行。', 'warning');
-            return;
+            return false;
           }
           const cue = state.video.cues[index];
           if (!cue || cue.end <= cue.start) {
             userNotifier.notify('该字幕时长不足，无法复读。', 'warning');
-            return;
+            return false;
+          }
+          const previousAutoScroll = state.video.autoScroll;
+          if (disableAutoScroll && previousAutoScroll) {
+            state.video.autoScroll = false;
+            updateAutoScrollButton();
           }
           state.video.loop = { start: cue.start, end: cue.end, active: true };
-          loopRuntime = { mode: 'repeat', remaining: 2, total: 3 };
+          loopRuntime = {
+            mode: 'repeat',
+            remaining: 2,
+            total: 3,
+            restoreAutoScroll: disableAutoScroll ? previousAutoScroll : null
+          };
+          if (typeof shadowing === 'object' && shadowing) {
+            shadowing.looping = true;
+            shadowing.loops = 0;
+          }
           statsTracker.recordRepeat(loopRuntime.total || 3);
           updateProgressPanel();
           updateLoopStatus();
           setSelectedIndex(index, true, true);
+          return true;
         }
 
         function toggleAutoScroll() {
@@ -7855,7 +7949,11 @@
           state.video.selectedIndex = -1;
           currentCueIndex = -1;
           state.video.loop = { start: null, end: null, active: false };
-          loopRuntime = { mode: null, remaining: 0, total: 0 };
+          loopRuntime = { mode: null, remaining: 0, total: 0, restoreAutoScroll: null };
+          if (typeof shadowing === 'object' && shadowing) {
+            shadowing.looping = false;
+            shadowing.currentCue = null;
+          }
           state.video.lastToken = '';
           state.video.noteSidebarOpen = false;
           state.video.cardDraft = {
@@ -7899,6 +7997,9 @@
           }
           updateCueNoteIndicator();
           updateLoopStatus();
+          if (window.shadowingController?.onCueChange) {
+            window.shadowingController.onCueChange(null);
+          }
         }
 
         function refreshCueNotes(rerender = true) {
@@ -8238,6 +8339,7 @@
             prevEl?.classList.remove('active');
           }
           currentCueIndex = index;
+          const cue = index >= 0 ? state.video.cues[index] : null;
           if (index >= 0) {
             const nextEl = getCueElement(index);
             if (nextEl) {
@@ -8249,9 +8351,13 @@
               if (state.video.selectedIndex === -1) {
                 setSelectedIndex(index, false, false);
               }
+            }
           }
           state.video.lastCueIndex = index;
           updateCueNoteIndicator();
+          if (window.shadowingController?.onCueChange) {
+            window.shadowingController.onCueChange(cue);
+          }
         }
         }
 
@@ -8268,6 +8374,10 @@
           if (!loop.active || loop.start === null || loop.end === null || !adapter) return;
           if (currentTime < loop.end - 0.04) return;
           if (loopRuntime.mode === 'repeat') {
+            if (typeof shadowing === 'object' && shadowing) {
+              const completed = loopRuntime.total - loopRuntime.remaining;
+              shadowing.loops = completed;
+            }
             if (loopRuntime.remaining > 0) {
               loopRuntime.remaining -= 1;
               adapter.seekTo(loop.start);
@@ -8277,6 +8387,7 @@
               adapter.pause();
               clearLoop();
             }
+            return;
           } else if (loopRuntime.mode === 'ab') {
             adapter.seekTo(loop.start);
             if (adapter.isPaused()) {
@@ -8322,6 +8433,9 @@
             }
           }
           updateCueNoteIndicator();
+          if (window.shadowingController?.onCueChange) {
+            window.shadowingController.onCueChange(cue, { manual: true });
+          }
         }
 
         function updateLoopStatus() {
@@ -8463,9 +8577,380 @@
           refreshPlayerAdapter,
           loadSubtitleFromUrl,
           resetSubtitles,
-          refreshNotes: () => refreshCueNotes(true)
+          refreshNotes: () => refreshCueNotes(true),
+          getAdapter: () => adapter,
+          getActiveCue: () => (currentCueIndex >= 0 ? state.video.cues[currentCueIndex] : null),
+          getCueByIndex: (index) => (index >= 0 && index < state.video.cues.length ? state.video.cues[index] : null),
+          getAutoScroll: () => state.video.autoScroll,
+          setAutoScroll(value) {
+            const desired = Boolean(value);
+            if (state.video.autoScroll !== desired) {
+              state.video.autoScroll = desired;
+              updateAutoScrollButton();
+            }
+          },
+          applyShadowLoop(cue) {
+            if (!cue || !adapter) return false;
+            const start = Number(cue.start);
+            const end = Number(cue.end);
+            if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+              return false;
+            }
+            state.video.loop = { start, end, active: true };
+            loopRuntime = { mode: 'ab', remaining: Infinity, total: 0, restoreAutoScroll: loopRuntime.restoreAutoScroll ?? null };
+            updateLoopStatus();
+            return true;
+          },
+          clearLoopExternal: () => clearLoop(),
+          repeatThree: (options = {}) => repeatSentence(undefined, options)
         };
       })();
+
+      const PlayerAdapter = {
+        get() {
+          return videoLearning.getAdapter?.() || null;
+        },
+        async play() {
+          const adapter = this.get();
+          if (!adapter) throw new Error('adapter_unavailable');
+          return adapter.play();
+        },
+        pause() {
+          const adapter = this.get();
+          adapter?.pause?.();
+        },
+        async seekTo(time) {
+          const adapter = this.get();
+          if (!adapter) throw new Error('adapter_unavailable');
+          adapter.seekTo(time);
+          return Promise.resolve();
+        },
+        async getCurrentTime() {
+          const adapter = this.get();
+          if (!adapter) return 0;
+          try {
+            return await adapter.getCurrentTime();
+          } catch (error) {
+            console.warn('无法获取当前播放时间', error);
+            return 0;
+          }
+        }
+      };
+
+      const shadowingController = (() => {
+        let panelEl = null;
+        let statusEl = null;
+        let scoreEl = null;
+        let toggleBtn = null;
+        let waveHandle = null;
+        const supportsRecording = Boolean(navigator.mediaDevices?.getUserMedia) && typeof window.MediaRecorder !== 'undefined';
+
+        function bindElements(elements = {}) {
+          if (elements.panel) panelEl = elements.panel;
+          if (elements.status) statusEl = elements.status;
+          if (elements.score) scoreEl = elements.score;
+          if (elements.toggle) toggleBtn = elements.toggle;
+          updateToggleButton();
+          updateScore();
+          if (!supportsRecording && toggleBtn) {
+            toggleBtn.disabled = true;
+            toggleBtn.setAttribute('aria-disabled', 'true');
+          }
+          if (!supportsRecording) {
+            updateStatus('当前环境不支持录音', 'warn');
+          }
+        }
+
+        function updateToggleButton() {
+          if (!toggleBtn) return;
+          toggleBtn.classList.toggle('btn-primary', shadowing.enabled);
+          toggleBtn.textContent = shadowing.enabled ? '影子跟读（开）' : '影子跟读（关）';
+          toggleBtn.setAttribute('aria-pressed', shadowing.enabled ? 'true' : 'false');
+        }
+
+        function ensurePanelVisible(visible) {
+          if (!panelEl) return;
+          panelEl.style.display = visible ? 'block' : 'none';
+        }
+
+        function updateStatus(message, tone = 'info') {
+          if (!statusEl) return;
+          statusEl.textContent = message;
+          statusEl.classList.remove('badge-success', 'badge-warn');
+          if (tone === 'success') {
+            statusEl.classList.add('badge-success');
+          } else if (tone === 'warn') {
+            statusEl.classList.add('badge-warn');
+          }
+        }
+
+        function updateScore(value = shadowing.score) {
+          if (!scoreEl) return;
+          if (Number.isFinite(value)) {
+            scoreEl.textContent = `相似度：${Math.max(0, Math.min(100, Math.round(value)))}`;
+            scoreEl.classList.toggle('badge-success', value >= 70);
+          } else {
+            scoreEl.textContent = '相似度：—';
+            scoreEl.classList.remove('badge-success');
+          }
+        }
+
+        function clearWave() {
+          const canvas = document.getElementById('wave');
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function stopWave() {
+          try {
+            waveHandle?.stop?.();
+          } catch (error) {
+            console.warn('停止波形绘制失败', error);
+          }
+          waveHandle = null;
+          shadowing.media.audioCtx = null;
+          shadowing.media.analyser = null;
+        }
+
+        function resetTimers() {
+          if (shadowing.timers.record) {
+            window.clearTimeout(shadowing.timers.record);
+            shadowing.timers.record = 0;
+          }
+        }
+
+        function resetMediaRecorder() {
+          try {
+            if (shadowing.media.mediaRecorder && shadowing.media.mediaRecorder.state !== 'inactive') {
+              shadowing.media.mediaRecorder.stop();
+            }
+          } catch (error) {
+            console.warn('停止录音失败', error);
+          }
+          shadowing.media.mediaRecorder = null;
+        }
+
+        async function enable() {
+          if (!supportsRecording) {
+            showToast('当前环境不支持录音');
+            return;
+          }
+          try {
+            if (!shadowing.media.stream) {
+              shadowing.media.stream = await ensureMic();
+            }
+          } catch (error) {
+            shadowing.enabled = false;
+            updateToggleButton();
+            updateStatus('无法访问麦克风，请检查浏览器权限', 'warn');
+            throw error;
+          }
+          if (!shadowing.media.stream) {
+            updateStatus('未获取到音频输入', 'warn');
+            return;
+          }
+          ensurePanelVisible(true);
+          if (!waveHandle) {
+            waveHandle = startWave(shadowing.media.stream);
+            shadowing.media.audioCtx = waveHandle.ctx;
+            shadowing.media.analyser = waveHandle.analyser;
+          }
+          shadowing.enabled = true;
+          shadowing.currentCue = null;
+          shadowing.score = null;
+          updateToggleButton();
+          updateStatus('准备跟读', 'info');
+          updateScore();
+          showToast('影子跟读已开启');
+        }
+
+        function disable({ silent = false } = {}) {
+          shadowing.enabled = false;
+          shadowing.looping = false;
+          shadowing.currentCue = null;
+          updateToggleButton();
+          ensurePanelVisible(false);
+          resetTimers();
+          resetMediaRecorder();
+          stopWave();
+          clearWave();
+          updateStatus('等待开始', 'info');
+          updateScore(null);
+          if (shadowing.media.stream) {
+            try {
+              shadowing.media.stream.getTracks().forEach((track) => track.stop());
+            } catch (error) {
+              console.warn('停止麦克风轨道失败', error);
+            }
+            shadowing.media.stream = null;
+          }
+          videoLearning.clearLoopExternal?.();
+          if (!silent) {
+            showToast('影子跟读已关闭');
+          }
+        }
+
+        function scheduleRecording(cue) {
+          resetTimers();
+          if (!shadowing.enabled) return;
+          const delay = Math.max(50, shadowing.offset * 1000);
+          shadowing.timers.record = window.setTimeout(() => {
+            performRecording(cue);
+          }, delay);
+        }
+
+        async function performRecording(cue) {
+          if (!shadowing.enabled || !cue) return;
+          if (!shadowing.media.stream) {
+            updateStatus('麦克风不可用', 'warn');
+            return;
+          }
+          try {
+            updateStatus('录音中…', 'info');
+            const result = await recordOnce(shadowing.media.stream, cue.start + shadowing.offset, cue.end);
+            if (!result) {
+              updateStatus('未获取到有效录音', 'warn');
+              return;
+            }
+            shadowing.media.data = result.feat || [];
+            const referenceMap = shadowing.media.reference || {};
+            let refFeat = referenceMap[cue.id];
+            let score = 0;
+            const feat = Array.isArray(result.feat) ? result.feat : [];
+            if (refFeat && refFeat.length && feat.length) {
+              score = computeSimilarity(feat, refFeat);
+            } else if (feat.length) {
+              const coverage = feat.filter((value) => value > 18).length / feat.length;
+              const peak = Math.max(...feat) / 255;
+              const expected = Math.max(0.2, cue.end - cue.start) * 1000;
+              const durationRatio = expected > 0 ? Math.min(1, (result.duration || expected) / expected) : 0;
+              score = Math.round(Math.max(0, Math.min(1, coverage * 0.55 + peak * 0.25 + durationRatio * 0.2)) * 100);
+              if (!refFeat || !refFeat.length) {
+                referenceMap[cue.id] = feat.slice();
+              }
+            } else {
+              score = 0;
+            }
+            shadowing.media.reference = referenceMap;
+            shadowing.score = score;
+            updateScore(score);
+            if (score >= 70) {
+              updateStatus('跟读良好', 'success');
+            } else {
+              updateStatus('继续加油', 'info');
+            }
+            saveSpeakingLog({
+              video_id: getCurrentVideoId(),
+              cue_id: cue.id || '',
+              start: cue.start,
+              end: cue.end,
+              score,
+              loops: shadowing.loops || 1
+            });
+          } catch (error) {
+            console.warn('影子跟读录音失败', error);
+            updateStatus('录音失败，请重试', 'warn');
+            showToast('录音失败，请检查麦克风权限。');
+          }
+        }
+
+        async function onCueChange(cue, options = {}) {
+          if (!shadowing.enabled) {
+            shadowing.currentCue = null;
+            return;
+          }
+          if (!cue) {
+            shadowing.currentCue = null;
+            updateStatus('等待字幕', 'info');
+            return;
+          }
+          const start = Number(cue.start);
+          const end = Number(cue.end);
+          if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+            updateStatus('字幕时长不足，无法跟读', 'warn');
+            return;
+          }
+          const adapter = PlayerAdapter.get();
+          if (!adapter) {
+            updateStatus('播放器未就绪', 'warn');
+            return;
+          }
+          shadowing.currentCue = { id: cue.id || '', start, end };
+          shadowing.loops = 0;
+          const loopApplied = videoLearning.applyShadowLoop?.(shadowing.currentCue);
+          if (loopApplied) {
+            shadowing.looping = true;
+          }
+          try {
+            await PlayerAdapter.seekTo(start);
+          } catch (error) {
+            console.warn('定位到字幕开始失败', error);
+          }
+          PlayerAdapter.play().catch((error) => {
+            console.warn('播放失败', error);
+          });
+          updateStatus(options.manual ? '手动选择字幕，准备跟读' : '准备录音…', 'info');
+          scheduleRecording(shadowing.currentCue);
+        }
+
+        async function toggle() {
+          if (!supportsRecording) {
+            showToast('当前环境不支持录音');
+            return;
+          }
+          if (!shadowing.enabled) {
+            await enable();
+          } else {
+            disable();
+          }
+        }
+
+        function repeatThree() {
+          const ok = videoLearning.repeatThree?.({ disableAutoScroll: true });
+          if (!ok) {
+            return;
+          }
+          showToast('当前字幕将复读 3 遍');
+        }
+
+        function init() {
+          bindElements({
+            panel: document.getElementById('shadowingPanel'),
+            status: document.getElementById('shadowingStatus'),
+            score: document.getElementById('shadowingScore'),
+            toggle: document.querySelector('[data-action="shadowing-toggle"]')
+          });
+          ensurePanelVisible(supportsRecording ? false : true);
+          updateStatus(supportsRecording ? '等待开始' : '当前环境不支持录音', supportsRecording ? 'info' : 'warn');
+          updateScore(null);
+        }
+
+        return { init, bindElements, onCueChange, toggle, repeatThree, disable };
+      })();
+
+      window.shadowingController = shadowingController;
+
+      document.body.addEventListener('click', async (event) => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const action = button.dataset.action;
+        if (action === 'shadowing-toggle') {
+          event.preventDefault();
+          try {
+            await shadowingController.toggle();
+          } catch (error) {
+            console.warn('切换影子跟读失败', error);
+          }
+          return;
+        }
+        if (action === 'repeat3') {
+          event.preventDefault();
+          shadowingController.repeatThree();
+          return;
+        }
+      });
 
       const contentAdmin = (() => {
         let section = null;
@@ -11660,6 +12145,7 @@
           noteSidebar: noteSidebarEl,
           noteSidebarBody: noteSidebarBody
         });
+        shadowingController.init();
         initVideoLibrary();
         if (!sttSupported) {
           state.speaking.sttEnabled = false;
@@ -11681,6 +12167,204 @@
         window.addEventListener('resize', () => {
           drawProgressChart(statsTracker.getSummary().series);
         });
+      }
+
+      async function ensureMic() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          return stream;
+        } catch (error) {
+          showToast('无法访问麦克风，请检查浏览器权限');
+          throw error;
+        }
+      }
+
+      function startWave(stream) {
+        const canvas = document.getElementById('wave');
+        if (!canvas) {
+          return { ctx: null, analyser: null, stop: () => {} };
+        }
+        const width = canvas.clientWidth || canvas.width || 300;
+        canvas.width = Math.max(1, Math.floor(width));
+        const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContextCtor) {
+          return { ctx: null, analyser: null, stop: () => {} };
+        }
+        const ctx = new AudioContextCtor();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        source.connect(analyser);
+        const buffer = new Uint8Array(analyser.frequencyBinCount);
+        const context2d = canvas.getContext('2d');
+        let rafId = 0;
+
+        function draw() {
+          if (!context2d) return;
+          analyser.getByteFrequencyData(buffer);
+          context2d.clearRect(0, 0, canvas.width, canvas.height);
+          const step = Math.max(1, Math.floor(buffer.length / canvas.width));
+          context2d.beginPath();
+          for (let x = 0; x < canvas.width; x += 1) {
+            const value = buffer[Math.min(buffer.length - 1, x * step)] / 255;
+            const y = canvas.height - value * canvas.height;
+            if (x === 0) {
+              context2d.moveTo(x, y);
+            } else {
+              context2d.lineTo(x, y);
+            }
+          }
+          context2d.strokeStyle = '#2ECC71';
+          context2d.lineWidth = 2;
+          context2d.stroke();
+          rafId = window.requestAnimationFrame(draw);
+        }
+
+        draw();
+
+        return {
+          ctx,
+          analyser,
+          stop: () => {
+            window.cancelAnimationFrame(rafId);
+            try {
+              ctx.close();
+            } catch (error) {
+              console.warn('关闭音频上下文失败', error);
+            }
+          }
+        };
+      }
+
+      function computeSimilarity(userSamples, refSamples) {
+        if (!userSamples?.length || !refSamples?.length) return 0;
+        const n = Math.min(userSamples.length, refSamples.length);
+        let meanU = 0;
+        let meanR = 0;
+        for (let i = 0; i < n; i += 1) {
+          meanU += userSamples[i];
+          meanR += refSamples[i];
+        }
+        meanU /= n;
+        meanR /= n;
+        let numerator = 0;
+        let denomU = 0;
+        let denomR = 0;
+        for (let i = 0; i < n; i += 1) {
+          const u = userSamples[i] - meanU;
+          const r = refSamples[i] - meanR;
+          numerator += u * r;
+          denomU += u * u;
+          denomR += r * r;
+        }
+        const corr = numerator / Math.sqrt((denomU || 1) * (denomR || 1));
+        return Math.max(0, Math.min(100, Math.round((corr + 1) * 50)));
+      }
+
+      function recordOnce(stream, startSec, endSec) {
+        return new Promise((resolve, reject) => {
+          if (!stream) {
+            reject(new Error('missing_stream'));
+            return;
+          }
+          if (typeof MediaRecorder === 'undefined') {
+            reject(new Error('media_recorder_unsupported'));
+            return;
+          }
+          let recorder;
+          try {
+            recorder = new MediaRecorder(stream);
+          } catch (error) {
+            reject(error);
+            return;
+          }
+          const chunks = [];
+          const started = Date.now();
+          recorder.ondataavailable = (event) => {
+            if (event.data && event.data.size > 0) {
+              chunks.push(event.data);
+            }
+          };
+          recorder.onerror = (event) => {
+            reject(event.error || new Error('record_error'));
+          };
+          recorder.onstop = async () => {
+            try {
+              const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+              const arrayBuffer = await blob.arrayBuffer();
+              const bytes = new Uint8Array(arrayBuffer);
+              const feat = [];
+              for (let i = 0; i < bytes.length; i += 512) {
+                feat.push(bytes[i]);
+              }
+              resolve({ blob, feat, duration: Date.now() - started });
+            } catch (error) {
+              reject(error);
+            }
+          };
+          try {
+            recorder.start();
+            shadowing.media.mediaRecorder = recorder;
+          } catch (error) {
+            reject(error);
+            return;
+          }
+          const durationMs = Math.max(200, Math.round((endSec - startSec) * 1000));
+          window.setTimeout(() => {
+            try {
+              if (recorder.state !== 'inactive') {
+                recorder.stop();
+              }
+            } catch (error) {
+              reject(error);
+            }
+          }, durationMs);
+        });
+      }
+
+      function saveSpeakingLog(entry) {
+        const payload = {
+          video_id: entry.video_id || getCurrentVideoId(),
+          cue_id: entry.cue_id || '',
+          start: Number.isFinite(entry.start) ? Number(entry.start) : 0,
+          end: Number.isFinite(entry.end) ? Number(entry.end) : 0,
+          score: Number.isFinite(entry.score) ? Math.max(0, Math.min(100, Math.round(entry.score))) : 0,
+          loops: Number.isFinite(entry.loops) ? Math.max(1, Math.round(entry.loops)) : 1,
+          ts: entry.ts || Date.now()
+        };
+        const current = storage.load(STORAGE_KEYS.speaking, []);
+        current.push(payload);
+        storage.save(STORAGE_KEYS.speaking, current.slice(-20));
+        statsTracker.recordSpeaking(1);
+        updateProgressPanel();
+        try {
+          syncQueue.enqueue({ type: 'speaking', payload });
+        } catch (error) {
+          console.warn('口语练习记录入队失败', error);
+        }
+      }
+
+      function getActiveCue() {
+        if (typeof videoLearning.getActiveCue === 'function') {
+          const cue = videoLearning.getActiveCue();
+          if (cue) return cue;
+        }
+        const active = document.querySelector('#subsPanel .cue.active');
+        if (!active) return null;
+        const index = Number(active.dataset.index);
+        const start = Number(active.dataset.start);
+        const end = Number(active.dataset.end);
+        const stored = Number.isInteger(index) && index >= 0 ? state.video.cues[index] : null;
+        return {
+          id: stored?.id || active.id || '',
+          start: Number.isFinite(start) ? start : stored?.start || 0,
+          end: Number.isFinite(end) ? end : stored?.end || 0,
+          text: stored?.text || active.textContent || ''
+        };
+      }
+
+      function getCurrentVideoId() {
+        return state.video?.videoId || 'local-demo';
       }
 
       document.addEventListener('DOMContentLoaded', initApp);
