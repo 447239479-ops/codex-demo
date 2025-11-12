@@ -1652,6 +1652,84 @@
           display: flex;
         }
       }
+      /* —— Design Tokens —— */
+      :root{
+        --brand: #E74C3C;          /* 主色：西语红 */
+        --brand-600:#d63f31; 
+        --accent:#2ECC71;          /* 成功绿 */
+        --warn:#F4B400;            /* 提示黄 */
+        --ink:#111827;             /* 正文深灰 */
+        --ink-2:#374151;           /* 次级文字 */
+        --muted:#6B7280;           /* 辅助灰 */
+        --line:#E5E7EB;            /* 分隔线 */
+        --bg:#FAFAFA;              /* 页面背景 */
+        --card:#FFFFFF;            /* 卡片背景 */
+        --radius:12px;             /* 圆角规格 */
+        --shadow:0 6px 16px rgba(17,24,39,.08);
+
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+
+        --font-zh: "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+        --font-lat:"Noto Sans",system-ui,-apple-system,sans-serif;
+      }
+      @media(prefers-color-scheme:dark){
+        :root{
+          --bg:#0B0F14; --card:#10151B; --ink:#E5E7EB; --ink-2:#BFC6CE; --line:#1F2937;
+          --shadow:0 8px 20px rgba(0,0,0,.35);
+        }
+      }
+      /* 基础排版与滚动 */
+      html,body{font-family:var(--font-zh),var(--font-lat); color:var(--ink); background:var(--bg);}
+      h1,h2,h3{color:var(--ink); line-height:1.2}
+      .section-title{font-weight:700; font-size:20px; margin:var(--space-4) 0;}
+      .hr{height:1px;background:var(--line);border:0;margin:var(--space-4) 0;}
+      .scroll-y{overflow:auto; scrollbar-width:thin;}
+      .scroll-y::-webkit-scrollbar{width:8px;height:8px}
+      .scroll-y::-webkit-scrollbar-thumb{background:#cfd6de;border-radius:8px}
+
+      /* —— 通用组件 —— */
+      .btn{display:inline-flex;align-items:center;gap:8px; padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; transition:all .15s ease;}
+      .btn:hover{transform:translateY(-1px); box-shadow:var(--shadow)}
+      .btn:active{transform:translateY(0)}
+      .btn[disabled]{opacity:.5; cursor:not-allowed}
+      .btn-primary{background:var(--brand); border-color:var(--brand); color:#fff;}
+      .btn-primary:hover{background:var(--brand-600)}
+      .btn-ghost{background:transparent}
+      .btn-success{background:var(--accent); border-color:var(--accent); color:#fff;}
+      .btn-warn{background:var(--warn); border-color:var(--warn); color:#111;}
+
+      .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--ink-2);background:#fff;}
+      .badge-success{border-color:rgba(46,204,113,.25); color:#117a45; background:rgba(46,204,113,.1)}
+      .badge-warn{border-color:rgba(244,180,0,.25); color:#8a6a00; background:rgba(244,180,0,.12)}
+
+      .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);}
+      .card.pad{padding:var(--space-5)}
+
+      .input{display:block;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+      .select{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+
+      .modal{background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); padding:20px}
+      .modal .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+      .modal .close{border:none;background:#fff; color:var(--muted); padding:8px 10px; border-radius:10px}
+
+      .toast{position:fixed;right:16px;bottom:16px; background:#111; color:#fff; padding:10px 14px; border-radius:10px; opacity:.95; z-index:9999}
+
+      /* —— 字幕相关 —— */
+      .cue{padding:10px 12px; border-radius:12px; margin:6px 0; border:1px solid transparent;}
+      .cue.active{background:#FFF8E1; border-color:#FFE08A}
+      .cue .l2{font-size:16px; font-weight:600}
+      .cue .l1{margin-top:6px; color:var(--muted)}
+      .tok{padding:2px 4px; margin:0 1px; border-radius:6px; transition:background .12s ease}
+      .tok:hover{background:rgba(231,76,60,.12)}
+      .tok--focus{background:rgba(231,76,60,.2)}
+
+      /* —— 布局辅助 —— */
+      .grid-3{display:grid; grid-template-columns: 1.3fr 1fr 1fr; gap:20px}
+      @media(max-width:1024px){ .grid-3{grid-template-columns:1fr} }
     </style>
   </head>
   <body>
