@@ -2247,6 +2247,19 @@
               <p style="margin:0;color:var(--muted);">到期的学习卡片会优先显示，可直接在此复习。</p>
               <div id="video-card-list" class="video-card-list" aria-live="polite"></div>
             </div>
+            <div id="narrowPanel" class="card pad">
+              <div class="modal-head">
+                <div class="section-title">窄听力推荐</div>
+                <span class="badge" id="narrowHint">连续看 3 支同域视频，难度 +1</span>
+              </div>
+              <div class="hr"></div>
+              <div id="narrowList"></div>
+              <div class="hr"></div>
+              <div style="display:flex;gap:12px;flex-wrap:wrap">
+                <button type="button" class="btn" data-action="open-upnext" aria-label="查看稍后播放队列">稍后播放队列</button>
+                <span class="badge" id="narrowMeta">—</span>
+              </div>
+            </div>
           </div>
         </div>
         <div id="shadowingPanel" class="card pad" style="display:none">
@@ -2256,6 +2269,19 @@
           <div class="hr"></div>
           <div class="badge" id="shadowingStatus" aria-live="polite">等待开始</div>
           <div class="badge" id="shadowingScore">相似度：—</div>
+        </div>
+        <div id="upnextPanel" class="card pad" style="display:none">
+          <div class="modal-head">
+            <div class="section-title">稍后播放</div>
+            <button type="button" class="close btn" data-action="upnext-close" aria-label="关闭稍后播放">关闭</button>
+          </div>
+          <div class="hr"></div>
+          <div id="upnextList"></div>
+          <div class="hr"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" data-action="upnext-playfirst" aria-label="播放稍后队列首个视频">播放首个</button>
+            <button type="button" class="btn" data-action="upnext-clear" aria-label="清空稍后播放队列">清空</button>
+          </div>
         </div>
       </section>
 
@@ -2773,7 +2799,9 @@
         entitlement: 'es-app:entitlement',
         notes: 'es-app:study-notes',
         retrieval: 'es-app:retrieval',
-        retrievalLog: 'es-app:retrieval-log'
+        retrievalLog: 'es-app:retrieval-log',
+        upnext: 'es-app:upnext',
+        recoLog: 'es-app:reco-log'
       };
 
       const DEFAULT_SETTINGS = {
@@ -3604,6 +3632,7 @@
           title: 'Mercado en Madrid - 市场问路',
           topic: 'shopping',
           level: 'A1',
+          speaker: 'demo-narrator',
           stream_id: '',
           poster: '',
           vtt_url: 'demo/sample.vtt',
@@ -3614,12 +3643,18 @@
           title: 'En la cafetería - 点单练习',
           topic: 'restaurant',
           level: 'A1',
+          speaker: 'demo-narrator',
           stream_id: '',
           poster: '',
           vtt_url: 'demo/sample.vtt',
           description: '模拟咖啡馆点单对话，练习常用礼貌表达。'
         }
       ];
+
+      const LOCAL_VIDEO_INDEX = {};
+      LOCAL_VIDEO_LIBRARY.forEach((item) => {
+        LOCAL_VIDEO_INDEX[item.id] = { ...item, source: 'local' };
+      });
 
       const DEFAULT_CARDS = [
         { id: 'c1', phrase: 'hola', zh: '你好', note: 'Hola, ¿cómo estás?', level: 1, src: 'default' },
@@ -6578,7 +6613,8 @@
           search: '',
           topic: 'all',
           level: 'all',
-          current: null
+          current: null,
+          metaById: { ...LOCAL_VIDEO_INDEX }
         },
         remote: {
           supabaseUrl: '',
@@ -6611,6 +6647,12 @@
           profile: null,
           entitlement: { plan: '', expiresAt: '', active: false },
           isAdmin: false
+        },
+        narrow: {
+          upnext: [],
+          lastRecommendations: [],
+          lastMeta: null,
+          pendingRequest: ''
         }
       };
 
@@ -7912,7 +7954,7 @@
         }
 
         function buildCueNoteMap() {
-          const map = {};
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', '\'': '&#39;' };
           getAllNotesForCurrentVideo().forEach((note) => {
             if (!note.cueId) return;
             map[note.cueId] = (map[note.cueId] || 0) + 1;
@@ -8334,6 +8376,15 @@
               makeRetrievalFromCurrent();
               return;
             }
+            if (keyLower === 'n') {
+              event.preventDefault();
+              if (event.shiftKey) {
+                queueFirstRecommendation();
+              } else {
+                focusFirstRecommendation();
+              }
+              return;
+            }
             if (event.key === 'Enter' && quizPanel && quizPanel.style.display !== 'none') {
               event.preventDefault();
               submitCurrentQuiz();
@@ -8585,7 +8636,21 @@
 
         function commitProgress(force = false) {
           const currentVideo = state.library.current;
-          if (!currentVideo || currentVideo.source !== 'supabase') return;
+          if (currentVideo) {
+            storeVideoMeta(currentVideo);
+            if (!state.narrow.lastMeta || state.narrow.lastMeta.id !== currentVideo.id) {
+              state.narrow.lastMeta = {
+                id: currentVideo.id || '',
+                topic: currentVideo.topic || '',
+                level: currentVideo.level || '',
+                speaker: currentVideo.speaker || ''
+              };
+            }
+          }
+          if (!currentVideo || currentVideo.source !== 'supabase') {
+            updateNarrowHint(state.narrow.lastMeta || currentVideo || null);
+            return;
+          }
           const userId = getProgressOwnerId();
           if (!userId) return;
           const now = Date.now();
@@ -8609,6 +8674,7 @@
           });
           progressTracker.lastSubmitAt = now;
           updateProgressPanel();
+          updateNarrowHint(state.narrow.lastMeta || currentVideo || null);
         }
 
         function updatePlayButton() {
@@ -9098,6 +9164,38 @@
           case 'quiz-history-item':
             event.preventDefault();
             openQuizFromHistory(button.dataset.rid || '');
+            return;
+          case 'reco-play':
+            event.preventDefault();
+            handleRecoPlay(button.dataset.id || '');
+            return;
+          case 'reco-queue':
+            event.preventDefault();
+            handleRecoQueue(button.dataset.id || '');
+            return;
+          case 'open-upnext':
+            event.preventDefault();
+            openUpnextPanel();
+            return;
+          case 'upnext-close':
+            event.preventDefault();
+            closeUpnextPanel();
+            return;
+          case 'upnext-clear':
+            event.preventDefault();
+            clearUpnext();
+            return;
+          case 'upnext-playfirst':
+            event.preventDefault();
+            playFromUpnext('first');
+            return;
+          case 'upnext-play':
+            event.preventDefault();
+            playFromUpnext(button.dataset.id || '');
+            return;
+          case 'upnext-del':
+            event.preventDefault();
+            removeFromUpnext(button.dataset.id || '');
             return;
           default:
             break;
@@ -10646,6 +10744,8 @@
           pageItems = localList.slice(start, end).map((item) => ({ ...item, source: 'local' }));
         }
 
+        pageItems.forEach((item) => storeVideoMeta(item));
+
         if (reset) {
           state.library.items = [];
         }
@@ -10792,7 +10892,13 @@
 
       async function openLibraryVideo(videoId) {
         if (!videoId) return;
-        const target = state.library.items.find((item) => item.id === videoId);
+        let target = state.library.items.find((item) => item.id === videoId);
+        if (!target) {
+          const cached = state.library.metaById?.[videoId];
+          if (cached) {
+            target = { ...cached };
+          }
+        }
         if (!target) {
           userNotifier.notify('未找到对应视频条目。', 'warning');
           return;
@@ -10807,9 +10913,17 @@
             return;
           }
         }
+        storeVideoMeta(target);
         state.library.current = { ...target };
         state.video.videoId = target.id || 'local-demo';
         state.video.videoTitle = target.title || '示例视频';
+        state.narrow.lastMeta = {
+          id: target.id || '',
+          topic: target.topic || '',
+          level: target.level || '',
+          speaker: target.speaker || ''
+        };
+        renderNarrowPanel(state.narrow.lastMeta);
         statsTracker.recordVideoVisit(state.video.videoId);
         if (target.source === 'supabase') {
           await loadRemoteStudyNotes(target);
@@ -12339,6 +12453,7 @@
         });
         shadowingController.init();
         initVideoLibrary();
+        initNarrowFeatures();
         if (!sttSupported) {
           state.speaking.sttEnabled = false;
           sttEnabled.checked = false;
@@ -13126,6 +13241,552 @@
             ? stored.words.slice()
             : splitCueTokens(stored?.l2 || stored?.text || active.textContent || '')
         };
+      }
+
+      function storeVideoMeta(item = {}) {
+        if (!item || !item.id) return;
+        const id = item.id;
+        const existing = state.library.metaById?.[id] || {};
+        const normalized = {
+          id,
+          title: item.title || existing.title || '',
+          poster: item.poster || existing.poster || '',
+          topic: item.topic || existing.topic || '',
+          level: item.level || existing.level || '',
+          speaker: item.speaker || existing.speaker || '',
+          stream_id: item.stream_id || existing.stream_id || '',
+          requires_pro: typeof item.requires_pro === 'boolean' ? item.requires_pro : existing.requires_pro || false,
+          source: item.source || existing.source || (item.stream_id ? 'supabase' : 'local')
+        };
+        state.library.metaById[id] = normalized;
+      }
+
+      function getVideoMetaById(id) {
+        if (!id) return null;
+        if (state.library.metaById && state.library.metaById[id]) {
+          return { ...state.library.metaById[id] };
+        }
+        if (LOCAL_VIDEO_INDEX[id]) {
+          return { ...LOCAL_VIDEO_INDEX[id] };
+        }
+        return null;
+      }
+
+      function levelNext(level) {
+        const order = ['A0', 'A1', 'A1+', 'A2', 'A2+', 'B1', 'B1+', 'B2'];
+        const value = typeof level === 'string' ? level.toUpperCase() : '';
+        const index = order.indexOf(value);
+        if (index < 0) return null;
+        return order[Math.min(order.length - 1, index + 1)];
+      }
+
+      function uniqBy(arr, key) {
+        if (!Array.isArray(arr)) return [];
+        const seen = new Set();
+        const output = [];
+        arr.forEach((item) => {
+          if (!item || !(key in item)) return;
+          const value = item[key];
+          if (value === undefined || value === null) return;
+          if (seen.has(value)) return;
+          seen.add(value);
+          output.push(item);
+        });
+        return output;
+      }
+
+      async function fetchRecommendations(meta = {}) {
+        if (!meta || typeof meta !== 'object') return [];
+        const queueIds = new Set((upnextGet() || []).map((item) => item.video_id));
+        const pool = [];
+        const allowRemote = Boolean(
+          window.supabaseManager?.isReady?.() &&
+            state.remote.supabaseUrl &&
+            state.remote.supabaseAnonKey
+        );
+        const allowPro = canAccessProContent();
+        const client = allowRemote ? window.supabaseManager?.getClient?.() : null;
+        const baseSelect = 'id,title,poster,stream_id,topic,level,speaker,requires_pro';
+        const topic = typeof meta.topic === 'string' ? meta.topic : '';
+        const level = typeof meta.level === 'string' ? meta.level : '';
+        const speaker = typeof meta.speaker === 'string' ? meta.speaker : '';
+        const videoId = meta.id || '';
+
+        const push = (items, source) => {
+          if (!Array.isArray(items)) return;
+          items.forEach((item) => {
+            if (!item || !item.id) return;
+            pool.push({ ...item, source: source || item.source || 'supabase' });
+          });
+        };
+
+        if (client) {
+          try {
+            if (speaker && topic && level) {
+              let query = client
+                .from('videos')
+                .select(baseSelect)
+                .eq('speaker', speaker)
+                .eq('topic', topic)
+                .eq('level', level)
+                .neq('id', videoId)
+                .limit(4);
+              if (!allowPro) {
+                query = query.eq('requires_pro', false);
+              }
+              const { data } = await query;
+              if (Array.isArray(data)) {
+                push(data, 'supabase');
+              }
+            }
+            const nextLevel = levelNext(level);
+            if (nextLevel && topic) {
+              let query = client
+                .from('videos')
+                .select(baseSelect)
+                .eq('topic', topic)
+                .eq('level', nextLevel)
+                .neq('id', videoId)
+                .limit(4);
+              if (!allowPro) {
+                query = query.eq('requires_pro', false);
+              }
+              const { data } = await query;
+              if (Array.isArray(data)) {
+                push(data, 'supabase');
+              }
+            }
+            if (topic && level) {
+              let query = client
+                .from('videos')
+                .select(baseSelect)
+                .eq('topic', topic)
+                .eq('level', level)
+                .neq('id', videoId)
+                .limit(5);
+              if (!allowPro) {
+                query = query.eq('requires_pro', false);
+              }
+              const { data } = await query;
+              if (Array.isArray(data)) {
+                push(data, 'supabase');
+              }
+            }
+          } catch (error) {
+            console.warn('reco supabase error', error);
+          }
+        }
+
+        if (pool.length < 5) {
+          const localSource = LOCAL_VIDEO_LIBRARY.map((item) => ({ ...item, source: 'local' }));
+          if (speaker && topic && level) {
+            const sameSpeaker = localSource.filter(
+              (item) => item.topic === topic && item.level === level && item.speaker === speaker
+            );
+            push(sameSpeaker, 'local');
+          }
+          const nextLevel = levelNext(level);
+          if (nextLevel && topic) {
+            const harder = localSource.filter(
+              (item) => item.topic === topic && item.level === nextLevel
+            );
+            push(harder, 'local');
+          }
+          if (topic && level) {
+            const sameLevel = localSource.filter(
+              (item) => item.topic === topic && item.level === level
+            );
+            push(sameLevel, 'local');
+          }
+        }
+
+        const unique = uniqBy(pool, 'id').filter(
+          (item) => item && item.id && item.id !== videoId && !queueIds.has(item.id)
+        );
+        return unique.slice(0, 5);
+      }
+
+      function escapeHTML(value) {
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        return String(value || '').replace(/[&<>"']/g, (match) => map[match] || match);
+      }
+
+      function updateNarrowHint(meta) {
+        const hintEl = document.getElementById('narrowHint');
+        if (!hintEl) return;
+        if (!meta) {
+          hintEl.textContent = '连续看 3 支同域视频，难度 +1';
+          return;
+        }
+        const snapshot = typeof statsTracker?.getDailySnapshot === 'function'
+          ? statsTracker.getDailySnapshot()
+          : {};
+        const today = getTodayKey();
+        const entry = snapshot?.[today];
+        if (!entry) {
+          hintEl.textContent = '连续看 3 支同域视频，难度 +1';
+          return;
+        }
+        const completed = entry.completedVideos || {};
+        let topicCount = 0;
+        let speakerCount = 0;
+        Object.keys(completed).forEach((id) => {
+          const info = getVideoMetaById(id);
+          if (!info) return;
+          if (meta.topic && info.topic === meta.topic) {
+            topicCount += 1;
+          }
+          if (meta.speaker && info.speaker && info.speaker === meta.speaker) {
+            speakerCount += 1;
+          }
+        });
+        const domainCount = Math.max(topicCount, speakerCount);
+        hintEl.textContent = domainCount >= 2
+          ? '再看 1 支，尝试 i+1 内容'
+          : '连续看 3 支同域视频，难度 +1';
+      }
+
+      function renderNarrowPanel(meta) {
+        const root = document.getElementById('narrowList');
+        const badge = document.getElementById('narrowMeta');
+        state.narrow.lastMeta = meta || null;
+        updateNarrowHint(meta || null);
+        if (!root) return;
+        if (!meta) {
+          root.innerHTML = '<div class="badge">暂无推荐</div>';
+          if (badge) badge.textContent = '暂无推荐';
+          state.narrow.lastRecommendations = [];
+          window.__lastReco = [];
+          return;
+        }
+        root.innerHTML = '<div class="badge">正在获取推荐…</div>';
+        if (badge) badge.textContent = '推荐加载中…';
+        const requestMark = `${meta.id || ''}-${Date.now()}`;
+        state.narrow.pendingRequest = requestMark;
+        fetchRecommendations(meta)
+          .then((list) => {
+            if (state.narrow.pendingRequest !== requestMark) {
+              return;
+            }
+            const safeList = Array.isArray(list) ? list : [];
+            state.narrow.lastRecommendations = safeList;
+            window.__lastReco = safeList;
+            if (!safeList.length) {
+              root.innerHTML = '<div class="badge">暂无推荐</div>';
+              if (badge) badge.textContent = '暂无推荐';
+              return;
+            }
+            root.innerHTML = '';
+            safeList.forEach((video) => {
+              storeVideoMeta(video);
+              const card = document.createElement('div');
+              card.className = 'reco card pad';
+              const topicLabel = VIDEO_TOPIC_LABELS?.[video.topic] || video.topic || '主题';
+              card.innerHTML = `
+        <div style="display:flex;gap:12px;align-items:center">
+          <img src="${escapeHTML(video.poster || '')}" alt="" style="width:72px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" />
+          <div style="flex:1">
+            <div style="font-weight:600">${escapeHTML(video.title || '未命名')}</div>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <span class="badge">${escapeHTML(topicLabel)}</span>
+              <span class="badge">${escapeHTML(video.level || '—')}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" data-action="reco-play" data-id="${escapeHTML(video.id)}" aria-label="立即播放推荐视频">立即播放</button>
+            <button class="btn" data-action="reco-queue" data-id="${escapeHTML(video.id)}" aria-label="把推荐加入稍后播放">加入稍后</button>
+          </div>
+        </div>`;
+              root.appendChild(card);
+            });
+            if (badge) {
+              badge.textContent = `为你准备了 ${safeList.length} 条同域推荐`;
+            }
+            safeList.forEach((video) => {
+              logReco({
+                video_id: video.id,
+                from_video: meta.id || getCurrentVideoId(),
+                action: 'view',
+                topic: video.topic,
+                level: video.level
+              });
+            });
+          })
+          .catch((error) => {
+            console.warn('加载推荐失败', error);
+            if (state.narrow.pendingRequest !== requestMark) {
+              return;
+            }
+            state.narrow.lastRecommendations = [];
+            window.__lastReco = [];
+            root.innerHTML = '<div class="badge">暂无推荐</div>';
+            if (badge) badge.textContent = '暂无推荐';
+          });
+      }
+
+      function upnextGet() {
+        if (!Array.isArray(state.narrow.upnext)) {
+          state.narrow.upnext = [];
+        }
+        return state.narrow.upnext.slice();
+      }
+
+      function upnextSet(list) {
+        state.narrow.upnext = Array.isArray(list) ? list.slice() : [];
+        const success = storage.save(STORAGE_KEYS.upnext, state.narrow.upnext);
+        if (!success) {
+          showToast('队列已满或存储不足');
+          return false;
+        }
+        return true;
+      }
+
+      function upnextAdd(video) {
+        if (!video || !video.id) return 'error';
+        const list = upnextGet();
+        if (list.some((item) => item.video_id === video.id)) {
+          return 'exists';
+        }
+        const entry = {
+          video_id: video.id,
+          title: video.title || '',
+          poster: video.poster || '',
+          topic: video.topic || '',
+          level: video.level || '',
+          stream_id: video.stream_id || '',
+          source: video.source || 'supabase'
+        };
+        list.push(entry);
+        const saved = upnextSet(list);
+        if (!saved) {
+          return 'error';
+        }
+        storeVideoMeta({ ...video, id: video.id });
+        renderUpnext();
+        return 'added';
+      }
+
+      function removeFromUpnext(id, options = {}) {
+        if (!id) return;
+        const list = upnextGet();
+        const filtered = list.filter((item) => item.video_id !== id);
+        if (filtered.length === list.length) {
+          if (!options.silent) {
+            showToast('未找到队列项');
+          }
+          return;
+        }
+        upnextSet(filtered);
+        renderUpnext();
+        if (!options.silent) {
+          showToast('已移除队列');
+        }
+      }
+
+      function renderUpnext() {
+        const box = document.getElementById('upnextList');
+        if (!box) return;
+        const list = upnextGet();
+        box.innerHTML = '';
+        if (!list.length) {
+          box.innerHTML = '<div class="badge">队列为空</div>';
+          return;
+        }
+        list.forEach((video) => {
+          if (video.video_id) {
+            storeVideoMeta({ ...video, id: video.video_id });
+          }
+          const card = document.createElement('div');
+          card.className = 'card pad';
+          const topicLabel = VIDEO_TOPIC_LABELS?.[video.topic] || video.topic || '主题';
+          card.innerHTML = `
+      <div style="display:flex;gap:12px;align-items:center">
+        <img src="${escapeHTML(video.poster || '')}" alt="" style="width:64px;height:40px;object-fit:cover;border-radius:8px;border:1px solid var(--line)" />
+        <div style="flex:1">
+          <div style="font-weight:600">${escapeHTML(video.title || '未命名')}</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <span class="badge">${escapeHTML(topicLabel)}</span>
+            <span class="badge">${escapeHTML(video.level || '—')}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" data-action="upnext-play" data-id="${escapeHTML(video.video_id)}" aria-label="播放队列中的视频">播放</button>
+          <button class="btn" data-action="upnext-del" data-id="${escapeHTML(video.video_id)}" aria-label="移除该队列视频">移除</button>
+        </div>
+      </div>`;
+          box.appendChild(card);
+        });
+      }
+
+      function openUpnextPanel() {
+        const panel = document.getElementById('upnextPanel');
+        if (!panel) return;
+        panel.style.display = 'block';
+        renderUpnext();
+      }
+
+      function closeUpnextPanel() {
+        const panel = document.getElementById('upnextPanel');
+        if (!panel) return;
+        panel.style.display = 'none';
+      }
+
+      function clearUpnext() {
+        upnextSet([]);
+        renderUpnext();
+        showToast('队列已清空');
+      }
+
+      function playFromUpnext(target) {
+        const list = upnextGet();
+        if (!list.length) {
+          showToast('队列为空');
+          return;
+        }
+        let entry = null;
+        if (target === 'first') {
+          [entry] = list;
+        } else {
+          entry = list.find((item) => item.video_id === target) || null;
+        }
+        if (!entry) {
+          showToast('未找到队列项');
+          return;
+        }
+        handleRecoPlay(entry.video_id);
+        if (target === 'first') {
+          removeFromUpnext(entry.video_id, { silent: true });
+        }
+      }
+
+      function handleRecoPlay(id) {
+        if (!id) {
+          showToast('未找到推荐视频');
+          return;
+        }
+        const list = state.narrow.lastRecommendations || [];
+        const video = list.find((item) => item.id === id) || getVideoMetaById(id);
+        if (video) {
+          storeVideoMeta(video);
+        }
+        logReco({
+          video_id: id,
+          from_video: getCurrentVideoId(),
+          action: 'play',
+          topic: video?.topic,
+          level: video?.level
+        });
+        if (typeof openLibraryVideo === 'function') {
+          openLibraryVideo(id);
+        } else {
+          window.location.hash = `#/video/${id}`;
+        }
+      }
+
+      function handleRecoQueue(id, options = {}) {
+        if (!id) {
+          if (!options.silent) {
+            showToast('未找到推荐视频');
+          }
+          return 'missing';
+        }
+        const list = state.narrow.lastRecommendations || [];
+        const video = list.find((item) => item.id === id) || getVideoMetaById(id);
+        if (!video) {
+          if (!options.silent) {
+            showToast('未找到推荐视频');
+          }
+          return 'missing';
+        }
+        const status = upnextAdd(video);
+        if (status === 'added') {
+          if (!options.silent) {
+            showToast('已加入稍后');
+          }
+          logReco({
+            video_id: video.id,
+            from_video: getCurrentVideoId(),
+            action: 'queue',
+            topic: video.topic,
+            level: video.level
+          });
+        } else if (status === 'exists') {
+          if (!options.silent) {
+            showToast('已在稍后队列中');
+          }
+        } else if (status === 'error' && !options.silent) {
+          showToast('队列已满或存储不足');
+        }
+        return status;
+      }
+
+      function logReco(event) {
+        if (!event || !event.video_id) return;
+        try {
+          const record = { ...event, ts: Date.now() };
+          const log = storage.load(STORAGE_KEYS.recoLog, []);
+          log.push(record);
+          storage.save(STORAGE_KEYS.recoLog, log.slice(-200));
+          const queue = storage.load(STORAGE_KEYS.ops, []);
+          queue.push({ type: 'reco', payload: { ...event }, ts: record.ts });
+          storage.save(STORAGE_KEYS.ops, queue.slice(-500));
+        } catch (error) {
+          console.warn('记录推荐日志失败', error);
+        }
+      }
+
+      function focusFirstRecommendation() {
+        const button = document.querySelector('#narrowList button[data-action="reco-play"]');
+        if (button) {
+          button.focus();
+        } else {
+          showToast('暂无推荐');
+        }
+      }
+
+      function queueFirstRecommendation() {
+        const first = state.narrow.lastRecommendations?.[0];
+        if (!first) {
+          showToast('暂无推荐');
+          return;
+        }
+        const status = handleRecoQueue(first.id, { silent: true });
+        if (status === 'added') {
+          showToast('已加入稍后');
+        } else if (status === 'exists') {
+          showToast('已在稍后队列中');
+        } else if (status === 'error') {
+          showToast('队列已满或存储不足');
+        }
+      }
+
+      function getTodayKey() {
+        const date = new Date();
+        date.setHours(0, 0, 0, 0);
+        return date.toISOString().slice(0, 10);
+      }
+
+      function initNarrowFeatures() {
+        const storedUpnext = storage.load(STORAGE_KEYS.upnext, []);
+        state.narrow.upnext = Array.isArray(storedUpnext) ? storedUpnext : [];
+        renderUpnext();
+        window.__lastReco = [];
+        const currentMeta =
+          state.library.current ||
+          getVideoMetaById(state.video.videoId) ||
+          (LOCAL_VIDEO_LIBRARY[0] ? { ...LOCAL_VIDEO_LIBRARY[0] } : null);
+        if (currentMeta) {
+          const normalized = {
+            id: currentMeta.id || state.video.videoId || '',
+            topic: currentMeta.topic || '',
+            level: currentMeta.level || '',
+            speaker: currentMeta.speaker || ''
+          };
+          state.narrow.lastMeta = normalized;
+          renderNarrowPanel(normalized);
+        } else {
+          renderNarrowPanel(null);
+        }
       }
 
       function getCurrentVideoId() {

@@ -161,7 +161,7 @@
       const to = from + pageSize - 1;
       let query = client
         .from('videos')
-        .select('id,title,stream_id,poster,level,topic,requires_pro', { count: 'exact' })
+        .select('id,title,stream_id,poster,level,topic,speaker,requires_pro', { count: 'exact' })
         .order('title', { ascending: true })
         .range(from, to);
       if (topic && topic !== 'all') {
@@ -194,6 +194,7 @@
     poster,
     level,
     topic,
+    speaker,
     requires_pro
   } = {}) {
     const client = ensureClient();
@@ -211,6 +212,7 @@
         poster: poster || null,
         level: level || null,
         topic: topic || null,
+        speaker: speaker || null,
         requires_pro: Boolean(requires_pro)
       };
       const { error } = await client.from('videos').upsert(payload, { onConflict: 'id' });
