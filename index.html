@@ -770,6 +770,7 @@
         cursor: pointer;
         transition: background 0.2s ease, border-color 0.2s ease;
         outline: none;
+        position: relative;
       }
 
       .cue-empty {
@@ -806,6 +807,15 @@
         display: flex;
         gap: 6px;
         align-items: center;
+      }
+
+      .cue [data-role='lamp'] {
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        display: none;
+        font-size: 0.75rem;
+        cursor: help;
       }
 
       .cue-text {
@@ -2268,6 +2278,24 @@
                 <span class="badge" id="narrowMeta">—</span>
               </div>
             </div>
+            <div id="studyPanel" class="card pad">
+              <div class="modal-head">
+                <div class="section-title">内容精读</div>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input
+                    id="studySearch"
+                    class="input"
+                    type="search"
+                    placeholder="按短语/标签搜索"
+                    aria-label="按短语或标签搜索精读卡"
+                    style="width:220px"
+                  />
+                  <button type="button" class="btn" data-action="study-refresh" aria-label="刷新精读卡">刷新</button>
+                </div>
+              </div>
+              <div class="hr"></div>
+              <div id="studyList"></div>
+            </div>
           </div>
         </div>
         <div id="shadowingPanel" class="card pad" style="display:none">
@@ -2289,6 +2317,47 @@
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <button type="button" class="btn btn-primary" data-action="upnext-playfirst" aria-label="播放稍后队列首个视频">播放首个</button>
             <button type="button" class="btn" data-action="upnext-clear" aria-label="清空稍后播放队列">清空</button>
+          </div>
+        </div>
+        <div id="studyModal" class="modal" style="display:none">
+          <div class="modal-head">
+            <div class="section-title">添加/编辑精读卡</div>
+            <button type="button" class="close btn" data-action="study-close" aria-label="关闭精读卡编辑">关闭</button>
+          </div>
+          <div class="hr"></div>
+          <div style="display:grid;gap:12px">
+            <label>类型
+              <select id="studyKind" class="select" aria-label="选择精读类型">
+                <option value="collocation">搭配（Collocation）</option>
+                <option value="phrase">固定表达（Phrase）</option>
+                <option value="grammar">句式/语法（Grammar）</option>
+              </select>
+            </label>
+            <label>标题（短语/句式要点）
+              <input id="studyTitle" class="input" placeholder="如：tener ganas de" aria-label="输入精读标题" />
+            </label>
+            <label>中文解释 / 讲解
+              <textarea id="studyBody" class="input" rows="4" placeholder="简明解释、使用场景、注意事项" aria-label="输入中文解释"></textarea>
+            </label>
+            <label>例句（JSON 数组，形如：[{'es':'...','zh':'...'}]）
+              <textarea
+                id="studyExamples"
+                class="input"
+                rows="3"
+                placeholder='[{"es":"Tengo ganas de comer.","zh":"我很想吃东西。"}]'
+                aria-label="输入例句 JSON"
+              ></textarea>
+            </label>
+            <label>标签（以空格或逗号分隔）
+              <input id="studyTags" class="input" placeholder="旅行 购物 打招呼" aria-label="输入精读标签" />
+            </label>
+          </div>
+          <div class="hr"></div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button type="button" class="btn btn-primary" data-action="study-save" aria-label="保存精读卡">保存</button>
+            <button type="button" class="btn" data-action="study-cancel" aria-label="取消编辑精读卡">取消</button>
+            <button type="button" class="btn btn-warn" data-action="study-delete" style="margin-left:auto;display:none" aria-label="删除精读卡">删除</button>
+            <span class="badge" id="studyMeta">—</span>
           </div>
         </div>
       </section>
@@ -2808,13 +2877,15 @@
         device: 'es-app:deviceId',
         profile: 'es-app:profile',
         entitlement: 'es-app:entitlement',
-        notes: 'es-app:study-notes',
+        notes: 'es-app:study_notes',
         retrieval: 'es-app:retrieval',
         retrievalLog: 'es-app:retrieval-log',
         upnext: 'es-app:upnext',
         recoLog: 'es-app:reco-log',
         prefs: 'es-app:prefs'
       };
+
+      const LEGACY_NOTES_KEY = 'es-app:study-notes';
 
       const DEFAULT_SETTINGS = {
         plan: '20',
@@ -4582,6 +4653,8 @@
        * @property {string} body
        * @property {{es:string, zh:string}[]} examples
        * @property {string[]} tags
+       * @property {string} phrase
+       * @property {{startTok:number,endTok:number}|null} span
        * @property {number} createdAt
        * @property {number} updatedAt
        * @property {'local'|'remote'} source
@@ -4635,6 +4708,33 @@
                 .split(/[,，]/)
                 .map((tag) => tag.trim())
                 .filter(Boolean);
+          const phrase = String(raw.phrase || raw.phraseText || raw.phrase_text || cueText || title).trim();
+          const parseSpan = (value) => {
+            if (!value || typeof value !== 'object') return null;
+            const start = Number(
+              value.startTok ?? value.start_tok ?? value.start ?? (Array.isArray(value) ? value[0] : undefined)
+            );
+            const end = Number(
+              value.endTok ?? value.end_tok ?? value.end ?? (Array.isArray(value) ? value[1] : undefined)
+            );
+            if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+            if (end < start) return null;
+            return {
+              startTok: Math.max(0, Math.floor(start)),
+              endTok: Math.max(Math.floor(start), Math.floor(end))
+            };
+          };
+          let span = parseSpan(raw.span || raw.cueSpan || raw.cue_span);
+          if (!span) {
+            const start = Number(raw.startTok ?? raw.start_tok);
+            const end = Number(raw.endTok ?? raw.end_tok);
+            if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+              span = {
+                startTok: Math.max(0, Math.floor(start)),
+                endTok: Math.max(Math.floor(start), Math.floor(end))
+              };
+            }
+          }
           const now = Date.now();
           const createdAt = Number.isFinite(Number(raw.createdAt)) ? Number(raw.createdAt) : now;
           const updatedAt = Number.isFinite(Number(raw.updatedAt)) ? Number(raw.updatedAt) : now;
@@ -4652,6 +4752,8 @@
             body,
             examples,
             tags,
+            phrase: phrase || cueText || title || '',
+            span: span || null,
             createdAt,
             updatedAt,
             source: raw.source === 'remote' ? 'remote' : 'local',
@@ -4664,15 +4766,18 @@
             ...note,
             examples: note.examples.map((item) => ({ ...item })),
             tags: note.tags.slice(),
-            relatedCards: note.relatedCards.slice()
+            relatedCards: note.relatedCards.slice(),
+            span: note.span ? { ...note.span } : null
           };
         }
 
         function persist() {
-          storage.save(
-            STORAGE_KEYS.notes,
-            notes.filter((note) => note.source === 'local')
-          );
+          const localNotes = notes.filter((note) => note.source === 'local');
+          if (storage.save(STORAGE_KEYS.notes, localNotes)) {
+            if (LEGACY_NOTES_KEY && LEGACY_NOTES_KEY !== STORAGE_KEYS.notes) {
+              storage.remove(LEGACY_NOTES_KEY);
+            }
+          }
         }
 
         function notify() {
@@ -4687,11 +4792,13 @@
         }
 
         function init() {
-          const stored = storage.load(STORAGE_KEYS.notes, []);
-          if (Array.isArray(stored)) {
-            notes = stored
-              .map((item) => normalize({ ...item, source: 'local' }))
-              .filter(Boolean);
+          let stored = storage.load(STORAGE_KEYS.notes, null);
+          if (!Array.isArray(stored) || !stored.length) {
+            const legacy = LEGACY_NOTES_KEY ? storage.load(LEGACY_NOTES_KEY, null) : null;
+            stored = Array.isArray(legacy) ? legacy : [];
+          }
+          if (Array.isArray(stored) && stored.length) {
+            notes = stored.map((item) => normalize({ ...item, source: 'local' })).filter(Boolean);
           } else {
             notes = [];
           }
@@ -4781,6 +4888,15 @@
           notify();
         }
 
+        function remove(id) {
+          const index = notes.findIndex((note) => note.id === id);
+          if (index < 0) return null;
+          const [removed] = notes.splice(index, 1);
+          persist();
+          notify();
+          return removed ? clone(removed) : null;
+        }
+
         /**
          * 关联词卡信息
          * @param {{id:string,videoId?:string,cueId?:string}} card
@@ -4819,7 +4935,7 @@
           return () => listeners.delete(handler);
         }
 
-        return { init, getAll, getByVideo, getByCue, add, update, attachCardReference, subscribe };
+        return { init, getAll, getByVideo, getByCue, add, update, remove, attachCardReference, subscribe };
       })();
 
       const srs = (() => {
@@ -6082,8 +6198,10 @@
           item.dataset.end = String(cue.end);
           if (cue.id) {
             item.dataset.cueId = String(cue.id);
+            item.dataset.id = String(cue.id);
           } else {
             item.removeAttribute('data-cue-id');
+            item.dataset.id = '';
           }
           item.id = `cue-${index}`;
           item.setAttribute('role', 'option');
@@ -6096,6 +6214,11 @@
           } else {
             item.removeAttribute('data-notes');
           }
+          const lamp = document.createElement('span');
+          lamp.className = 'badge';
+          lamp.dataset.role = 'lamp';
+          lamp.textContent = '💡';
+          lamp.setAttribute('aria-hidden', 'true');
           const time = document.createElement('div');
           time.className = 'cue-time';
           time.textContent = `${formatSeconds(cue.start)} ~ ${formatSeconds(cue.end)}`;
@@ -6116,6 +6239,7 @@
                 const span = document.createElement('span');
                 span.className = 'tok';
                 span.dataset.t = word;
+                span.dataset.idx = String(wordIndex);
                 span.textContent = word;
                 if (highlight && word.toLowerCase().includes(highlight)) {
                   span.classList.add('match');
@@ -6150,13 +6274,16 @@
           noteButton.setAttribute('aria-label', `将字幕第 ${index + 1} 条加入精读`);
           noteButton.textContent = noteCount ? `追加精读 (${noteCount})` : '添加到精读';
           actions.appendChild(noteButton);
-          item.append(time, text, actions);
+          item.append(lamp, time, text, actions);
           if (state.preferences?.minHighlight && state.video?.focusSet instanceof Set && state.video.focusSet.size) {
             applyMinimalHighlightToCue(item, state.video.focusSet);
           }
           fragment.appendChild(item);
         });
         container.appendChild(fragment);
+        if (typeof refreshCueLamps === 'function' && Array.isArray(window.__studyNotesCache)) {
+          refreshCueLamps(window.__studyNotesCache);
+        }
       }
 
       /**
@@ -6687,6 +6814,7 @@
         },
         notes: {
           filter: '',
+          studyFilter: '',
           remoteByVideo: {},
           groups: []
         },
@@ -6719,6 +6847,13 @@
           pendingRequest: ''
         }
       };
+
+      if (!Array.isArray(window.__studyNotesCache)) {
+        window.__studyNotesCache = [];
+      }
+      if (typeof window.__lastTokClicked === 'undefined') {
+        window.__lastTokClicked = null;
+      }
 
       const shadowing = {
         enabled: false,
@@ -6770,6 +6905,7 @@
         function normalize(op) {
           const base = {
             type: op.type,
+            op: typeof op.op === 'string' ? op.op : '',
             payload: op.payload || {},
             ts: Number.isFinite(op.ts) ? Number(op.ts) : Date.now()
           };
@@ -6823,6 +6959,30 @@
               return { success: false, error: new Error('client_unavailable') };
             }
             const result = await window.supabaseManager.upsertCard(op.payload);
+            return result && result.error ? { success: false, error: result.error } : { success: true };
+          }
+          if (op.type === 'study') {
+            const noteId = op.payload?.id;
+            if (!noteId) {
+              return { success: true };
+            }
+            if (!state.identity?.userId) {
+              return { success: true };
+            }
+            if (!window.supabaseManager?.isReady?.()) {
+              return { success: false, error: new Error('client_unavailable') };
+            }
+            if (op.op === 'delete') {
+              if (typeof window.supabaseManager.deleteStudyNote !== 'function') {
+                return { success: true };
+              }
+              const result = await window.supabaseManager.deleteStudyNote(noteId);
+              return result && result.error ? { success: false, error: result.error } : { success: true };
+            }
+            if (typeof window.supabaseManager.upsertStudyNote !== 'function') {
+              return { success: true };
+            }
+            const result = await window.supabaseManager.upsertStudyNote(op.payload);
             return result && result.error ? { success: false, error: result.error } : { success: true };
           }
           if (op.type === 'speaking') {
@@ -6906,6 +7066,9 @@
           }
           if (normalized.type === 'card' && normalized.payload?.id) {
             queue = queue.filter((item) => !(item.type === 'card' && item.payload?.id === normalized.payload.id));
+          }
+          if (normalized.type === 'study' && normalized.payload?.id) {
+            queue = queue.filter((item) => !(item.type === 'study' && item.payload?.id === normalized.payload.id));
           }
           queue.push(normalized);
           persist();
@@ -7403,6 +7566,8 @@
           panel?.addEventListener('click', handleCueClick);
           panel?.addEventListener('contextmenu', handleCueContextMenu);
           panel?.addEventListener('dblclick', handleCueDblClick);
+          panel?.addEventListener('mouseup', handleStudySelectionTrigger);
+          panel?.addEventListener('touchend', handleStudySelectionTrigger);
           panel?.addEventListener('keydown', handlePanelKeyDown);
           panel?.addEventListener('focus', handlePanelFocus, true);
           panel?.addEventListener('mouseover', handleTokenHover);
@@ -8421,6 +8586,21 @@
           repeatSentence(index);
         }
 
+        function handleStudySelectionTrigger(event) {
+          if (!event) return;
+          if (event.type === 'mouseup' && event.button && event.button !== 0) {
+            return;
+          }
+          const target = event.target instanceof HTMLElement ? event.target : null;
+          const cueEl = target ? target.closest('.cue') : null;
+          if (!cueEl) return;
+          window.setTimeout(() => {
+            if (typeof maybeOpenStudyModalFromSelection === 'function') {
+              maybeOpenStudyModalFromSelection(cueEl, event.type);
+            }
+          }, 0);
+        }
+
         function handleCueContextMenu(event) {
           const cueEl = event.target.closest('.cue');
           if (!cueEl) return;
@@ -9275,6 +9455,35 @@
           case 'upnext-del':
             event.preventDefault();
             removeFromUpnext(button.dataset.id || '');
+            return;
+          case 'study-refresh':
+            event.preventDefault();
+            handleStudyRefresh();
+            return;
+          case 'study-close':
+          case 'study-cancel':
+            event.preventDefault();
+            closeStudyModal();
+            return;
+          case 'study-save':
+            event.preventDefault();
+            handleStudySave();
+            return;
+          case 'study-delete':
+            event.preventDefault();
+            handleStudyDelete();
+            return;
+          case 'study-jump':
+            event.preventDefault();
+            handleStudyJump(button.dataset.id || '');
+            return;
+          case 'study-edit':
+            event.preventDefault();
+            handleStudyEdit(button.dataset.id || '');
+            return;
+          case 'study-del':
+            event.preventDefault();
+            handleStudyListDelete(button.dataset.id || '');
             return;
           default:
             break;
@@ -10905,6 +11114,32 @@
               .split(/[,，]/)
               .map((tag) => tag.trim())
               .filter(Boolean);
+        const phrase = ensureString(raw.phrase || raw.phrase_text || cueText || title);
+        const parseSpan = (value) => {
+          if (!value || typeof value !== 'object') return null;
+          const start = Number(
+            value.startTok ?? value.start_tok ?? value.start ?? (Array.isArray(value) ? value[0] : undefined)
+          );
+          const end = Number(
+            value.endTok ?? value.end_tok ?? value.end ?? (Array.isArray(value) ? value[1] : undefined)
+          );
+          if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+          return {
+            startTok: Math.max(0, Math.floor(start)),
+            endTok: Math.max(Math.floor(start), Math.floor(end))
+          };
+        };
+        let span = parseSpan(raw.span || raw.cueSpan || raw.cue_span);
+        if (!span) {
+          const start = Number(raw.startTok ?? raw.start_tok);
+          const end = Number(raw.endTok ?? raw.end_tok);
+          if (Number.isFinite(start) && Number.isFinite(end) && end >= start) {
+            span = {
+              startTok: Math.max(0, Math.floor(start)),
+              endTok: Math.max(Math.floor(start), Math.floor(end))
+            };
+          }
+        }
         const toTimestamp = (value) => {
           if (!value) return Date.now();
           const time = new Date(value).getTime();
@@ -10930,6 +11165,8 @@
           body,
           examples: parseExamples(raw.examples),
           tags,
+          phrase: phrase || cueText || title,
+          span: span || null,
           createdAt,
           updatedAt,
           source: 'remote',
@@ -10945,6 +11182,7 @@
         }
         if (!window.supabaseManager?.isReady?.() || !window.supabaseManager?.fetchStudyNotes) {
           state.notes.remoteByVideo[videoId] = [];
+          loadStudyNotesForVideo(videoId);
           return [];
         }
         try {
@@ -10960,6 +11198,7 @@
           updateStudyNotesSection();
           videoLearning.refreshNotes?.();
           refreshFocusSetForCurrentVideo(true);
+          loadStudyNotesForVideo(videoId);
           return normalized;
         } catch (error) {
           console.warn('加载云端精读笔记失败', error);
@@ -10968,6 +11207,7 @@
           updateStudyNotesSection();
           videoLearning.refreshNotes?.();
           refreshFocusSetForCurrentVideo(true);
+          loadStudyNotesForVideo(videoId);
           return [];
         }
       }
@@ -12112,6 +12352,17 @@
       const quizOptions = document.getElementById('quizOptions');
       const quizMeta = document.getElementById('quizMeta');
       const quizHistory = document.getElementById('quizHistory');
+      const studyPanelEl = document.getElementById('studyPanel');
+      const studyListEl = document.getElementById('studyList');
+      const studySearchInput = document.getElementById('studySearch');
+      const studyModalEl = document.getElementById('studyModal');
+      const studyKindSelect = document.getElementById('studyKind');
+      const studyTitleInput = document.getElementById('studyTitle');
+      const studyBodyInput = document.getElementById('studyBody');
+      const studyExamplesInput = document.getElementById('studyExamples');
+      const studyTagsInput = document.getElementById('studyTags');
+      const studyMetaBadge = document.getElementById('studyMeta');
+      const studyDeleteBtn = document.querySelector('[data-action="study-delete"]');
       const studyNotesList = document.getElementById('study-notes-list');
       const studyNotesSearch = document.getElementById('study-note-search');
       const noteModalEl = document.getElementById('note-modal');
@@ -12409,6 +12660,27 @@
           }
         });
 
+        document.addEventListener(
+          'click',
+          (event) => {
+            const target = event.target instanceof HTMLElement ? event.target.closest('.tok') : null;
+            if (target) {
+              window.__lastTokClicked = target;
+            }
+          },
+          true
+        );
+
+        studySearchInput?.addEventListener('input', () => {
+          if (studySearchTimer) {
+            window.clearTimeout(studySearchTimer);
+          }
+          studySearchTimer = window.setTimeout(() => {
+            state.notes.studyFilter = studySearchInput.value.trim();
+            applyStudyFilter();
+          }, STUDY_SEARCH_DELAY);
+        });
+
         startCefrBtn?.addEventListener('click', openCefrPanel);
         cefrPanel?.addEventListener('click', (event) => {
           const actionButton = event.target.closest('[data-action]');
@@ -12493,11 +12765,13 @@
         statsTracker.init();
         updateCheckinUI();
         studyNotes.init();
+        loadStudyNotesForVideo(state.video.videoId);
         updateStudyNotesSection();
         studyNotes.subscribe(() => {
           updateStudyNotesSection();
           videoLearning.refreshNotes?.();
           refreshFocusSetForCurrentVideo(true);
+          loadStudyNotesForVideo(state.video.videoId);
         });
         contentAdmin.init({ section: adminSectionEl, link: adminNavLink });
         srs.init();
@@ -12804,6 +13078,600 @@
         quizHistory.innerHTML = '';
         quizHistory.appendChild(fragment);
         quizHistory.style.display = 'block';
+      }
+
+      function normalizeStudySpan(span) {
+        if (!span || typeof span !== 'object') return null;
+        const start = Number(span.startTok ?? span.start_tok ?? span.start);
+        const end = Number(span.endTok ?? span.end_tok ?? span.end);
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+          return null;
+        }
+        const normalizedStart = Math.max(0, Math.floor(start));
+        const normalizedEnd = Math.max(normalizedStart, Math.floor(end));
+        return { startTok: normalizedStart, endTok: normalizedEnd };
+      }
+
+      function renderStudyList(list) {
+        if (!studyListEl) return;
+        if (!Array.isArray(list) || !list.length) {
+          studyListEl.innerHTML = '<div class="badge">暂无精读，选中字幕文本试试</div>';
+          return;
+        }
+        const order = { collocation: 0, phrase: 1, grammar: 2 };
+        const sorted = list
+          .slice()
+          .sort((a, b) => {
+            const kindA = order[a.kind] ?? 99;
+            const kindB = order[b.kind] ?? 99;
+            if (kindA !== kindB) return kindA - kindB;
+            return (b.updatedAt || 0) - (a.updatedAt || 0);
+          });
+        const fragment = document.createDocumentFragment();
+        sorted.forEach((note) => {
+          const row = document.createElement('div');
+          row.className = 'card pad';
+          row.dataset.id = note.id || '';
+          const preview = String(note.body || '').slice(0, 40);
+          const tagLine = Array.isArray(note.tags) && note.tags.length
+            ? note.tags
+                .map((tag) => `<span class="badge">${escapeHTML(tag)}</span>`)
+                .join(' ')
+            : '';
+          row.innerHTML = [
+            '<div style="display:flex;gap:12px;align-items:flex-start">',
+            '  <div style="flex:1">',
+            `    <div style="display:flex;gap:8px;align-items:center"><strong>${escapeHTML(note.title || note.phrase || '(未命名)')}</strong><span class="badge">${escapeHTML(note.kind || '—')}</span></div>`,
+            `    <div style="margin-top:6px;color:var(--muted)">${escapeHTML(preview)}</div>`,
+            '    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">',
+            `      <button type="button" class="btn" data-action="study-jump" data-id="${escapeHTML(note.id || '')}">查看句子</button>`,
+            `      <button type="button" class="btn" data-action="study-edit" data-id="${escapeHTML(note.id || '')}">编辑</button>`,
+            `      <button type="button" class="btn" data-action="study-del" data-id="${escapeHTML(note.id || '')}">删除</button>`,
+            '    </div>',
+            tagLine ? `    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">${tagLine}</div>` : '',
+            '  </div>',
+            '</div>'
+          ]
+            .filter(Boolean)
+            .join('');
+          fragment.appendChild(row);
+        });
+        studyListEl.innerHTML = '';
+        studyListEl.appendChild(fragment);
+      }
+
+      function refreshCueLamps(list) {
+        if (!subtitlePanel) return;
+        const map = new Map();
+        (Array.isArray(list) ? list : []).forEach((note) => {
+          if (!note) return;
+          const cueId = note.cueId || note.cue_id || '';
+          if (!cueId) return;
+          if (!map.has(cueId)) {
+            map.set(cueId, { count: 0, titles: [] });
+          }
+          const bucket = map.get(cueId);
+          bucket.count += 1;
+          if (note.title) {
+            bucket.titles.push(String(note.title));
+          }
+        });
+        subtitlePanel.querySelectorAll('.cue').forEach((cueEl) => {
+          const lamp = cueEl.querySelector('[data-role="lamp"]');
+          if (!lamp) return;
+          const cueId = cueEl.dataset.cueId || cueEl.dataset.id || '';
+          const info = map.get(cueId);
+          if (info && info.count) {
+            lamp.style.display = 'inline-flex';
+            lamp.textContent = '💡';
+            lamp.title = info.titles.length
+              ? `有精读卡 ×${info.count}：${info.titles.slice(0, 3).join('、')}`
+              : `有精读卡 ×${info.count}`;
+          } else {
+            lamp.style.display = 'none';
+            lamp.title = '该句无精读卡';
+          }
+        });
+      }
+
+      function applyStudyFilter() {
+        const keyword = (state.notes.studyFilter || '').trim().toLowerCase();
+        const source = Array.isArray(window.__studyNotesCache) ? window.__studyNotesCache : [];
+        if (!keyword) {
+          renderStudyList(source);
+          return;
+        }
+        const filtered = source.filter((note) => {
+          const parts = [note.title, note.phrase, note.body, note.cueText]
+            .concat(Array.isArray(note.tags) ? note.tags : [])
+            .filter(Boolean)
+            .map((text) => String(text).toLowerCase());
+          return parts.some((text) => text.includes(keyword));
+        });
+        renderStudyList(filtered);
+      }
+
+      function loadStudyNotesForVideo(videoId) {
+        if (!videoId) {
+          window.__studyNotesCache = [];
+          renderStudyList([]);
+          refreshCueLamps([]);
+          return [];
+        }
+        let localNotes = [];
+        try {
+          localNotes = typeof studyNotes.getByVideo === 'function' ? studyNotes.getByVideo(videoId) : [];
+        } catch (error) {
+          console.warn('读取本地精读卡失败', error);
+          localNotes = [];
+        }
+        const remoteNotes = Array.isArray(state.notes.remoteByVideo?.[videoId])
+          ? state.notes.remoteByVideo[videoId].map((note) => ({ ...note }))
+          : [];
+        const map = new Map();
+        remoteNotes.forEach((note) => {
+          if (!note || !note.id) return;
+          map.set(note.id, {
+            ...note,
+            source: note.source || 'remote',
+            examples: Array.isArray(note.examples) ? note.examples.map((item) => ({ ...item })) : [],
+            tags: Array.isArray(note.tags) ? note.tags.slice() : [],
+            span: normalizeStudySpan(note.span)
+          });
+        });
+        localNotes.forEach((note) => {
+          if (!note || !note.id) return;
+          map.set(note.id, {
+            ...note,
+            source: 'local',
+            examples: Array.isArray(note.examples) ? note.examples.map((item) => ({ ...item })) : [],
+            tags: Array.isArray(note.tags) ? note.tags.slice() : [],
+            span: normalizeStudySpan(note.span)
+          });
+        });
+        const combined = Array.from(map.values());
+        window.__studyNotesCache = combined;
+        applyStudyFilter();
+        refreshCueLamps(combined);
+        return combined;
+      }
+
+      function openStudyModal(prefill = {}) {
+        if (!studyModalEl) return;
+        const videoId = prefill.video_id || prefill.videoId || getCurrentVideoId();
+        const cueId = prefill.cue_id || prefill.cueId || '';
+        const cueIndex = Number.isInteger(prefill.cue_index)
+          ? prefill.cue_index
+          : Number.isInteger(prefill.cueIndex)
+            ? prefill.cueIndex
+            : -1;
+        studyDraft = {
+          id: prefill.id || '',
+          video_id: videoId,
+          cue_id: cueId,
+          cue_index: cueIndex,
+          cue_text: prefill.cue_text || prefill.cueText || '',
+          kind: prefill.kind || 'phrase',
+          title: prefill.title || prefill.phrase || '',
+          body: prefill.body || '',
+          phrase: prefill.phrase || prefill.title || '',
+          examples: Array.isArray(prefill.examples) ? prefill.examples.map((item) => ({ ...item })) : [],
+          tags: Array.isArray(prefill.tags) ? prefill.tags.slice() : [],
+          span: normalizeStudySpan(prefill.span),
+          created_at: prefill.created_at || prefill.createdAt || Date.now(),
+          updated_at: prefill.updated_at || prefill.updatedAt || Date.now(),
+          source: prefill.source || 'local'
+        };
+        if (studyKindSelect) studyKindSelect.value = studyDraft.kind || 'phrase';
+        if (studyTitleInput) studyTitleInput.value = studyDraft.title || '';
+        if (studyBodyInput) studyBodyInput.value = studyDraft.body || '';
+        if (studyExamplesInput) {
+          studyExamplesInput.value = studyDraft.examples.length ? JSON.stringify(studyDraft.examples) : '';
+        }
+        if (studyTagsInput) {
+          studyTagsInput.value = studyDraft.tags.join(' ');
+        }
+        if (studyMetaBadge) {
+          const span = studyDraft.span ? `${studyDraft.span.startTok}-${studyDraft.span.endTok}` : '—';
+          studyMetaBadge.textContent = `Cue#${cueId || '—'} · 索引 ${span}`;
+        }
+        if (studyDeleteBtn) {
+          studyDeleteBtn.style.display = studyDraft.id ? 'inline-flex' : 'none';
+        }
+        studyModalEl.style.display = 'block';
+        window.setTimeout(() => studyTitleInput?.focus(), 50);
+      }
+
+      function closeStudyModal() {
+        if (!studyModalEl) return;
+        studyModalEl.style.display = 'none';
+        studyDraft = null;
+      }
+
+      function buildStudySyncPayload(note, source = {}) {
+        const span = normalizeStudySpan(source.span || note.span);
+        return {
+          id: note.id || source.id,
+          video_id: note.videoId || source.video_id,
+          cue_id: note.cueId || source.cue_id,
+          kind: note.kind || source.kind || 'phrase',
+          title: note.title || source.title || '',
+          body: note.body || source.body || '',
+          phrase: note.phrase || source.phrase || note.title || '',
+          examples: Array.isArray(note.examples)
+            ? note.examples.map((item) => ({ es: item.es || '', zh: item.zh || '' }))
+            : Array.isArray(source.examples)
+              ? source.examples.map((item) => ({ es: item.es || '', zh: item.zh || '' }))
+              : [],
+          tags: Array.isArray(note.tags) ? note.tags.slice() : Array.isArray(source.tags) ? source.tags.slice() : [],
+          span,
+          updated_at: new Date(source.updated_at || note.updatedAt || Date.now()).toISOString(),
+          created_at: new Date(source.created_at || note.createdAt || Date.now()).toISOString()
+        };
+      }
+
+      function saveStudyNote(current) {
+        if (!current || !current.video_id || !current.cue_id) {
+          return null;
+        }
+        const payload = {
+          kind: current.kind || 'phrase',
+          title: current.title || current.phrase || '',
+          body: current.body || '',
+          examples: Array.isArray(current.examples) ? current.examples.map((item) => ({ ...item })) : [],
+          tags: Array.isArray(current.tags) ? current.tags.slice() : [],
+          videoId: current.video_id,
+          videoTitle: current.video_title || state.video.videoTitle || '',
+          cueId: current.cue_id,
+          cueText: current.cue_text || '',
+          phrase: current.phrase || current.title || '',
+          span: normalizeStudySpan(current.span),
+          source: 'local'
+        };
+        let note = null;
+        if (current.id) {
+          studyNotes.update(current.id, {
+            ...payload,
+            phrase: payload.phrase,
+            span: payload.span,
+            body: payload.body,
+            examples: payload.examples,
+            tags: payload.tags
+          });
+          note = (studyNotes.getByVideo?.(current.video_id) || []).find((item) => item.id === current.id) || null;
+        } else {
+          note = studyNotes.add({ ...payload, id: current.id, createdAt: current.created_at });
+        }
+        if (!note) {
+          return null;
+        }
+        note.span = payload.span;
+        note.phrase = payload.phrase;
+        note.videoTitle = payload.videoTitle;
+        try {
+          syncQueue.enqueue({ type: 'study', op: 'upsert', payload: buildStudySyncPayload(note, current) });
+        } catch (error) {
+          console.warn('精读卡同步入队失败', error);
+        }
+        if (
+          window.supabaseManager?.isReady?.() &&
+          typeof window.supabaseManager.upsertStudyNote === 'function' &&
+          state.identity?.userId
+        ) {
+          window.supabaseManager
+            .upsertStudyNote(buildStudySyncPayload(note, current))
+            .catch((error) => console.warn('Supabase 精读卡同步失败', error));
+        }
+        return note;
+      }
+
+      function deleteStudyNote(id) {
+        if (!id) return false;
+        const removed = typeof studyNotes.remove === 'function' ? studyNotes.remove(id) : null;
+        if (!removed) return false;
+        try {
+          syncQueue.enqueue({ type: 'study', op: 'delete', payload: { id } });
+        } catch (error) {
+          console.warn('精读卡删除入队失败', error);
+        }
+        if (
+          window.supabaseManager?.isReady?.() &&
+          typeof window.supabaseManager.deleteStudyNote === 'function' &&
+          state.identity?.userId
+        ) {
+          window.supabaseManager
+            .deleteStudyNote(id)
+            .catch((error) => console.warn('Supabase 精读卡删除失败', error));
+        }
+        return true;
+      }
+
+      function handleStudyRefresh() {
+        const videoId = getCurrentVideoId();
+        if (!videoId) {
+          showToast('暂无正在学习的视频');
+          return;
+        }
+        const meta =
+          (state.library.current && state.library.current.id === videoId ? state.library.current : null) ||
+          getVideoMetaById(videoId) ||
+          null;
+        if (meta && meta.source === 'supabase') {
+          loadRemoteStudyNotes(meta)
+            .catch((error) => {
+              console.warn('刷新远程精读卡失败', error);
+              showToast('刷新云端精读卡失败，请稍后重试');
+            })
+            .finally(() => {
+              loadStudyNotesForVideo(videoId);
+            });
+        } else {
+          loadStudyNotesForVideo(videoId);
+        }
+      }
+
+      function handleStudySave() {
+        if (!studyModalEl) return;
+        const draft = studyDraft || {};
+        const videoId = draft.video_id || getCurrentVideoId();
+        const cueId = draft.cue_id || '';
+        if (!videoId || !cueId) {
+          showToast('缺少字幕上下文，无法保存精读卡');
+          return;
+        }
+        let title = studyTitleInput?.value?.trim() || '';
+        if (!title) {
+          showToast('请填写标题');
+          studyTitleInput?.focus();
+          return;
+        }
+        const kind = studyKindSelect?.value || draft.kind || 'phrase';
+        const body = studyBodyInput?.value?.trim() || '';
+        const examplesText = studyExamplesInput?.value?.trim() || '';
+        let examples = [];
+        if (examplesText) {
+          try {
+            const parsed = JSON.parse(examplesText);
+            if (!Array.isArray(parsed)) throw new Error('invalid');
+            examples = parsed
+              .map((item) => {
+                if (!item) return null;
+                if (typeof item === 'string') {
+                  const [es = '', zh = ''] = item.split(/[|｜]/);
+                  return { es: es.trim(), zh: zh.trim() };
+                }
+                if (typeof item === 'object') {
+                  const es = String(item.es || item.spanish || '').trim();
+                  const zh = String(item.zh || item.chinese || item.cn || '').trim();
+                  if (!es && !zh) return null;
+                  return { es, zh };
+                }
+                return null;
+              })
+              .filter((item) => item && (item.es || item.zh));
+          } catch (error) {
+            showToast('例句需为合法的 JSON 数组');
+            studyExamplesInput?.focus();
+            return;
+          }
+        }
+        const tagsText = studyTagsInput?.value || '';
+        const tags = tagsText
+          .split(/[,，\s]+/)
+          .map((tag) => tag.trim())
+          .filter(Boolean);
+        let span = draft.span ? { ...draft.span } : null;
+        const cueEl = subtitlePanel?.querySelector(`.cue[data-id="${cueId}"]`);
+        if (cueEl) {
+          const range = getTokRangeFromSelection(cueEl);
+          if (range && range.text) {
+            span = { startTok: range.startTok, endTok: range.endTok };
+            if (title === draft.title || !title) {
+              title = range.text;
+            }
+          }
+        }
+        const cueIndex = Number.isInteger(draft.cue_index)
+          ? draft.cue_index
+          : cueEl
+            ? Number(cueEl.dataset.index)
+            : -1;
+        const cue = cueIndex >= 0 ? state.video.cues[cueIndex] : null;
+        const saved = saveStudyNote({
+          id: draft.id || '',
+          video_id: videoId,
+          cue_id: cueId,
+          cue_index: cueIndex,
+          cue_text: draft.cue_text || cue?.l2 || cue?.text || '',
+          kind,
+          title,
+          body,
+          phrase: title,
+          examples,
+          tags,
+          span,
+          created_at: draft.created_at || Date.now(),
+          updated_at: Date.now(),
+          video_title: state.video.videoTitle
+        });
+        if (!saved) {
+          showToast('保存精读卡失败，请稍后再试');
+          return;
+        }
+        showToast('已保存精读卡');
+        closeStudyModal();
+        loadStudyNotesForVideo(videoId);
+        refreshFocusSetForCurrentVideo(true);
+      }
+
+      function handleStudyDelete() {
+        if (!studyDraft || !studyDraft.id) {
+          closeStudyModal();
+          return;
+        }
+        if (!window.confirm('确定删除该精读卡吗？删除后无法恢复。')) {
+          return;
+        }
+        if (deleteStudyNote(studyDraft.id)) {
+          showToast('已删除精读卡');
+          const videoId = studyDraft.video_id || getCurrentVideoId();
+          closeStudyModal();
+          loadStudyNotesForVideo(videoId);
+          refreshFocusSetForCurrentVideo(true);
+        } else {
+          showToast('删除精读卡失败，请稍后重试');
+        }
+      }
+
+      function handleStudyEdit(id) {
+        if (!id) {
+          showToast('未找到对应精读卡');
+          return;
+        }
+        const note = (Array.isArray(window.__studyNotesCache) ? window.__studyNotesCache : []).find((item) => item.id === id);
+        if (!note) {
+          showToast('未找到对应精读卡');
+          return;
+        }
+        openStudyModal({ ...note, video_id: note.videoId || state.video.videoId, cue_id: note.cueId || note.cue_id });
+      }
+
+      function handleStudyListDelete(id) {
+        if (!id) return;
+        if (!window.confirm('确定删除该精读卡吗？')) return;
+        if (deleteStudyNote(id)) {
+          showToast('已删除精读卡');
+          loadStudyNotesForVideo(getCurrentVideoId());
+          refreshFocusSetForCurrentVideo(true);
+        } else {
+          showToast('删除失败，请稍后再试');
+        }
+      }
+
+      function handleStudyJump(id) {
+        if (!id) return;
+        const note = (Array.isArray(window.__studyNotesCache) ? window.__studyNotesCache : []).find((item) => item.id === id);
+        if (!note) {
+          showToast('未找到对应精读卡');
+          return;
+        }
+        const cueId = note.cueId || note.cue_id;
+        if (!cueId) {
+          showToast('精读卡缺少字幕关联');
+          return;
+        }
+        const cueEl = subtitlePanel?.querySelector(`.cue[data-id="${cueId}"]`);
+        if (!cueEl) {
+          showToast('字幕尚未加载或不包含对应句子');
+          return;
+        }
+        cueEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        flashTokSpan(cueId, note.span || note.cue_span || null);
+      }
+
+      function maybeOpenStudyModalFromSelection(cueEl, triggerType) {
+        if (!cueEl || !document.contains(cueEl)) return;
+        const range = getTokRangeFromSelection(cueEl);
+        if (!range || !range.text) return;
+        const cueId = cueEl.dataset.cueId || cueEl.dataset.id || '';
+        const videoId = getCurrentVideoId();
+        const cueIndex = Number.isInteger(Number(cueEl.dataset.index)) ? Number(cueEl.dataset.index) : -1;
+        const cue = cueIndex >= 0 ? state.video.cues[cueIndex] : null;
+        const duplicate = (Array.isArray(window.__studyNotesCache) ? window.__studyNotesCache : []).find((note) => {
+          if (!note) return false;
+          const span = note.span || note.cue_span;
+          if (!span) return false;
+          return (
+            (note.cueId || note.cue_id) === cueId &&
+            Number(span.startTok) === range.startTok &&
+            Number(span.endTok) === range.endTok &&
+            String(note.title || '').trim().toLowerCase() === range.text.toLowerCase()
+          );
+        });
+        if (duplicate) {
+          openStudyModal({ ...duplicate, video_id: duplicate.videoId || videoId, cue_id: cueId, cue_index: cueIndex });
+          return;
+        }
+        openStudyModal({
+          id: '',
+          video_id: videoId,
+          cue_id: cueId,
+          cue_index: cueIndex,
+          cue_text: cue?.l2 || cue?.text || '',
+          kind: 'phrase',
+          title: range.text,
+          phrase: range.text,
+          body: '',
+          examples: [],
+          tags: [],
+          span: { startTok: range.startTok, endTok: range.endTok },
+          created_at: Date.now(),
+          updated_at: Date.now(),
+          source: 'local'
+        });
+      }
+
+      function getTokRangeFromSelection(cueEl) {
+        if (!cueEl) return null;
+        const tokens = Array.from(cueEl.querySelectorAll('.tok'));
+        if (!tokens.length) return null;
+        const selection = window.getSelection?.();
+        if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+          const range = selection.getRangeAt(0);
+          if (!cueEl.contains(range.commonAncestorContainer)) {
+            return null;
+          }
+          let start = -1;
+          let end = -1;
+          tokens.forEach((token) => {
+            const idx = Number(token.dataset.idx);
+            if (!Number.isInteger(idx)) return;
+            const tokenRange = document.createRange();
+            tokenRange.selectNodeContents(token);
+            const intersects =
+              tokenRange.compareBoundaryPoints(Range.END_TO_START, range) <= 0 &&
+              tokenRange.compareBoundaryPoints(Range.START_TO_END, range) >= 0;
+            if (intersects) {
+              if (start === -1) start = idx;
+              end = idx;
+            }
+          });
+          if (start !== -1 && end !== -1) {
+            const text = tokens
+              .slice(start, end + 1)
+              .map((token) => token.textContent.trim())
+              .filter(Boolean)
+              .join(' ')
+              .trim();
+            if (text) {
+              return { startTok: start, endTok: end, text };
+            }
+          }
+        }
+        const lastTok = window.__lastTokClicked instanceof HTMLElement ? window.__lastTokClicked : null;
+        if (lastTok && cueEl.contains(lastTok)) {
+          const idx = Number(lastTok.dataset.idx);
+          if (Number.isInteger(idx)) {
+            const text = (lastTok.textContent || '').trim();
+            if (text) {
+              return { startTok: idx, endTok: idx, text };
+            }
+          }
+        }
+        return null;
+      }
+
+      function flashTokSpan(cueId, span) {
+        if (!span) return;
+        const cueEl = subtitlePanel?.querySelector(`.cue[data-id="${cueId}"]`);
+        if (!cueEl) return;
+        const tokens = cueEl.querySelectorAll('.tok');
+        for (let i = span.startTok; i <= span.endTok; i += 1) {
+          const token = tokens[i];
+          if (!token) continue;
+          token.classList.add('tok--focus');
+          window.setTimeout(() => token.classList.remove('tok--focus'), 1200);
+        }
       }
 
       function openQuizCenter() {
@@ -13896,6 +14764,10 @@
       }
 
       let focusSetVersion = 0;
+
+      let studySearchTimer = 0;
+      let studyDraft = null;
+      const STUDY_SEARCH_DELAY = 300;
 
       function toggleMinimalHighlight() {
         const next = !state.preferences.minHighlight;

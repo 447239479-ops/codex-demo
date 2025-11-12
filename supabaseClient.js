@@ -40,8 +40,10 @@
  *   kind text,
  *   title text,
  *   body text,
+ *   phrase text,
  *   examples jsonb,
  *   tags text[],
+ *   span jsonb,
  *   cue_text text,
  *   video_title text,
  *   created_at timestamptz default now(),
@@ -255,7 +257,9 @@
     try {
       const { data, error } = await client
         .from('study_notes')
-        .select('id,video_id,cue_id,kind,title,body,examples,tags,updated_at,created_at,cue_text,video_title')
+        .select(
+          'id,video_id,cue_id,kind,title,body,phrase,examples,tags,span,updated_at,created_at,cue_text,video_title'
+        )
         .eq('video_id', videoId)
         .order('updated_at', { ascending: false, nullsFirst: false });
       if (error) {
@@ -265,6 +269,106 @@
     } catch (error) {
       console.warn('加载 Supabase 精读卡失败', error);
       return { data: [], error };
+    }
+  };
+
+  manager.upsertStudyNote = async function upsertStudyNote(payload = {}) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    const id = typeof payload.id === 'string' ? payload.id.trim() : '';
+    const video_id = typeof payload.video_id === 'string' ? payload.video_id.trim() : '';
+    const cue_id = typeof payload.cue_id === 'string' ? payload.cue_id.trim() : '';
+    if (!id || !video_id || !cue_id) {
+      return { error: new Error('invalid_payload') };
+    }
+    const normalizeExamples = (value) => {
+      if (!Array.isArray(value)) return [];
+      return value
+        .map((item) => {
+          if (!item) return null;
+          const es = String(item.es ?? item.spanish ?? '').trim();
+          const zh = String(item.zh ?? item.chinese ?? item.cn ?? '').trim();
+          if (!es && !zh) return null;
+          return { es, zh };
+        })
+        .filter(Boolean);
+    };
+    const normalizeTags = (value) => {
+      if (!Array.isArray(value)) return [];
+      return value.map((tag) => String(tag || '').trim()).filter(Boolean);
+    };
+    const normalizeSpan = (value) => {
+      if (!value || typeof value !== 'object') return null;
+      const start = Number(
+        value.startTok ?? value.start_tok ?? value.start ?? (Array.isArray(value) ? value[0] : undefined)
+      );
+      const end = Number(
+        value.endTok ?? value.end_tok ?? value.end ?? (Array.isArray(value) ? value[1] : undefined)
+      );
+      if (!Number.isFinite(start) || !Number.isFinite(end)) {
+        return null;
+      }
+      const safeStart = Math.max(0, Math.floor(start));
+      const safeEnd = Math.max(safeStart, Math.floor(end));
+      return { startTok: safeStart, endTok: safeEnd };
+    };
+    try {
+      const record = {
+        id,
+        video_id,
+        cue_id,
+        kind: typeof payload.kind === 'string' ? payload.kind : 'phrase',
+        title: typeof payload.title === 'string' ? payload.title : '',
+        body: typeof payload.body === 'string' ? payload.body : '',
+        phrase: typeof payload.phrase === 'string' ? payload.phrase : typeof payload.title === 'string' ? payload.title : '',
+        examples: normalizeExamples(payload.examples),
+        tags: normalizeTags(payload.tags),
+        span: normalizeSpan(payload.span),
+        cue_text: typeof payload.cue_text === 'string' ? payload.cue_text : undefined,
+        video_title: typeof payload.video_title === 'string' ? payload.video_title : undefined,
+        updated_at: payload.updated_at || new Date().toISOString(),
+        created_at: payload.created_at || new Date().toISOString()
+      };
+      if (!record.span) {
+        delete record.span;
+      }
+      if (!record.cue_text) {
+        delete record.cue_text;
+      }
+      if (!record.video_title) {
+        delete record.video_title;
+      }
+      const { error } = await client.from('study_notes').upsert(record, { onConflict: 'id' });
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('写入 Supabase 精读卡失败', error);
+      return { error };
+    }
+  };
+
+  manager.deleteStudyNote = async function deleteStudyNote(id) {
+    const client = ensureClient();
+    if (!client) {
+      return { error: new Error('unconfigured') };
+    }
+    const noteId = typeof id === 'string' ? id.trim() : typeof id === 'object' && id ? String(id.id || '').trim() : '';
+    if (!noteId) {
+      return { error: new Error('invalid_payload') };
+    }
+    try {
+      const { error } = await client.from('study_notes').delete().eq('id', noteId);
+      if (error) {
+        throw error;
+      }
+      return { success: true };
+    } catch (error) {
+      console.warn('删除 Supabase 精读卡失败', error);
+      return { error };
     }
   };
 
