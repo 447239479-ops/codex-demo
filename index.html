@@ -1740,6 +1740,7 @@
       /* —— 布局辅助 —— */
       .grid-3{display:grid; grid-template-columns: 1.3fr 1fr 1fr; gap:20px}
       @media(max-width:1024px){ .grid-3{grid-template-columns:1fr} }
+      @media(max-width:768px){ #healthGrid{grid-template-columns:1fr !important;} }
     </style>
   </head>
   <body>
@@ -2309,6 +2310,22 @@
                 aria-label="复述录音回放"
                 style="width:100%;margin-top:8px;display:none"
               ></audio>
+            </div>
+            <div id="healthPanel" class="card pad">
+              <div class="modal-head">
+                <div class="section-title">学习健康度</div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn" type="button" data-action="health-refresh" aria-label="刷新健康度">刷新</button>
+                  <button class="btn" type="button" data-action="export-daily-md" aria-label="导出今日日报 Markdown">导出日报(MD)</button>
+                  <button class="btn" type="button" data-action="export-daily-html" aria-label="导出今日日报 HTML">导出日报(HTML)</button>
+                  <button class="btn" type="button" data-action="export-weekly-md" aria-label="导出本周周报 Markdown">导出周报(MD)</button>
+                  <button class="btn" type="button" data-action="export-weekly-html" aria-label="导出本周周报 HTML">导出周报(HTML)</button>
+                </div>
+              </div>
+              <div class="hr"></div>
+              <div id="healthGrid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px"></div>
+              <div class="hr"></div>
+              <div id="healthTips" class="badge" aria-live="polite">—</div>
             </div>
             <div id="studyPanel" class="card pad">
               <div class="modal-head">
@@ -9510,6 +9527,27 @@
             event.preventDefault();
             handleRecapSave();
             return;
+          case 'health-refresh':
+            event.preventDefault();
+            renderHealthPanel();
+            showToast('已刷新学习健康度');
+            return;
+          case 'export-daily-md':
+            event.preventDefault();
+            showToast(exportDailyReport('md'));
+            return;
+          case 'export-daily-html':
+            event.preventDefault();
+            showToast(exportDailyReport('html'));
+            return;
+          case 'export-weekly-md':
+            event.preventDefault();
+            showToast(exportWeeklyReport('md'));
+            return;
+          case 'export-weekly-html':
+            event.preventDefault();
+            showToast(exportWeeklyReport('html'));
+            return;
           case 'open-report-panel':
             event.preventDefault();
             ensureReportPanel('day');
@@ -12520,6 +12558,9 @@
       const recapBuildBtn = document.querySelector('[data-action="recap-build"]');
       const recapRecordBtn = document.querySelector('[data-action="recap-record"]');
       const recapSaveBtn = document.querySelector('[data-action="recap-save"]');
+      const healthPanelEl = document.getElementById('healthPanel');
+      const healthGridEl = document.getElementById('healthGrid');
+      const healthTipsEl = document.getElementById('healthTips');
       const reportPanelEl = document.getElementById('reportPanel');
       const reportViewEl = document.getElementById('reportView');
       const startCefrBtn = document.getElementById('start-cefr');
@@ -12940,6 +12981,7 @@
         loadRetrievalFromStorage();
         renderQuizHistory(false);
         loadReportState();
+        renderHealthPanel();
         initRecapPanel();
         updateDailyAggregates(getDateKey());
         initSettings();
@@ -13448,6 +13490,7 @@
           videos: entry.videos ? Object.keys(entry.videos).length : 0,
           speaking: Number(entry.speaking) || 0,
           retrieval: retrievalStats.total,
+          retrievalRate: retrievalStats.total ? Math.round((retrievalStats.correct / retrievalStats.total) * 100) : 0,
           cardsDue: dueCount,
           cardsDone: Number(entry.mastered) || 0,
           recaps: recapCount,
@@ -13462,6 +13505,7 @@
         } catch (error) {
           console.warn('日报同步入队失败', error);
         }
+        renderHealthPanel();
       }
 
       function updateWeeklyAggregates(weekKey = getWeekKey()) {
@@ -13523,6 +13567,379 @@
         } catch (error) {
           console.warn('周报同步入队失败', error);
         }
+      }
+
+      function getDayRangeForKey(dateKey = getDateKey()) {
+        const date = new Date(dateKey);
+        if (Number.isNaN(date.getTime())) {
+          const fallback = new Date();
+          fallback.setHours(0, 0, 0, 0);
+          return { start: fallback.getTime(), end: fallback.getTime() + DAY_MS };
+        }
+        date.setHours(0, 0, 0, 0);
+        const start = date.getTime();
+        return { start, end: start + DAY_MS };
+      }
+
+      function computeStreakFromReports(maxDays = 60) {
+        const daily = state.reports?.data?.daily || {};
+        let streak = 0;
+        for (let offset = 0; offset < maxDays; offset += 1) {
+          const key = getDateKey(new Date(Date.now() - offset * DAY_MS));
+          const entry = daily[key];
+          if (entry && (entry.videos || entry.speaking || entry.retrieval || entry.minutes || entry.recaps)) {
+            streak += 1;
+          } else {
+            break;
+          }
+        }
+        return streak;
+      }
+
+      function computeFocusCoverageMetric() {
+        const focusSet = state.video.focusSet instanceof Set ? state.video.focusSet : window.__focusSet;
+        const tokens = subtitlePanel ? Array.from(subtitlePanel.querySelectorAll('.cue .tok')) : [];
+        if (!tokens.length || !(focusSet instanceof Set) || !focusSet.size) {
+          return { score: 0, note: tokens.length ? '暂无重点词匹配' : '暂无字幕数据' };
+        }
+        const normalize = (text) => String(text || '').trim().toLowerCase();
+        let hits = 0;
+        tokens.forEach((token) => {
+          const text = normalize(token.textContent);
+          if (text && focusSet.has(text)) {
+            hits += 1;
+          }
+        });
+        let score = tokens.length ? Math.round((hits / tokens.length) * 100) : 0;
+        if (tokens.length < 50) {
+          score = Math.min(score, 80);
+        }
+        return { score, note: tokens.length ? `命中 ${hits}/${tokens.length}` : '暂无字幕数据' };
+      }
+
+      function computeIPlusOneMetric(dateKey = getDateKey()) {
+        const { start, end } = getDayRangeForKey(dateKey);
+        const log = storage.load(STORAGE_KEYS.recoLog, []);
+        const plays = (Array.isArray(log) ? log : []).filter((entry) => entry && entry.action === 'play' && entry.ts >= start && entry.ts < end);
+        if (!plays.length) {
+          return { score: 0, note: '暂无播放数据' };
+        }
+        let hits = 0;
+        plays.forEach((entry) => {
+          const baseMeta = entry.from_video ? getVideoMetaById(entry.from_video) : null;
+          const baseLevel = String(baseMeta?.level || state.practice.level || '').toUpperCase();
+          const target = levelNext(baseLevel) || '';
+          const playedLevel = String(entry.level || getVideoMetaById(entry.video_id)?.level || '').toUpperCase();
+          if (target && playedLevel && playedLevel === String(target).toUpperCase()) {
+            hits += 1;
+          }
+        });
+        let score = Math.round((hits / plays.length) * 100);
+        if (plays.length < 2) {
+          score = Math.min(score, 80);
+        }
+        const suffix = plays.length < 2 ? ' · 样本不足' : '';
+        return { score, note: `i+1 ${hits}/${plays.length}${suffix}` };
+      }
+
+      function computeHealthMetrics(dateKey = getDateKey()) {
+        const list = [];
+        const daily = getDailyReport(dateKey) || {};
+        const streak = computeStreakFromReports();
+        const streakScore = Math.min(100, streak * 10);
+        list.push({ name: '连续打卡', score: streakScore, note: streak ? `已连续 ${streak} 天` : '今天从 0 开始', weight: 1.2 });
+
+        const { start, end } = getDayRangeForKey(dateKey);
+        const speakingLog = storage.load(STORAGE_KEYS.speaking, []);
+        let speakingSeconds = 0;
+        (Array.isArray(speakingLog) ? speakingLog : []).forEach((entry) => {
+          if (!entry) return;
+          const ts = Number(entry.ts) || 0;
+          if (ts >= start && ts < end) {
+            speakingSeconds += Number(entry.duration) || 20;
+          }
+        });
+        const speakingMinutes = speakingSeconds / 60;
+        const speakingScore = Math.min(100, Math.round(((speakingMinutes || 0) / 20) * 100));
+        list.push({
+          name: '听说时长',
+          score: speakingScore,
+          note: speakingMinutes ? `${speakingMinutes.toFixed(1)} 分钟估算` : '暂无口语练习',
+          weight: 1.2
+        });
+
+        const retrievalStats = getRetrievalStatsForDate(dateKey);
+        const retrievalRate = retrievalStats.total ? retrievalStats.correct / retrievalStats.total : 0;
+        let retrievalScore = Math.round(retrievalRate * 100);
+        let retrievalNote = '尚未生成检索题';
+        if (retrievalStats.total) {
+          if (retrievalStats.total < 3) {
+            retrievalScore = Math.min(Math.round(retrievalRate * 80), 80);
+            retrievalNote = `${retrievalStats.correct}/${retrievalStats.total} 题 · 样本不足`;
+          } else {
+            retrievalScore = Math.round(retrievalRate * 100);
+            retrievalNote = `${retrievalStats.correct}/${retrievalStats.total} 题`;
+          }
+        }
+        list.push({ name: '检索正确率', score: retrievalScore, note: retrievalNote, weight: 1.2 });
+
+        const cards = typeof srs.getCards === 'function' ? srs.getCards() : storage.load(STORAGE_KEYS.cards, []);
+        const now = Date.now();
+        const dueCount = (Array.isArray(cards) ? cards : []).filter((card) => Number(card?.dueAt || card?.due_at || 0) <= now).length;
+        const doneCount = Number(daily.cardsDone || 0);
+        const srsScore = dueCount === 0 ? 100 : Math.round(Math.min(doneCount / Math.max(dueCount, 1), 1) * 100);
+        const srsNote = dueCount === 0 ? '暂无到期卡片' : `到期 ${dueCount} · 完成 ${doneCount}`;
+        list.push({ name: 'SRS 健康度', score: srsScore, note: srsNote, weight: 1.2 });
+
+        const videoCount = Number(daily.videos || 0);
+        const videoScore = Math.min(100, Math.round((Math.min(videoCount, 3) / 3) * 100));
+        list.push({ name: '视频完成度', score: videoScore, note: `完成 ${videoCount} 支`, weight: 1 });
+
+        const iPlusOne = computeIPlusOneMetric(dateKey);
+        list.push({ name: 'i+1 采用', score: iPlusOne.score, note: iPlusOne.note, weight: 1 });
+
+        const focus = computeFocusCoverageMetric();
+        list.push({ name: '重点词覆盖', score: focus.score, note: focus.note, weight: 1 });
+
+        const recaps = getRecapsByDate(dateKey);
+        const recapCount = recaps.length;
+        const recapScore = Math.min(100, Math.round((Math.min(recapCount, 2) / 2) * 100));
+        list.push({ name: '复述参与', score: recapScore, note: recapCount ? `完成 ${recapCount} 条` : '暂无复述', weight: 1 });
+
+        const totalWeight = list.reduce((sum, item) => sum + (item.weight || 1), 0);
+        const weightedScore = totalWeight
+          ? list.reduce((sum, item) => sum + (item.score || 0) * (item.weight || 1), 0) / totalWeight
+          : 0;
+        list.push({ name: '综合健康分', score: Math.round(weightedScore), note: '基于 8 项指标加权', weight: 1 });
+        return list;
+      }
+
+      function renderHealthPanel() {
+        if (!healthGridEl) return;
+        const metrics = computeHealthMetrics();
+        if (!metrics.length) {
+          healthGridEl.innerHTML = '<div class="badge">暂无数据</div>';
+          if (healthTipsEl) {
+            healthTipsEl.textContent = '暂无数据';
+          }
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        metrics.forEach((metric) => {
+          if (!metric || metric.name === undefined) return;
+          const card = document.createElement('div');
+          card.className = 'card pad';
+          card.setAttribute('data-role', 'meter');
+          const pct = Math.max(0, Math.min(100, Math.round(metric.score || 0)));
+          const badgeClass = pct >= 80 ? 'badge badge-success' : pct >= 50 ? 'badge' : 'badge badge-warn';
+          card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600">${escapeHTML(metric.name)}</div>
+              <span class="${badgeClass}">${pct}</span>
+            </div>
+            <div class="bar" style="height:8px;background:#E5E7EB;border-radius:999px;margin-top:8px">
+              <div class="bar-fill" style="height:8px;width:${pct}%;background:${pct < 50 ? '#F4B400' : pct < 80 ? 'var(--brand)' : '#2ECC71'};border-radius:999px"></div>
+            </div>
+            <div class="mini" style="margin-top:6px;color:var(--muted)">${escapeHTML(metric.note || '')}</div>`;
+          fragment.appendChild(card);
+        });
+        healthGridEl.innerHTML = '';
+        healthGridEl.appendChild(fragment);
+        const overall = metrics.find((item) => item.name === '综合健康分');
+        if (healthTipsEl && overall) {
+          const score = Math.round(overall.score || 0);
+          const tips = score >= 80
+            ? '状态良好：保持节奏，明日尝试 i+1。'
+            : score >= 50
+              ? '稳步前进：补做到期卡片与 2 道检索题会更稳。'
+              : '建议先做到期复习与 3 道检索，再看 1 支短视频。';
+          healthTipsEl.textContent = `综合 ${score} 分 · ${tips}`;
+        }
+      }
+
+      function buildDailyMarkdown(dateKey = getDateKey()) {
+        const report = getDailyReport(dateKey) || {};
+        const health = computeHealthMetrics(dateKey);
+        const overall = Math.round(health.find((item) => item.name === '综合健康分')?.score || 0);
+        const lines = [];
+        lines.push(`# 学习日报 · ${dateKey}`);
+        lines.push('');
+        lines.push(`- 综合健康分：**${overall}**`);
+        lines.push(`- 视频完成：${report.videos || 0} 支 · 学习时长：${report.minutes || 0} 分钟`);
+        lines.push(`- 跟读：${report.speaking || 0} 次 · 检索：${report.retrieval || 0} 题（正确率 ${(report.retrievalRate || 0)}%）`);
+        lines.push(`- 复习卡片：到期 ${report.cardsDue || 0} · 完成 ${report.cardsDone || 0}`);
+        lines.push('');
+        lines.push('## 30 秒复述');
+        if (Array.isArray(report.outlineSnippets) && report.outlineSnippets.length) {
+          report.outlineSnippets.forEach((snippet, index) => {
+            lines.push(`${index + 1}. ${snippet}`);
+          });
+        } else {
+          lines.push('暂无复述记录');
+        }
+        lines.push('');
+        lines.push('> 备注：本报告由系统自动生成，可用于朋友圈/公众号复盘。');
+        return lines.join('\n');
+      }
+
+      function buildWeeklyMarkdown(weekKey = getWeekKey()) {
+        const report = getWeeklyReport(weekKey) || {};
+        const lines = [];
+        lines.push(`# 学习周报 · ${weekKey}`);
+        lines.push('');
+        lines.push(`- 周累计视频：${report.videos || 0} · 学习时长：${report.minutes || 0} 分钟`);
+        lines.push(`- 跟读：${report.speaking || 0} 次 · 检索：${report.retrieval || 0} 题（正确率 ${(report.retrievalRate || 0)}%）`);
+        lines.push(`- 完成复述：${report.recaps || 0} 次 · 平均复述分：${report.recapScoreAvg || 0}`);
+        lines.push('');
+        lines.push('## 本周提纲摘要');
+        if (Array.isArray(report.outlineSnippets) && report.outlineSnippets.length) {
+          report.outlineSnippets.forEach((snippet, index) => {
+            lines.push(`${index + 1}. ${snippet}`);
+          });
+        } else {
+          lines.push('暂无复述摘记');
+        }
+        lines.push('');
+        lines.push('> 备注：自动生成的周报，建议配上一张学习时间热力图。');
+        return lines.join('\n');
+      }
+
+      function exportDailyReport(format = 'md') {
+        const key = getDateKey();
+        const markdown = buildDailyMarkdown(key);
+        if (format === 'html') {
+          const html = wrapHtmlDoc(`日报 ${key}`, mdToHtml(markdown));
+          downloadText(`daily-${key}.html`, html, 'text/html;charset=utf-8');
+          return '已导出今日日报(HTML)';
+        }
+        downloadText(`daily-${key}.md`, markdown, 'text/markdown;charset=utf-8');
+        return '已导出今日日报(MD)';
+      }
+
+      function exportWeeklyReport(format = 'md') {
+        const key = getWeekKey();
+        const markdown = buildWeeklyMarkdown(key);
+        if (format === 'html') {
+          const html = wrapHtmlDoc(`周报 ${key}`, mdToHtml(markdown));
+          downloadText(`weekly-${key}.html`, html, 'text/html;charset=utf-8');
+          return '已导出本周周报(HTML)';
+        }
+        downloadText(`weekly-${key}.md`, markdown, 'text/markdown;charset=utf-8');
+        return '已导出本周周报(MD)';
+      }
+
+      function mdToHtml(markdown = '') {
+        if (!markdown) return '';
+        let html = markdown.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html = html.replace(/^### (.*)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^## (.*)$/gm, '<h2>$1</h2>');
+        html = html.replace(/^# (.*)$/gm, '<h1>$1</h1>');
+        html = html.replace(/^\- (.*)$/gm, '<li>$1</li>');
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/^> (.*)$/gm, '<blockquote>$1</blockquote>');
+        html = html.replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>');
+        html = html.replace(/(^|\n)(?!<h\d|<li|<blockquote|<ul)([^\n]+)(?=\n|$)/g, (match, prefix, text) => {
+          if (!text.trim()) return match;
+          return `${prefix}<p>${text}</p>`;
+        });
+        return html;
+      }
+
+      function wrapHtmlDoc(title, body) {
+        return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHTML(title)}</title>` +
+          '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+          '<style>body{font-family:var(--font-zh),var(--font-lat);color:var(--ink);background:var(--bg);padding:24px;}h1,h2,h3{margin:16px 0;}ul{padding-left:20px;}blockquote{border-left:4px solid var(--line);padding-left:12px;color:var(--muted);}</style>' +
+          `</head><body>${body}</body></html>`;
+      }
+
+      function downloadText(filename, text, mime = 'text/plain;charset=utf-8') {
+        try {
+          downloadTextFile(text, filename, mime);
+        } catch (error) {
+          console.warn('下载文本失败', error);
+        }
+      }
+
+      function getDailyReport(dateKey = getDateKey()) {
+        if (!dateKey) return null;
+        const stored = state.reports?.data?.daily?.[dateKey];
+        if (stored) return stored;
+        const stats = storage.load(STORAGE_KEYS.stats, { daily: {} });
+        const entry = stats.daily?.[dateKey] || {};
+        const recaps = getRecapsByDate(dateKey);
+        const recapScoreAvg = recaps.length
+          ? Math.round(recaps.reduce((sum, item) => sum + (Number(item.score) || 0), 0) / recaps.length)
+          : 0;
+        const retrievalStats = getRetrievalStatsForDate(dateKey);
+        const cards = typeof srs.getCards === 'function' ? srs.getCards() : storage.load(STORAGE_KEYS.cards, []);
+        const dueCount = Array.isArray(cards)
+          ? cards.filter((card) => Number(card?.dueAt || card?.due_at || 0) <= Date.now()).length
+          : 0;
+        const outlineSnippets = recaps.map((item) => String(item.outline || '').slice(0, 60));
+        const report = {
+          videos: entry.videos ? Object.keys(entry.videos).length : 0,
+          speaking: Number(entry.speaking) || 0,
+          retrieval: retrievalStats.total,
+          retrievalRate: retrievalStats.total ? Math.round((retrievalStats.correct / retrievalStats.total) * 100) : 0,
+          cardsDue: dueCount,
+          cardsDone: Number(entry.mastered) || 0,
+          recaps: recaps.length,
+          recapScoreAvg,
+          minutes: Math.round((Number(entry.videoSeconds) || 0) / 60),
+          outlineSnippets
+        };
+        if (state.reports?.data) {
+          state.reports.data.daily[dateKey] = report;
+        }
+        return report;
+      }
+
+      function getWeekDates(weekKey = getWeekKey()) {
+        const range = getWeekRangeFromKey(weekKey);
+        const dates = [];
+        for (let i = 0; i < 7; i += 1) {
+          const day = new Date(range.start);
+          day.setDate(range.start.getDate() + i);
+          dates.push(getDateKey(day));
+        }
+        return dates;
+      }
+
+      function getWeeklyReport(weekKey = getWeekKey()) {
+        if (!weekKey) return null;
+        const stored = state.reports?.data?.weekly?.[weekKey];
+        if (stored) return stored;
+        const days = getWeekDates(weekKey);
+        const reports = days.map((key) => getDailyReport(key) || {});
+        const sum = (prop) => reports.reduce((acc, item) => acc + (Number(item[prop]) || 0), 0);
+        const recapTotal = sum('recaps');
+        const retrievalLogs = storage.load(STORAGE_KEYS.retrievalLog, []);
+        const range = getWeekRangeFromKey(weekKey);
+        const filteredLogs = (Array.isArray(retrievalLogs) ? retrievalLogs : []).filter((entry) => {
+          if (!entry) return false;
+          const ts = Number(entry.ts) || 0;
+          return ts >= range.start.getTime() && ts <= range.end.getTime();
+        });
+        const ok = filteredLogs.filter((entry) => entry.success).length;
+        const total = filteredLogs.length;
+        const retrievalRate = total ? Math.round((ok / total) * 100) : 0;
+        const weightedRecapScore = reports.reduce((acc, item) => acc + (Number(item.recapScoreAvg) || 0) * (Number(item.recaps) || 0), 0);
+        const weekly = {
+          videos: sum('videos'),
+          speaking: sum('speaking'),
+          retrieval: sum('retrieval'),
+          retrievalRate,
+          cardsDue: sum('cardsDue'),
+          cardsDone: sum('cardsDone'),
+          recaps: recapTotal,
+          recapScoreAvg: recapTotal ? Math.round(weightedRecapScore / recapTotal) : 0,
+          outlineSnippets: reports.flatMap((item) => item.outlineSnippets || []).slice(0, 10),
+          minutes: sum('minutes')
+        };
+        if (state.reports?.data) {
+          state.reports.data.weekly[weekKey] = weekly;
+        }
+        return weekly;
       }
 
       function renderDailyReport(dateKey = getDateKey()) {
