@@ -1741,6 +1741,8 @@
       .grid-3{display:grid; grid-template-columns: 1.3fr 1fr 1fr; gap:20px}
       @media(max-width:1024px){ .grid-3{grid-template-columns:1fr} }
       @media(max-width:768px){ #healthGrid{grid-template-columns:1fr !important;} }
+      #userBar{font-size:0.85rem;align-items:center;}
+      #userBar .btn{padding:6px 10px;}
     </style>
   </head>
   <body>
@@ -1767,6 +1769,21 @@
           >
             学习报表
           </button>
+          <div
+            id="userBar"
+            class="card pad"
+            style="display:flex;gap:8px;align-items:center"
+            aria-live="polite"
+          >
+            <span class="badge" id="userBadge">未登录</span>
+            <button class="btn" type="button" data-action="open-login" aria-label="登录">登录</button>
+            <button class="btn" type="button" data-action="open-activate" aria-label="输入激活码">
+              激活码
+            </button>
+            <button class="btn" type="button" data-action="logout" style="display:none" aria-label="退出登录">
+              退出
+            </button>
+          </div>
           <div id="user-indicator" class="user-indicator" data-active="false" aria-live="polite">
             <span id="user-email-display">未登录</span>
             <span id="user-plan-badge" class="plan-badge" hidden>示例</span>
@@ -2208,6 +2225,7 @@
                   type="button"
                   class="btn"
                   data-action="mk-quiz"
+                  data-guard="retrieval"
                   aria-label="从当前字幕生成检索题"
                 >生成检索题</button>
                 <button
@@ -2293,7 +2311,16 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap">
                   <button class="btn" type="button" data-action="recap-build" aria-label="生成复述提纲">生成提纲</button>
                   <button class="btn btn-primary" type="button" data-action="recap-record" aria-label="开始/停止录制">开始录制</button>
-                  <button class="btn" type="button" data-action="recap-save" aria-label="保存到日报" disabled>保存到日报</button>
+       <button
+         class="btn"
+         type="button"
+         data-action="recap-save"
+         data-guard="recap"
+         aria-label="保存到日报"
+         disabled
+       >
+         保存到日报
+       </button>
                 </div>
               </div>
               <div class="hr"></div>
@@ -2318,8 +2345,24 @@
                   <button class="btn" type="button" data-action="health-refresh" aria-label="刷新健康度">刷新</button>
                   <button class="btn" type="button" data-action="export-daily-md" aria-label="导出今日日报 Markdown">导出日报(MD)</button>
                   <button class="btn" type="button" data-action="export-daily-html" aria-label="导出今日日报 HTML">导出日报(HTML)</button>
-                  <button class="btn" type="button" data-action="export-weekly-md" aria-label="导出本周周报 Markdown">导出周报(MD)</button>
-                  <button class="btn" type="button" data-action="export-weekly-html" aria-label="导出本周周报 HTML">导出周报(HTML)</button>
+                  <button
+                    class="btn"
+                    type="button"
+                    data-action="export-weekly-md"
+                    data-guard="exportWeekly"
+                    aria-label="导出本周周报 Markdown"
+                  >
+                    导出周报(MD)
+                  </button>
+                  <button
+                    class="btn"
+                    type="button"
+                    data-action="export-weekly-html"
+                    data-guard="exportWeekly"
+                    aria-label="导出本周周报 HTML"
+                  >
+                    导出周报(HTML)
+                  </button>
                 </div>
               </div>
               <div class="hr"></div>
@@ -2414,7 +2457,15 @@
           </div>
           <div class="hr"></div>
           <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <button type="button" class="btn btn-primary" data-action="study-save" aria-label="保存精读卡">保存</button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              data-action="study-save"
+              data-guard="studyPanel"
+              aria-label="保存精读卡"
+            >
+              保存
+            </button>
             <button type="button" class="btn" data-action="study-cancel" aria-label="取消编辑精读卡">取消</button>
             <button type="button" class="btn btn-warn" data-action="study-delete" style="margin-left:auto;display:none" aria-label="删除精读卡">删除</button>
             <span class="badge" id="studyMeta">—</span>
@@ -2839,6 +2890,41 @@
       </section>
     </main>
 
+    <div id="loginModal" class="modal" style="display:none">
+      <div class="modal-head">
+        <div class="section-title">登录</div>
+        <button class="close btn" type="button" data-action="login-close" aria-label="关闭登录弹窗">关闭</button>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;gap:12px">
+        <input id="loginEmail" class="input" placeholder="邮箱" type="email" aria-label="输入登录邮箱" />
+        <input id="loginPassword" class="input" placeholder="（可选）密码" type="password" aria-label="输入登录密码" />
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-primary" type="button" data-action="login-magic" aria-label="发送魔法链接">发送魔法链接</button>
+          <button class="btn" type="button" data-action="login-password" aria-label="邮箱密码登录">邮箱+密码登录</button>
+        </div>
+        <span class="badge" id="loginHint">推荐使用魔法链接登录</span>
+      </div>
+    </div>
+
+    <div id="activateModal" class="modal" style="display:none">
+      <div class="modal-head">
+        <div class="section-title">激活码兑换</div>
+        <button class="close btn" type="button" data-action="activate-close" aria-label="关闭激活码弹窗">关闭</button>
+      </div>
+      <div class="hr"></div>
+      <div style="display:grid;gap:12px">
+        <input
+          id="activateCode"
+          class="input"
+          placeholder="输入激活码（例如：ES-XXXX-XXXX）"
+          aria-label="输入激活码"
+        />
+        <button class="btn btn-primary" type="button" data-action="activate-redeem" aria-label="兑换激活码">兑换</button>
+        <span class="badge" id="activateHint">未登录将无法绑定激活码</span>
+      </div>
+    </div>
+
     <div id="progress-drawer" class="progress-drawer" aria-hidden="true">
       <div class="progress-overlay" data-action="close-progress" tabindex="-1"></div>
       <aside class="progress-panel" role="dialog" aria-labelledby="progress-title">
@@ -2944,7 +3030,11 @@
         recoLog: 'es-app:reco-log',
         prefs: 'es-app:prefs',
         recap: 'es-app:recap',
-        reports: 'es-app:reports'
+        reports: 'es-app:reports',
+        user: 'es-app:user',
+        features: 'es-app:features',
+        quota: 'es-app:quota',
+        planCache: 'es-app:planCache'
       };
 
       const LEGACY_NOTES_KEY = 'es-app:study-notes';
@@ -2970,6 +3060,24 @@
       const DEFAULT_PREFS = {
         autoL2: true,
         minHighlight: true
+      };
+
+      const DEFAULT_FREE_QUOTA = {
+        retrievalDaily: 10,
+        recapDaily: 1,
+        upnextMax: 5
+      };
+
+      const PLAN_FEATURES = {
+        free: { exportWeekly: false, reco: true, recap: true, studyPanel: true, retrieval: true },
+        pro: { exportWeekly: true, reco: true, recap: true, studyPanel: true, retrieval: true },
+        team: { exportWeekly: true, reco: true, recap: true, studyPanel: true, retrieval: true }
+      };
+
+      const PLAN_QUOTA = {
+        free: { ...DEFAULT_FREE_QUOTA },
+        pro: { retrievalDaily: 50, recapDaily: 5, upnextMax: 50 },
+        team: { retrievalDaily: 200, recapDaily: 20, upnextMax: 200 }
       };
 
       if (typeof window.__autoL2Done === 'undefined') {
@@ -3179,6 +3287,15 @@
             storage.remove(STORAGE_KEYS.entitlement);
           }
         }
+        const activePlan = normalized.active && normalized.plan ? normalized.plan : 'free';
+        applyPlanFeatures(activePlan, normalized.expiresAt);
+        const storedUserProfile = storage.load(STORAGE_KEYS.user, null);
+        if (storedUserProfile && storedUserProfile.id) {
+          storedUserProfile.plan = normalized.plan || storedUserProfile.plan || 'free';
+          storedUserProfile.activated = normalized.active;
+          storage.save(STORAGE_KEYS.user, storedUserProfile);
+        }
+        updateUserBar();
         updateEntitlementUI();
       }
 
@@ -3286,11 +3403,15 @@
           setEntitlement(storedEntitlement, false);
         } else {
           state.identity.entitlement = normalizeEntitlement(null);
+          const cachedPlan = storage.load(STORAGE_KEYS.planCache, null);
+          applyPlanFeatures(cachedPlan?.plan || 'free', cachedPlan?.expiresAt || '');
           updateEntitlementUI();
         }
         if (!storedProfile) {
           state.identity.isAdmin = false;
         }
+        updateUserIndicator();
+        updateUserBar();
         updateAdminVisibility();
       }
 
@@ -3340,6 +3461,19 @@
         }
         updateUserIndicator();
         updateCloudSyncHint();
+        if (state.identity.userId) {
+          saveUserLocal({
+            id: state.identity.userId,
+            email: state.identity.email,
+            role: state.identity.isAdmin ? 'admin' : 'user',
+            plan: state.identity.entitlement.plan || 'free',
+            activated: state.identity.entitlement.active,
+            createdAt: state.identity.profile?.lastSignInAt || new Date().toISOString()
+          });
+        } else {
+          saveUserLocal(null);
+        }
+        updateUserBar();
         if (videoLibraryList) {
           refreshVideoLibrary(true);
         }
@@ -3385,6 +3519,351 @@
         }
       }
 
+      function applyPlanFeatures(plan = 'free', expiresAt = '') {
+        const normalizedPlan = PLAN_FEATURES[plan] ? plan : 'free';
+        const features = PLAN_FEATURES[normalizedPlan] || PLAN_FEATURES.free;
+        storage.save(STORAGE_KEYS.features, { ...features });
+        const quota = PLAN_QUOTA[normalizedPlan] || PLAN_QUOTA.free || DEFAULT_FREE_QUOTA;
+        storage.save(STORAGE_KEYS.quota, { ...quota });
+        storage.save(STORAGE_KEYS.planCache, { plan: normalizedPlan, expiresAt: expiresAt || '' });
+        enforceGuards();
+      }
+
+      function featureOn(name) {
+        if (!name) return true;
+        const features = storage.load(STORAGE_KEYS.features, PLAN_FEATURES.free) || PLAN_FEATURES.free;
+        if (!(name in features)) return true;
+        return features[name] !== false;
+      }
+
+      function getQuota() {
+        const stored = storage.load(STORAGE_KEYS.quota, null);
+        if (stored && typeof stored === 'object') {
+          return stored;
+        }
+        return { ...PLAN_QUOTA.free };
+      }
+
+      function enforceGuards() {
+        if (typeof document === 'undefined') return;
+        const features = storage.load(STORAGE_KEYS.features, PLAN_FEATURES.free) || PLAN_FEATURES.free;
+        document.querySelectorAll('[data-guard]').forEach((el) => {
+          const guard = el.getAttribute('data-guard');
+          const allowed = guard ? features[guard] !== false : true;
+          if (allowed) {
+            el.removeAttribute('disabled');
+            el.removeAttribute('aria-disabled');
+            el.classList.remove('is-guard-disabled');
+          } else {
+            if (el.tagName === 'BUTTON' || el.tagName === 'INPUT') {
+              el.setAttribute('disabled', 'disabled');
+            }
+            el.setAttribute('aria-disabled', 'true');
+            el.classList.add('is-guard-disabled');
+          }
+        });
+      }
+
+      function checkAndConsumeQuota(kind) {
+        if (!kind) return true;
+        const quota = getQuota();
+        const limit = Number(quota[kind]);
+        if (!Number.isFinite(limit) || limit <= 0) {
+          return true;
+        }
+        const quotaKey = `es-app:quota:${kind}:${getDateKey()}`;
+        const used = Number(localStorage.getItem(quotaKey) || '0');
+        if (used >= limit) {
+          showToast('今日配额已用尽');
+          return false;
+        }
+        localStorage.setItem(quotaKey, String(used + 1));
+        return true;
+      }
+
+      function saveUserLocal(user) {
+        if (!user || !user.id) {
+          storage.remove(STORAGE_KEYS.user);
+          return;
+        }
+        const payload = {
+          id: user.id,
+          email: user.email || '',
+          role: user.role || 'user',
+          plan: user.plan || 'free',
+          activated: Boolean(user.activated ?? (user.plan && user.plan !== 'free')),
+          createdAt: user.createdAt || new Date().toISOString()
+        };
+        storage.save(STORAGE_KEYS.user, payload);
+      }
+
+      function updateUserBar() {
+        if (!userBarEl || !userBadgeEl) return;
+        const storedUser = storage.load(STORAGE_KEYS.user, null);
+        const loggedIn = Boolean(state.identity.userId || storedUser?.id);
+        const planLabel = getPlanLabel(
+          storedUser?.plan || state.identity.entitlement.plan || 'free'
+        );
+        const displayEmail = storedUser?.email || state.identity.email || '未登录';
+        userBadgeEl.textContent = loggedIn ? `${displayEmail} · ${planLabel}` : '未登录';
+        const loginBtn = document.querySelector('[data-action="open-login"]');
+        const logoutBtn = document.querySelector('[data-action="logout"]');
+        const activateBtn = document.querySelector('[data-action="open-activate"]');
+        const hasAuth = Boolean(getAuthClient());
+        if (userBarEl) {
+          userBarEl.hidden = !hasAuth && !loggedIn;
+        }
+        if (loginBtn) {
+          loginBtn.style.display = loggedIn ? 'none' : 'inline-flex';
+          loginBtn.disabled = !hasAuth;
+        }
+        if (logoutBtn) {
+          logoutBtn.style.display = loggedIn ? 'inline-flex' : 'none';
+        }
+        if (activateBtn) {
+          activateBtn.disabled = !loggedIn;
+        }
+        if (loginHintBadge) {
+          loginHintBadge.textContent = hasAuth ? '推荐使用魔法链接登录' : '请先在设置中配置 Supabase';
+        }
+        if (activateHintBadge) {
+          activateHintBadge.textContent = loggedIn ? '请输入激活码以解锁更多内容' : '未登录将无法绑定激活码';
+        }
+      }
+
+      function getAuthClient() {
+        if (window.supabaseManager?.getClient) {
+          const client = window.supabaseManager.getClient();
+          if (client?.auth) return client;
+        }
+        if (window.__supabaseAuthClient?.auth) {
+          return window.__supabaseAuthClient;
+        }
+        if (window.supabase?.auth) {
+          return window.supabase;
+        }
+        return null;
+      }
+
+      async function signInMagic(email) {
+        const client = getAuthClient();
+        if (!client?.auth?.signInWithOtp) {
+          showToast('Supabase 未配置，无法发送登录链接');
+          return false;
+        }
+        try {
+          await client.auth.signInWithOtp({
+            email,
+            options: { emailRedirectTo: window.location.origin }
+          });
+          showToast('已发送登录链接，请查收邮箱。');
+          return true;
+        } catch (error) {
+          console.warn('发送魔法链接失败', error);
+          showToast(`发送失败：${interpretRemoteError(error)}`);
+          return false;
+        }
+      }
+
+      async function signInWithPassword(email, password) {
+        const client = getAuthClient();
+        if (!client?.auth?.signInWithPassword) {
+          showToast('当前环境不支持密码登录');
+          return null;
+        }
+        try {
+          const { data, error } = await client.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          return data?.user || null;
+        } catch (error) {
+          console.warn('密码登录失败', error);
+          showToast(`登录失败：${interpretRemoteError(error)}`);
+          return null;
+        }
+      }
+
+      async function loadProfile() {
+        const client = getAuthClient();
+        if (!client?.auth?.getUser) return null;
+        try {
+          const { data, error } = await client.auth.getUser();
+          if (error || !data?.user) {
+            return null;
+          }
+          const authUser = data.user;
+          let profileRow = null;
+          if (client.from) {
+            const { data: profileData, error: profileError } = await client
+              .from('profiles')
+              .select('email,role,plan,created_at')
+              .eq('id', authUser.id)
+              .maybeSingle();
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.warn('加载 profile 失败', profileError);
+            }
+            if (!profileData) {
+              await client.from('profiles').upsert({
+                id: authUser.id,
+                email: authUser.email || '',
+                role: 'user',
+                plan: 'free',
+                created_at: new Date().toISOString()
+              });
+              profileRow = {
+                email: authUser.email || '',
+                role: 'user',
+                plan: 'free',
+                created_at: new Date().toISOString()
+              };
+            } else {
+              profileRow = profileData;
+            }
+          }
+          return {
+            id: authUser.id,
+            email: profileRow?.email || authUser.email || '',
+            role: profileRow?.role || 'user',
+            plan: profileRow?.plan || 'free',
+            createdAt: profileRow?.created_at || authUser.created_at || new Date().toISOString()
+          };
+        } catch (error) {
+          console.warn('获取用户资料失败', error);
+          return null;
+        }
+      }
+
+      async function refreshProfileFromSupabase() {
+        const profile = await loadProfile();
+        if (!profile) return null;
+        const mappedProfile = {
+          userId: profile.id,
+          email: profile.email,
+          lastSignInAt: profile.createdAt,
+          isAdmin: profile.role === 'admin'
+        };
+        state.identity.profile = mappedProfile;
+        state.identity.userId = mappedProfile.userId;
+        state.identity.email = mappedProfile.email;
+        state.identity.isAdmin = mappedProfile.isAdmin;
+        storage.save(STORAGE_KEYS.profile, mappedProfile);
+        saveUserLocal({ ...profile, activated: profile.plan && profile.plan !== 'free' });
+        setEntitlement({ plan: profile.plan });
+        updateUserIndicator();
+        updateUserBar();
+        return profile;
+      }
+
+      async function redeemCode(code) {
+        const client = getAuthClient();
+        if (!client?.auth?.getUser) {
+          showToast('Supabase 未配置，无法兑换');
+          return false;
+        }
+        const { data, error } = await client.auth.getUser();
+        if (error || !data?.user) {
+          showToast('请先登录');
+          return false;
+        }
+        try {
+          let payload = null;
+          if (typeof client.rpc === 'function') {
+            const { data: rpcData, error: rpcError } = await client.rpc('redeem_activation', {
+              p_user: data.user.id,
+              p_code: code
+            });
+            if (rpcError) throw rpcError;
+            payload = rpcData;
+          } else if (window.supabaseManager?.redeemActivation) {
+            const result = await window.supabaseManager.redeemActivation(code);
+            if (result?.error) throw result.error;
+            payload = result?.data || result;
+          } else if (client.from) {
+            const { data: act, error: actError } = await client
+              .from('activations')
+              .select('*')
+              .eq('code', code)
+              .maybeSingle();
+            if (actError || !act) {
+              throw actError || new Error('激活码无效');
+            }
+            if (act.expires_at && Date.parse(act.expires_at) < Date.now()) {
+              throw new Error('激活码已过期');
+            }
+            if ((act.used || 0) >= (act.seats || 1)) {
+              throw new Error('激活码已被使用完');
+            }
+            await client.from('user_licenses').insert({
+              user_id: data.user.id,
+              plan: act.plan || 'pro',
+              source: 'code',
+              code,
+              expires_at: act.expires_at || null,
+              created_at: new Date().toISOString()
+            });
+            await client.from('profiles').update({ plan: act.plan || 'pro' }).eq('id', data.user.id);
+            await client.from('activations').update({ used: (act.used || 0) + 1 }).eq('code', code);
+            payload = { plan: act.plan || 'pro', expires_at: act.expires_at || '' };
+          }
+          if (!payload) {
+            showToast('激活失败，请稍后再试');
+            return false;
+          }
+          await refreshProfileFromSupabase();
+          showToast(`激活成功：${getPlanLabel(payload.plan || 'pro')}`);
+          return true;
+        } catch (err) {
+          console.warn('激活失败', err);
+          showToast(`激活失败：${interpretRemoteError(err)}`);
+          return false;
+        }
+      }
+
+      async function signOutAll() {
+        const client = getAuthClient();
+        if (client?.auth?.signOut) {
+          try {
+            await client.auth.signOut();
+          } catch (error) {
+            console.warn('注销失败', error);
+          }
+        }
+        saveUserLocal(null);
+        setEntitlement(null);
+        state.identity.profile = null;
+        state.identity.userId = '';
+        state.identity.email = '';
+        state.identity.isAdmin = false;
+        storage.remove(STORAGE_KEYS.profile);
+        storage.remove(STORAGE_KEYS.user);
+        updateUserIndicator();
+        updateUserBar();
+      }
+
+      function openLoginModal() {
+        if (!loginModalEl) return;
+        loginModalEl.style.display = 'block';
+        loginModalEmail?.focus();
+      }
+
+      function closeLoginModal() {
+        if (!loginModalEl) return;
+        loginModalEl.style.display = 'none';
+        if (loginModalPassword) {
+          loginModalPassword.value = '';
+        }
+      }
+
+      function openActivateModal() {
+        if (!activateModalEl) return;
+        activateModalEl.style.display = 'block';
+        activateCodeInputModal?.focus();
+      }
+
+      function closeActivateModal() {
+        if (!activateModalEl) return;
+        activateModalEl.style.display = 'none';
+      }
+
       async function handleSendLoginCode() {
         if (!loginEmailInput) return;
         const email = loginEmailInput.value.trim();
@@ -3398,22 +3877,9 @@
           showToast('请在 HTTPS 环境或本地调试环境下登录。');
           return;
         }
-        if (!window.supabaseManager?.isReady?.()) {
-          showToast('Supabase 未配置，无法发送登录码。');
-          return;
-        }
-        try {
-          showToast('正在发送登录邮件…');
-          const result = await window.supabaseManager.signInWithOtp(email, {
-            emailRedirectTo: window.location.href
-          });
-          if (result?.error) {
-            throw result.error;
-          }
-          showToast('登录邮件已发送，请查收邮箱完成登录。');
-        } catch (error) {
-          console.warn('发送登录邮件失败', error);
-          showToast('发送登录邮件失败，请稍后重试。');
+        const ok = await signInMagic(email);
+        if (ok) {
+          closeLoginModal();
         }
       }
 
@@ -3425,44 +3891,9 @@
           activationInput.focus();
           return;
         }
-        if (!state.identity.userId) {
-          showToast('请先登录后再兑换激活码。');
-          return;
-        }
-        if (!window.supabaseManager?.isReady?.()) {
-          showToast('Supabase 未配置，暂无法兑换。');
-          return;
-        }
-        try {
-          showToast('正在验证激活码…');
-          const result = await window.supabaseManager.redeemActivation(code);
-          const payload = result?.data ?? result;
-          if (!payload || payload.error) {
-            throw payload?.error || new Error('redeem_failed');
-          }
-          if (!payload.ok) {
-            showToast(payload.message || '激活码无效，请检查后重试。');
-            return;
-          }
-          setEntitlement({ plan: payload.plan, expiresAt: payload.expire_at });
+        const ok = await redeemCode(code);
+        if (ok) {
           activationInput.value = '';
-          showToast('激活成功，已解锁更多视频内容！');
-          if (videoLibraryList) {
-            refreshVideoLibrary(true);
-          }
-          if (payload.plan && window.supabaseManager?.updateUserMetadata) {
-            try {
-              await window.supabaseManager.updateUserMetadata({
-                plan: payload.plan,
-                activation_expire_at: payload.expire_at || null
-              });
-            } catch (error) {
-              console.warn('更新用户元数据失败', error);
-            }
-          }
-        } catch (error) {
-          console.warn('兑换激活码失败', error);
-          showToast('激活失败，请稍后再试。');
         }
       }
 
@@ -9491,6 +9922,87 @@
         if (!button) return;
         const action = button.dataset.action;
         switch (action) {
+          case 'open-login':
+            event.preventDefault();
+            if (!getAuthClient()) {
+              showToast('请先在设置中配置 Supabase');
+              return;
+            }
+            openLoginModal();
+            return;
+          case 'login-close':
+            event.preventDefault();
+            closeLoginModal();
+            return;
+          case 'login-magic':
+            event.preventDefault();
+            if (!loginModalEmail?.value.trim()) {
+              showToast('请输入登录邮箱');
+              loginModalEmail?.focus();
+              return;
+            }
+            signInMagic(loginModalEmail.value.trim()).then((ok) => {
+              if (ok) {
+                closeLoginModal();
+              }
+            });
+            return;
+          case 'login-password':
+            event.preventDefault();
+            if (!loginModalEmail?.value.trim()) {
+              showToast('请输入登录邮箱');
+              loginModalEmail?.focus();
+              return;
+            }
+            if (!loginModalPassword?.value) {
+              showToast('请输入密码');
+              loginModalPassword?.focus();
+              return;
+            }
+            (async () => {
+              const user = await signInWithPassword(
+                loginModalEmail.value.trim(),
+                loginModalPassword.value
+              );
+              if (user) {
+                await refreshProfileFromSupabase();
+                closeLoginModal();
+                showToast('登录成功');
+              }
+            })();
+            return;
+          case 'logout':
+            event.preventDefault();
+            signOutAll().then(() => {
+              showToast('已退出');
+            });
+            return;
+          case 'open-activate':
+            event.preventDefault();
+            if (!state.identity.userId) {
+              showToast('请先登录后再兑换激活码');
+              return;
+            }
+            openActivateModal();
+            return;
+          case 'activate-close':
+            event.preventDefault();
+            closeActivateModal();
+            return;
+          case 'activate-redeem':
+            event.preventDefault();
+            if (!activateCodeInputModal?.value.trim()) {
+              showToast('请输入激活码');
+              activateCodeInputModal?.focus();
+              return;
+            }
+            redeemCode(activateCodeInputModal.value.trim()).then((ok) => {
+              if (ok) {
+                activateCodeInputModal.value = '';
+                closeActivateModal();
+              }
+            });
+            return;
           case 'shadowing-toggle':
             event.preventDefault();
             try {
@@ -9509,6 +10021,10 @@
             return;
           case 'mk-quiz':
             event.preventDefault();
+            if (!featureOn('retrieval')) {
+              showToast('当前方案暂不支持检索练习');
+              return;
+            }
             makeRetrievalFromCurrent();
             return;
           case 'open-quiz-center':
@@ -9525,6 +10041,10 @@
             return;
           case 'recap-save':
             event.preventDefault();
+            if (!featureOn('recap')) {
+              showToast('当前方案暂不支持复述保存');
+              return;
+            }
             handleRecapSave();
             return;
           case 'health-refresh':
@@ -9542,10 +10062,18 @@
             return;
           case 'export-weekly-md':
             event.preventDefault();
+            if (!featureOn('exportWeekly')) {
+              showToast('升级方案即可导出周报');
+              return;
+            }
             showToast(exportWeeklyReport('md'));
             return;
           case 'export-weekly-html':
             event.preventDefault();
+            if (!featureOn('exportWeekly')) {
+              showToast('升级方案即可导出周报');
+              return;
+            }
             showToast(exportWeeklyReport('html'));
             return;
           case 'open-report-panel':
@@ -9590,6 +10118,10 @@
             return;
           case 'reco-queue':
             event.preventDefault();
+            if (!featureOn('reco')) {
+              showToast('当前方案不支持稍后队列');
+              return;
+            }
             handleRecoQueue(button.dataset.id || '');
             return;
           case 'open-upnext':
@@ -9627,6 +10159,10 @@
             return;
           case 'study-save':
             event.preventDefault();
+            if (!featureOn('studyPanel')) {
+              showToast('当前方案暂不支持保存精读卡');
+              return;
+            }
             handleStudySave();
             return;
           case 'study-delete':
@@ -11856,6 +12392,12 @@
           window.supabaseManager.setConfig({ url: supabaseUrlValue, anonKey: supabaseAnonValue });
         }
         attachSupabaseAuthListener();
+        if (typeof updateUserBar === 'function') {
+          updateUserBar();
+        }
+        if (typeof enforceGuards === 'function') {
+          enforceGuards();
+        }
         if (supabaseChanged) {
           refreshVideoLibrary(true);
           cloudSync.schedule(true);
@@ -11905,7 +12447,11 @@
           retrieval: storage.load(STORAGE_KEYS.retrieval, []),
           retrievalLog: storage.load(STORAGE_KEYS.retrievalLog, []),
           recap: storage.load(STORAGE_KEYS.recap, []),
-          reports: storage.load(STORAGE_KEYS.reports, { daily: {}, weekly: {} })
+          reports: storage.load(STORAGE_KEYS.reports, { daily: {}, weekly: {} }),
+          user: storage.load(STORAGE_KEYS.user, null),
+          features: storage.load(STORAGE_KEYS.features, PLAN_FEATURES.free),
+          quota: storage.load(STORAGE_KEYS.quota, DEFAULT_FREE_QUOTA),
+          planCache: storage.load(STORAGE_KEYS.planCache, null)
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const date = new Date();
@@ -11967,6 +12513,18 @@
               });
               loadReportState();
             }
+            if (data.user && typeof data.user === 'object') {
+              storage.save(STORAGE_KEYS.user, data.user);
+            }
+            if (data.features && typeof data.features === 'object') {
+              storage.save(STORAGE_KEYS.features, data.features);
+            }
+            if (data.quota && typeof data.quota === 'object') {
+              storage.save(STORAGE_KEYS.quota, data.quota);
+            }
+            if (data.planCache && typeof data.planCache === 'object') {
+              storage.save(STORAGE_KEYS.planCache, data.planCache);
+            }
             if (data.customQuestions) {
               questionRepo.replaceCustom(data.customQuestions);
             }
@@ -11983,6 +12541,16 @@
             updateProgressPanel();
             renderQuizHistory(false);
             updateDailyAggregates(getDateKey());
+            const importedUser = data.user && typeof data.user === 'object' ? data.user : storage.load(STORAGE_KEYS.user, null);
+            const hasFeaturePayload = !!(data.features && typeof data.features === 'object');
+            if (!hasFeaturePayload && importedUser && importedUser.plan && typeof applyPlanFeatures === 'function') {
+              applyPlanFeatures(importedUser.plan);
+            } else if (typeof enforceGuards === 'function') {
+              enforceGuards();
+            }
+            if (typeof updateUserBar === 'function') {
+              updateUserBar();
+            }
             showToast('导入完成，欢迎继续学习！');
           } catch (error) {
             alert('导入失败：JSON 格式不正确。');
@@ -12496,6 +13064,15 @@
       const userIndicator = document.getElementById('user-indicator');
       const userEmailDisplay = document.getElementById('user-email-display');
       const userPlanBadge = document.getElementById('user-plan-badge');
+      const userBarEl = document.getElementById('userBar');
+      const userBadgeEl = document.getElementById('userBadge');
+      const loginModalEl = document.getElementById('loginModal');
+      const loginModalEmail = document.getElementById('loginEmail');
+      const loginModalPassword = document.getElementById('loginPassword');
+      const loginHintBadge = document.getElementById('loginHint');
+      const activateModalEl = document.getElementById('activateModal');
+      const activateCodeInputModal = document.getElementById('activateCode');
+      const activateHintBadge = document.getElementById('activateHint');
       const cloudSyncHint = document.getElementById('cloud-sync-hint');
       const aiDialogueTheme = document.getElementById('ai-dialogue-theme');
       const aiDialogueLevel = document.getElementById('ai-dialogue-level');
@@ -12901,6 +13478,8 @@
             if (!cefrPanel?.hidden) {
               closeCefrPanel();
             }
+            closeLoginModal();
+            closeActivateModal();
           }
         });
 
@@ -14353,6 +14932,10 @@
       }
 
       function handleStudySave() {
+        if (!featureOn('studyPanel')) {
+          showToast('当前方案暂不支持保存精读卡');
+          return;
+        }
         if (!studyModalEl) return;
         const draft = studyDraft || {};
         const videoId = draft.video_id || getCurrentVideoId();
@@ -14707,6 +15290,10 @@
 
       /** 从当前 active cue 或右键目标生成一道检索题，并展示到 #quizPanel */
       function makeRetrievalFromCurrent() {
+        if (!featureOn('retrieval')) {
+          showToast('当前方案暂不支持检索练习');
+          return;
+        }
         let cue = null;
         if (typeof videoLearning.getActiveCue === 'function') {
           const active = videoLearning.getActiveCue();
@@ -14738,6 +15325,9 @@
         const videoId = getCurrentVideoId();
         if (isVideoQuotaReachedToday(videoId)) {
           showToast('本视频今日练习已达上限');
+          return;
+        }
+        if (!checkAndConsumeQuota('retrievalDaily')) {
           return;
         }
         const stem = buildClozeStem(cue, phrase);
@@ -15406,7 +15996,13 @@
           </div>
           <div style="display:flex;gap:8px">
             <button class="btn btn-primary" data-action="reco-play" data-id="${escapeHTML(video.id)}" aria-label="立即播放推荐视频">立即播放</button>
-            <button class="btn" data-action="reco-queue" data-id="${escapeHTML(video.id)}" aria-label="把推荐加入稍后播放">加入稍后</button>
+            <button
+              class="btn"
+              data-action="reco-queue"
+              data-guard="reco"
+              data-id="${escapeHTML(video.id)}"
+              aria-label="把推荐加入稍后播放"
+            >加入稍后</button>
           </div>
         </div>`;
               root.appendChild(card);
@@ -15423,6 +16019,7 @@
                 level: video.level
               });
             });
+            enforceGuards();
           })
           .catch((error) => {
             console.warn('加载推荐失败', error);
@@ -15458,6 +16055,11 @@
         const list = upnextGet();
         if (list.some((item) => item.video_id === video.id)) {
           return 'exists';
+        }
+        const quota = getQuota();
+        const limit = Number(quota.upnextMax) || DEFAULT_FREE_QUOTA.upnextMax;
+        if (limit && list.length >= limit) {
+          return 'error';
         }
         const entry = {
           video_id: video.id,
@@ -15596,6 +16198,12 @@
       }
 
       function handleRecoQueue(id, options = {}) {
+        if (!featureOn('reco')) {
+          if (!options.silent) {
+            showToast('当前方案不支持稍后队列');
+          }
+          return 'error';
+        }
         if (!id) {
           if (!options.silent) {
             showToast('未找到推荐视频');
@@ -16159,8 +16767,15 @@
       }
 
       function handleRecapSave() {
+        if (!featureOn('recap')) {
+          showToast('当前方案暂不支持复述保存');
+          return;
+        }
         if (!state.recap.audioData) {
           showToast('请先完成录音');
+          return;
+        }
+        if (!checkAndConsumeQuota('recapDaily')) {
           return;
         }
         const entry = {
@@ -16193,6 +16808,40 @@
       }
 
       document.addEventListener('DOMContentLoaded', initApp);
+
+      (function initSupabaseFromEnv() {
+        const SB_URL = window.__SB_URL || ENV_DEFAULTS.supabaseUrl || '';
+        const SB_ANON = window.__SB_ANON || ENV_DEFAULTS.supabaseAnonKey || '';
+        if (!SB_URL || !SB_ANON) {
+          return;
+        }
+        const factory =
+          (typeof window.__supabaseFactory === 'function' && window.__supabaseFactory) ||
+          (typeof window.supabase?.createClient === 'function' ? window.supabase.createClient : null);
+        if (typeof factory !== 'function') {
+          console.warn('Supabase SDK 未准备好，跳过默认初始化');
+          return;
+        }
+        if (!window.__supabaseFactory) {
+          window.__supabaseFactory = factory;
+        }
+        if (!window.__supabaseAuthClient) {
+          try {
+            const client = factory(SB_URL, SB_ANON);
+            if (client) {
+              if (typeof client.createClient !== 'function' && typeof window.__supabaseFactory === 'function') {
+                client.createClient = window.__supabaseFactory;
+              }
+              window.__supabaseAuthClient = client;
+              if (!window.supabase || !window.supabase.auth) {
+                window.supabase = client;
+              }
+            }
+          } catch (error) {
+            console.warn('初始化默认 Supabase 客户端失败', error);
+          }
+        }
+      })();
     </script>
   </body>
 </html>
