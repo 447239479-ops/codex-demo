@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff9f9f" />
+      <stop offset="100%" stop-color="#ff6b6b" />
+    </linearGradient>
+  </defs>
+  <rect fill="url(#grad512)" rx="120" ry="120" width="512" height="512" />
+  <text x="50%" y="54%" text-anchor="middle" font-family="'Segoe UI', 'PingFang SC', sans-serif" font-size="200" fill="#ffffff" font-weight="700">ES</text>
+  <text x="50%" y="74%" text-anchor="middle" font-family="'Segoe UI', 'PingFang SC', sans-serif" font-size="72" fill="rgba(255,255,255,0.85)">AI</text>
+</svg>
