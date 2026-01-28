@@ -4,18 +4,23 @@
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贪吃蛇小游戏</title>
+    <title>北极星CRM · 客户管理系统</title>
     <style>
       :root {
-        --bg-color: #0f172a;
-        --grid-color: #1e293b;
-        --snake-head-color: #38bdf8;
-        --snake-body-color: #0ea5e9;
-        --food-color: #facc15;
-        --text-color: #f8fafc;
-        --accent-color: #22d3ee;
-        --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
-          'Microsoft YaHei', sans-serif;
+        --bg: #f6f7fb;
+        --card-bg: #ffffff;
+        --primary: #f59e0b;
+        --primary-dark: #d97706;
+        --secondary: #2563eb;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
+        --radius-lg: 24px;
+        --radius-md: 16px;
+        --radius-sm: 12px;
+        --font: "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", sans-serif;
       }
 
       * {
@@ -24,508 +29,548 @@
 
       body {
         margin: 0;
-        min-height: 100vh;
+        font-family: var(--font);
+        color: var(--text);
+        background: var(--bg);
+      }
+
+      a {
+        text-decoration: none;
+        color: inherit;
+      }
+
+      .container {
+        width: min(1200px, 100%);
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        background: rgba(246, 247, 251, 0.9);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        z-index: 10;
+      }
+
+      .nav {
         display: flex;
-        justify-content: center;
         align-items: center;
-        background: radial-gradient(circle at top, #1e293b, var(--bg-color));
-        color: var(--text-color);
-        font-family: var(--font-family);
+        justify-content: space-between;
+        padding: 18px 0;
+        gap: 16px;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+        font-size: 1.2rem;
+      }
+
+      .logo-badge {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--primary), #fbbf24);
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 20px;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .nav-actions {
+        display: flex;
+        gap: 12px;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 999px;
+        padding: 10px 18px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 12px 24px rgba(245, 158, 11, 0.25);
+      }
+
+      .btn-secondary {
+        background: #fff;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+
+      .hero {
+        padding: 64px 0 32px;
+      }
+
+      .hero-grid {
+        display: grid;
+        gap: 32px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        align-items: center;
+      }
+
+      .hero-card {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: 28px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+      }
+
+      .hero h1 {
+        font-size: clamp(2rem, 3vw, 2.8rem);
+        margin: 0 0 12px;
+      }
+
+      .hero p {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px;
+      }
+
+      .stat {
+        background: #fef3c7;
+        border-radius: var(--radius-md);
         padding: 16px;
       }
 
-      .page-wrapper {
-        width: min(100%, 480px);
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: center;
+      .stat span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.85rem;
       }
 
-      .scoreboard {
-        width: 100%;
+      .stat strong {
+        font-size: 1.4rem;
+      }
+
+      section {
+        padding: 32px 0;
+      }
+
+      .section-title {
         display: flex;
+        align-items: center;
         justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(15, 23, 42, 0.75);
-        border: 1px solid rgba(148, 163, 184, 0.3);
-        border-radius: 12px;
-        backdrop-filter: blur(6px);
-        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.4);
-      }
-
-      .score-item {
-        font-weight: 600;
-        letter-spacing: 0.02em;
-      }
-
-      .game-wrapper {
-        position: relative;
-        width: 400px;
-        max-width: 100%;
-      }
-
-      #gameCanvas {
-        width: 100%;
-        height: auto;
-        border-radius: 16px;
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(148, 163, 184, 0.2);
-        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.45);
-      }
-
-      .overlay {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        margin-bottom: 20px;
         gap: 12px;
-        background: rgba(15, 23, 42, 0.85);
-        border-radius: 16px;
+      }
+
+      .section-title h2 {
+        margin: 0;
+        font-size: 1.6rem;
+      }
+
+      .section-title p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .card-grid {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .card {
+        background: var(--card-bg);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        border: 1px solid var(--border);
+        box-shadow: 0 14px 30px rgba(15, 23, 42, 0.06);
+      }
+
+      .card h3 {
+        margin: 0 0 8px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .tag {
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: var(--secondary);
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+
+      .highlight {
+        border-left: 4px solid var(--primary);
+        padding-left: 16px;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .list-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        background: #f8fafc;
+      }
+
+      .list-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #fee2e2;
+        color: #ef4444;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+      }
+
+      .comparison {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      }
+
+      .comparison .card {
+        border-left: 5px solid #93c5fd;
+      }
+
+      .footer {
+        padding: 32px 0 48px;
+        color: var(--muted);
         text-align: center;
       }
 
-      .hidden {
-        display: none;
-      }
-
-      .control-btn {
-        padding: 8px 16px;
-        border-radius: 999px;
-        border: none;
-        background: linear-gradient(135deg, var(--accent-color), #38bdf8);
-        color: #0f172a;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .control-btn:hover,
-      .control-btn:focus {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 16px rgba(34, 211, 238, 0.35);
-      }
-
-      .control-btn:active {
-        transform: translateY(1px);
-      }
-
-      .mobile-controls {
-        display: grid;
-        gap: 8px;
-        justify-items: center;
-        width: 100%;
-      }
-
-      .mobile-row {
-        display: flex;
-        gap: 12px;
-      }
-
-      .direction-btn {
-        width: 64px;
-        height: 64px;
-        border-radius: 16px;
-        border: 2px solid rgba(148, 163, 184, 0.4);
-        background: rgba(15, 23, 42, 0.65);
-        color: var(--text-color);
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: background 0.2s ease, transform 0.2s ease;
-      }
-
-      .direction-btn:active {
-        background: rgba(56, 189, 248, 0.25);
-        transform: scale(0.95);
-      }
-
-      @media (hover: none) {
-        .control-btn:hover,
-        .direction-btn:hover {
-          transform: none;
-          box-shadow: none;
-        }
-      }
-
-      @media (max-width: 480px) {
-        .scoreboard {
-          flex-direction: column;
-          gap: 8px;
+      @media (max-width: 768px) {
+        .nav-links {
+          display: none;
         }
 
-        .direction-btn {
-          width: 56px;
-          height: 56px;
+        .nav {
+          flex-wrap: wrap;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page-wrapper">
-      <header class="scoreboard">
-        <div class="score-item">当前分数：<span id="score">0</span></div>
-        <div class="score-item">最高分：<span id="highScore">0</span></div>
-        <button id="pauseBtn" class="control-btn" type="button">暂停</button>
-      </header>
-
-      <main class="game-wrapper">
-        <canvas
-          id="gameCanvas"
-          width="400"
-          height="400"
-          aria-label="贪吃蛇游戏画布"
-        ></canvas>
-        <div id="gameOverlay" class="overlay hidden" role="alert">
-          <p id="overlayMessage"></p>
-          <button id="restartBtn" class="control-btn" type="button">
-            重新开始
-          </button>
+    <div class="topbar">
+      <div class="container nav">
+        <div class="logo">
+          <span class="logo-badge">CRM</span>
+          北极星CRM
         </div>
-      </main>
-
-      <section class="mobile-controls" aria-label="触屏方向控制">
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="up" aria-label="向上">
-            ▲
-          </button>
+        <div class="nav-links">
+          <a href="#dashboard">首页</a>
+          <a href="#customers">客户</a>
+          <a href="#email">邮件</a>
+          <a href="#channels">沟通</a>
+          <a href="#team">团队</a>
         </div>
-        <div class="mobile-row">
-          <button class="direction-btn" data-direction="left" aria-label="向左">
-            ◀
-          </button>
-          <button class="direction-btn" data-direction="down" aria-label="向下">
-            ▼
-          </button>
-          <button class="direction-btn" data-direction="right" aria-label="向右">
-            ▶
-          </button>
+        <div class="nav-actions">
+          <button class="btn btn-secondary" type="button">产品演示</button>
+          <button class="btn btn-primary" type="button">立即试用</button>
         </div>
-      </section>
+      </div>
     </div>
 
-    <script>
-      const CONFIG = {
-        GRID_SIZE: 20,
-        CELL_SIZE: 20,
-        BASE_SPEED: 8,
-        SPEED_INCREMENT: 0.35,
-        MAX_SPEED: 14,
-        STORAGE_KEY: 'snakeHighScore'
-      };
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div>
+            <h1>面向外贸团队的智能客户管理系统</h1>
+            <p>
+              北极星CRM 以“客户状态 + 多渠道沟通 + 可视化进度”三位一体，帮助销售团队在全球时区下更高效地追踪客户、加速成交。
+              设计贴合附件需求，提供首页仪表盘、客户详情、邮件营销、社媒沟通与团队分析等关键模块。
+            </p>
+            <div class="hero-actions">
+              <button class="btn btn-primary" type="button">创建客户看板</button>
+              <button class="btn btn-secondary" type="button">下载产品手册</button>
+            </div>
+          </div>
+          <div class="hero-card">
+            <div class="stats">
+              <div class="stat">
+                <span>今日跟进提醒</span>
+                <strong>28</strong>
+              </div>
+              <div class="stat">
+                <span>沉默客户预警</span>
+                <strong>11</strong>
+              </div>
+              <div class="stat">
+                <span>本周新增线索</span>
+                <strong>86</strong>
+              </div>
+              <div class="stat">
+                <span>成交转化率</span>
+                <strong>32%</strong>
+              </div>
+            </div>
+            <p class="highlight" style="margin-top: 20px; color: var(--muted)">
+              “今天未回复的客户将在17:00自动提醒，团队主管可一键查看分布。”
+            </p>
+          </div>
+        </div>
+      </section>
 
-      const canvas = document.getElementById('gameCanvas');
-      const ctx = canvas.getContext('2d');
-      const scoreEl = document.getElementById('score');
-      const highScoreEl = document.getElementById('highScore');
-      const overlay = document.getElementById('gameOverlay');
-      const overlayMessage = document.getElementById('overlayMessage');
-      const restartBtn = document.getElementById('restartBtn');
-      const pauseBtn = document.getElementById('pauseBtn');
-      const mobileButtons = document.querySelectorAll('.direction-btn');
+      <section id="dashboard">
+        <div class="container">
+          <div class="section-title">
+            <h2>首页仪表盘</h2>
+            <p>对齐附件需求的核心信息：日程、客户进度与全球时间。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>日程 / 日历管理</h3>
+              <p>
+                支持每日、每周、每月视图。自动同步客户跟进、报价、样品寄送与合同节点。
+              </p>
+              <div class="tag-list">
+                <span class="tag">多时区提醒</span>
+                <span class="tag">会议自动生成</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>客户跟进进度</h3>
+              <p>
+                可视化展示“未联系 / 询盘 / 样品 / 报价 / 成交”全链路阶段，自动聚合互动频率。
+              </p>
+              <div class="tag-list">
+                <span class="tag">互动热度</span>
+                <span class="tag">提醒策略</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>全球汇率 & 世界时间</h3>
+              <p>
+                自动显示客户所在国家的本地时间与主流货币汇率，报价不再换算出错。
+              </p>
+              <div class="tag-list">
+                <span class="tag">外贸场景</span>
+                <span class="tag">实时数据</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      let snake = [];
-      let direction = { x: 1, y: 0 };
-      let nextDirection = { x: 1, y: 0 };
-      let food = { x: 0, y: 0 };
-      let score = 0;
-      let highScore = Number(localStorage.getItem(CONFIG.STORAGE_KEY)) || 0;
-      let running = false;
-      let paused = false;
-      let lastUpdate = 0;
+      <section id="customers">
+        <div class="container">
+          <div class="section-title">
+            <h2>客户管理</h2>
+            <p>从客户列表到详情页，快速完成分组、查询、追踪。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>客户分组管理</h3>
+              <p>
+                支持“所有 / 关注 / 30天未联系 / 自定义标签”自动分组，并可一键转交。
+              </p>
+            </div>
+            <div class="card">
+              <h3>客户列表字段</h3>
+              <p>
+                展示公司名称、国家、客户等级、主联系人成交偏好、最近联系时间、负责人。
+              </p>
+            </div>
+            <div class="card">
+              <h3>客户详情页</h3>
+              <p>
+                集成资料、行动日志、订单、沟通记录、AI洞察与风险提醒等关键模块。
+              </p>
+            </div>
+          </div>
+          <div class="list" style="margin-top: 20px">
+            <div class="list-item">
+              <div class="list-icon">A</div>
+              <div>
+                <strong>智能资料卡：</strong>
+                地址、官网、社媒、联系人、偏好、行业标签一屏展示，支持批量编辑。
+              </div>
+            </div>
+            <div class="list-item">
+              <div class="list-icon">B</div>
+              <div>
+                <strong>可视化阶段漏斗：</strong>
+                自动计算跟进周期，给出下一步动作建议与优先级。
+              </div>
+            </div>
+            <div class="list-item">
+              <div class="list-icon">C</div>
+              <div>
+                <strong>多语言备注：</strong>
+                支持中英双语自动翻译，方便跨国团队协作。
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      highScoreEl.textContent = highScore.toString();
+      <section id="email">
+        <div class="container">
+          <div class="section-title">
+            <h2>邮件系统</h2>
+            <p>内嵌邮件、跟踪打开与点击，支持自动化营销。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>嵌入式邮箱</h3>
+              <p>
+                可直接发送报价单、样品通知，支持模板与签名管理，减少切换成本。
+              </p>
+            </div>
+            <div class="card">
+              <h3>邮件营销流程</h3>
+              <p>
+                通过自动化漏斗推送新品、节日促销与跟进提醒，自动触发二次转化。
+              </p>
+            </div>
+            <div class="card">
+              <h3>互动追踪与评分</h3>
+              <p>
+                打开/点击/下载行为实时回流，形成客户热度评分与提醒策略。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      function initGame() {
-        const centerX = Math.floor(CONFIG.GRID_SIZE / 2);
-        const centerY = Math.floor(CONFIG.GRID_SIZE / 2);
+      <section id="channels">
+        <div class="container">
+          <div class="section-title">
+            <h2>沟通整合</h2>
+            <p>WhatsApp、Facebook、Instagram、企业微信统一归档。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>多渠道收敛</h3>
+              <p>
+                无需VPN登录各平台，客户沟通历史统一沉淀，管理者可检索全员聊天记录。
+              </p>
+            </div>
+            <div class="card">
+              <h3>互动统计面板</h3>
+              <p>
+                以渠道维度统计响应时间、活跃客户、已读未回复列表，及时发现风险。
+              </p>
+            </div>
+            <div class="card">
+              <h3>自动化客户提醒</h3>
+              <p>
+                设定“7天未回复”自动提醒，减少客户流失，保持高触达率。
+              </p>
+            </div>
+          </div>
+          <div class="tag-list" style="margin-top: 16px">
+            <span class="tag">WhatsApp 企业版</span>
+            <span class="tag">Facebook Messenger</span>
+            <span class="tag">Instagram DM</span>
+            <span class="tag">企业微信</span>
+          </div>
+        </div>
+      </section>
 
-        snake = [
-          { x: centerX + 1, y: centerY },
-          { x: centerX, y: centerY },
-          { x: centerX - 1, y: centerY }
-        ];
+      <section id="team">
+        <div class="container">
+          <div class="section-title">
+            <h2>团队与数据看板</h2>
+            <p>从团队分布到客户资产，管理层一眼可见。</p>
+          </div>
+          <div class="card-grid">
+            <div class="card">
+              <h3>员工跟进排行</h3>
+              <p>
+                统计新增客户、成交金额、互动频次，支持按部门与时间筛选。
+              </p>
+            </div>
+            <div class="card">
+              <h3>客户资产分布</h3>
+              <p>
+                展示客户国家分布、成交金额分布、新增客户来源与渠道效果。
+              </p>
+            </div>
+            <div class="card">
+              <h3>风险与机会洞察</h3>
+              <p>
+                AI 识别沉默客户、异常付款周期，提醒管理者优先处理。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        direction = { x: 1, y: 0 };
-        nextDirection = { x: 1, y: 0 };
-        score = 0;
-        paused = false;
-        running = true;
-        lastUpdate = 0;
+      <section id="comparison">
+        <div class="container">
+          <div class="section-title">
+            <h2>竞品洞察 & 差异化优势</h2>
+            <p>基于外贸团队需求构建的差异化体验。</p>
+          </div>
+          <div class="comparison">
+            <div class="card">
+              <h3>竞品普遍痛点</h3>
+              <p>
+                通用型 CRM 重流程而轻外贸场景，跨时区沟通、社媒归档、报价周期管理不够顺畅。
+              </p>
+            </div>
+            <div class="card">
+              <h3>北极星CRM优势</h3>
+              <p>
+                通过多渠道会话聚合、外贸数据辅助、客户热度提醒，减少工具切换并提升成交节奏。
+              </p>
+            </div>
+            <div class="card">
+              <h3>体验差异化</h3>
+              <p>
+                仪表盘支持一屏看“日程 + 跟进 + 时间 + 汇率”，并提供 AI 建议与风险预警。
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
 
-        updateScoreBoard();
-        spawnFood();
-        overlay.classList.add('hidden');
-        overlayMessage.textContent = '';
-        pauseBtn.textContent = '暂停';
-
-        draw();
-        requestAnimationFrame(gameLoop);
-      }
-
-      function gameLoop(timestamp) {
-        if (!running) {
-          return;
-        }
-
-        requestAnimationFrame(gameLoop);
-
-        if (paused) {
-          return;
-        }
-
-        if (!lastUpdate) {
-          lastUpdate = timestamp;
-        }
-
-        const frameInterval = getFrameInterval();
-        if (timestamp - lastUpdate >= frameInterval) {
-          update();
-          draw();
-          lastUpdate = timestamp;
-        }
-      }
-
-      function getFrameInterval() {
-        const stepsPerSecond = Math.min(
-          CONFIG.MAX_SPEED,
-          CONFIG.BASE_SPEED + score * CONFIG.SPEED_INCREMENT
-        );
-        return 1000 / stepsPerSecond;
-      }
-
-      function update() {
-        direction = nextDirection;
-        const newHead = {
-          x: snake[0].x + direction.x,
-          y: snake[0].y + direction.y
-        };
-
-        if (isCollision(newHead)) {
-          endGame();
-          return;
-        }
-
-        snake.unshift(newHead);
-
-        if (newHead.x === food.x && newHead.y === food.y) {
-          score += 1;
-          updateHighScore();
-          updateScoreBoard();
-          spawnFood();
-        } else {
-          snake.pop();
-        }
-      }
-
-      function draw() {
-        drawBackground();
-        drawFood();
-        drawSnake();
-      }
-
-      function drawBackground() {
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)';
-        ctx.lineWidth = 1;
-
-        for (let i = 1; i < CONFIG.GRID_SIZE; i += 1) {
-          const position = i * CONFIG.CELL_SIZE;
-          ctx.beginPath();
-          ctx.moveTo(position, 0);
-          ctx.lineTo(position, canvas.height);
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(0, position);
-          ctx.lineTo(canvas.width, position);
-          ctx.stroke();
-        }
-      }
-
-      function drawSnake() {
-        snake.forEach((segment, index) => {
-          const x = segment.x * CONFIG.CELL_SIZE;
-          const y = segment.y * CONFIG.CELL_SIZE;
-
-          ctx.fillStyle = index === 0 ? '#38bdf8' : '#0ea5e9';
-          ctx.strokeStyle = 'rgba(15, 23, 42, 0.4)';
-          ctx.lineWidth = 2;
-
-          const rectX = x + 2;
-          const rectY = y + 2;
-          const rectSize = CONFIG.CELL_SIZE - 4;
-
-          ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(rectX, rectY, rectSize, rectSize, 6);
-          } else {
-            ctx.rect(rectX, rectY, rectSize, rectSize);
-          }
-          ctx.fill();
-          ctx.stroke();
-        });
-      }
-
-      function drawFood() {
-        const x = food.x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const y = food.y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
-        const radius = (CONFIG.CELL_SIZE / 2) * 0.7;
-
-        const gradient = ctx.createRadialGradient(x - 3, y - 3, 3, x, y, radius);
-        gradient.addColorStop(0, '#fef08a');
-        gradient.addColorStop(1, '#facc15');
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      function spawnFood() {
-        let newFood;
-        do {
-          newFood = {
-            x: Math.floor(Math.random() * CONFIG.GRID_SIZE),
-            y: Math.floor(Math.random() * CONFIG.GRID_SIZE)
-          };
-        } while (
-          snake.some(
-            (segment) => segment.x === newFood.x && segment.y === newFood.y
-          )
-        );
-
-        food = newFood;
-      }
-
-      function isCollision(headPosition) {
-        const { x, y } = headPosition;
-        const hitWall =
-          x < 0 ||
-          y < 0 ||
-          x >= CONFIG.GRID_SIZE ||
-          y >= CONFIG.GRID_SIZE;
-
-        if (hitWall) {
-          return true;
-        }
-
-        return snake.some(
-          (segment) => segment.x === headPosition.x && segment.y === headPosition.y
-        );
-      }
-
-      function updateScoreBoard() {
-        scoreEl.textContent = score.toString();
-        highScoreEl.textContent = highScore.toString();
-      }
-
-      function updateHighScore() {
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem(CONFIG.STORAGE_KEY, highScore.toString());
-        }
-      }
-
-      function endGame() {
-        running = false;
-        overlayMessage.textContent = `Game Over! 分数：${score}`;
-        overlay.classList.remove('hidden');
-        pauseBtn.textContent = '开始';
-      }
-
-      function togglePause() {
-        if (!running) {
-          return;
-        }
-
-        paused = !paused;
-        pauseBtn.textContent = paused ? '继续' : '暂停';
-      }
-
-      function setDirectionFromInput(dir) {
-        const directionVectors = {
-          up: { x: 0, y: -1 },
-          down: { x: 0, y: 1 },
-          left: { x: -1, y: 0 },
-          right: { x: 1, y: 0 }
-        };
-
-        const newDirection = directionVectors[dir];
-        if (!newDirection) {
-          return;
-        }
-
-        const isOpposite =
-          newDirection.x === -direction.x && newDirection.y === -direction.y;
-
-        if (!isOpposite) {
-          nextDirection = newDirection;
-        }
-      }
-
-      function handleKeydown(event) {
-        const { key } = event;
-
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
-          event.preventDefault();
-        }
-
-        switch (key) {
-          case 'ArrowUp':
-            setDirectionFromInput('up');
-            break;
-          case 'ArrowDown':
-            setDirectionFromInput('down');
-            break;
-          case 'ArrowLeft':
-            setDirectionFromInput('left');
-            break;
-          case 'ArrowRight':
-            setDirectionFromInput('right');
-            break;
-          case 'p':
-          case 'P':
-            togglePause();
-            break;
-          case 'r':
-          case 'R':
-            if (!running) {
-              initGame();
-            }
-            break;
-          default:
-            break;
-        }
-      }
-
-      function handleDirectionButton(event) {
-        const dir = event.currentTarget.dataset.direction;
-        setDirectionFromInput(dir);
-      }
-
-      restartBtn.addEventListener('click', initGame);
-      pauseBtn.addEventListener('click', () => {
-        if (!running) {
-          initGame();
-        } else {
-          togglePause();
-        }
-      });
-      window.addEventListener('keydown', handleKeydown);
-      mobileButtons.forEach((button) => {
-        button.addEventListener('click', handleDirectionButton);
-        button.addEventListener('touchstart', (event) => {
-          event.preventDefault();
-          setDirectionFromInput(button.dataset.direction);
-        });
-      });
-
-      initGame();
-    </script>
+    <footer class="footer">
+      <div class="container">
+        让客户管理更清晰、更自动、更贴合外贸场景 · 北极星CRM
+      </div>
+    </footer>
   </body>
 </html>
